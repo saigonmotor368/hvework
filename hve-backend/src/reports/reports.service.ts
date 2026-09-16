@@ -13,7 +13,13 @@ export class ReportsService {
   }
 
   async getSummary(user: any, filter: ReportFilterDto) {
-    // 1. Filter conditions for Documents
+    const roles: string[] = user.roles ? user.roles.map((r: any) => (typeof r === 'string' ? r : r.name)) : [];
+    const isCompanyWide = roles.some((r) => ['ceo', 'it_admin', 'accountant', 'legal'].includes(r));
+    const isDeptHead = roles.includes('department_head');
+    const isEmployeeOnly = !isCompanyWide && !isDeptHead;
+    const userDeptId = user.departmentId || user.department?.id;
+
+    // 1. Filter conditions for Documents with Role-Based Scoping
     const docWhere: any = {};
     if (filter.startDate || filter.endDate) {
       docWhere.createdAt = {};
@@ -30,11 +36,25 @@ export class ReportsService {
     if (filter.status && filter.status !== 'all') {
       docWhere.status = filter.status;
     }
-    if (filter.userId) {
-      docWhere.createdById = Number(filter.userId);
-    }
-    if (filter.departmentId) {
-      docWhere.createdBy = { departmentId: Number(filter.departmentId) };
+
+    // Role scoping for Documents
+    if (isEmployeeOnly) {
+      // Nhân viên chỉ được xem hồ sơ do chính mình tạo, không xem được phòng khác
+      docWhere.createdById = user.id;
+    } else if (isDeptHead && userDeptId) {
+      // Trưởng bộ phận chỉ được xem hồ sơ của nhân sự thuộc bộ phận mình phụ trách
+      docWhere.createdBy = { departmentId: userDeptId };
+      if (filter.userId) {
+        docWhere.createdById = Number(filter.userId);
+      }
+    } else {
+      // Vai trò toàn công ty (CEO, IT Admin, Kế toán, Pháp chế)
+      if (filter.userId) {
+        docWhere.createdById = Number(filter.userId);
+      }
+      if (filter.departmentId) {
+        docWhere.createdBy = { departmentId: Number(filter.departmentId) };
+      }
     }
 
     const documents = await this.prisma.document.findMany({
@@ -75,7 +95,7 @@ export class ReportsService {
       ? Math.round((totalApprovalHours / approvedCountWithSteps) * 10) / 10
       : 0;
 
-    // 2. Filter conditions for Tasks
+    // 2. Filter conditions for Tasks with Role-Based Scoping
     const taskWhere: any = {};
     if (filter.startDate || filter.endDate) {
       taskWhere.createdAt = {};
@@ -89,11 +109,31 @@ export class ReportsService {
     if (filter.status && filter.status !== 'all') {
       taskWhere.status = filter.status;
     }
-    if (filter.userId) {
-      taskWhere.assigneeId = Number(filter.userId);
-    }
-    if (filter.departmentId) {
-      taskWhere.assignee = { departmentId: Number(filter.departmentId) };
+
+    // Role scoping for Tasks
+    if (isEmployeeOnly) {
+      // Nhân viên chỉ xem các công việc mình được giao hoặc do mình tạo
+      taskWhere.OR = [
+        { assigneeId: user.id },
+        { createdById: user.id },
+      ];
+    } else if (isDeptHead && userDeptId) {
+      // Trưởng bộ phận chỉ xem công việc của nhân sự trong phòng ban mình
+      taskWhere.OR = [
+        { assignee: { departmentId: userDeptId } },
+        { createdBy: { departmentId: userDeptId } },
+      ];
+      if (filter.userId) {
+        taskWhere.assigneeId = Number(filter.userId);
+      }
+    } else {
+      // Toàn quyền
+      if (filter.userId) {
+        taskWhere.assigneeId = Number(filter.userId);
+      }
+      if (filter.departmentId) {
+        taskWhere.assignee = { departmentId: Number(filter.departmentId) };
+      }
     }
 
     const tasks = await this.prisma.task.findMany({
@@ -115,8 +155,9 @@ export class ReportsService {
       (t: any) => t.status !== 'Hoàn thành' && t.dueDate && new Date(t.dueDate) < now,
     ).length;
 
-    // 3. Contracts metrics
-    const contracts = documents.filter((d: any) => d.type === 'contract');
+    // 3. Contracts metrics with Role-Based Scoping
+    // Nhân viên bình thường không có quyền xem danh mục hợp đồng công ty
+    const contracts = isEmployeeOnly ? [] : documents.filter((d: any) => d.type === 'contract');
     let totalContractValue = 0;
     let expiringSoonCount = 0;
     const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
@@ -241,8 +282,17 @@ export class ReportsService {
   }
 
   async exportCsv(user: any, type: string, filter: ReportFilterDto): Promise<string> {
+    const roles: string[] = user.roles ? user.roles.map((r: any) => (typeof r === 'string' ? r : r.name)) : [];
+    const isCompanyWide = roles.some((r) => ['ceo', 'it_admin', 'accountant', 'legal'].includes(r));
+    const isDeptHead = roles.includes('department_head');
+    const isEmployeeOnly = !isCompanyWide && !isDeptHead;
+
     if (type === 'audit_logs' && !this.isCeoOrAdmin(user)) {
       throw new ForbiddenException('Chỉ CEO và Quản trị IT mới có quyền xuất Nhật ký hệ thống.');
+    }
+
+    if (type === 'contracts' && isEmployeeOnly) {
+      throw new ForbiddenException('Nhân viên không có quyền truy xuất danh mục hợp đồng của công ty.');
     }
 
     // CSV BOM UTF-8 (\uFEFF) to ensure Microsoft Excel on Windows parses Vietnamese characters cleanly

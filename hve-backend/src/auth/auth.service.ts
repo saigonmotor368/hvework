@@ -103,6 +103,7 @@ export class AuthService {
         email: user.email,
         name: user.name,
         department: user.department?.name || null,
+        departmentId: user.departmentId || null,
         roles: user.roles.map((r) => r.name),
       },
     };

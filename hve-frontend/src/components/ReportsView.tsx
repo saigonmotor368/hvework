@@ -34,6 +34,30 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
 
   const userRoles: string[] = currentUser?.roles || [];
   const isCeoOrAdmin = userRoles.includes('ceo') || userRoles.includes('it_admin');
+  const isCompanyWide = userRoles.some((r) => ['ceo', 'it_admin', 'accountant', 'legal'].includes(r));
+  const isDeptHead = userRoles.includes('department_head');
+  const isEmployee = !isCompanyWide && !isDeptHead;
+
+  // Resolve user department details
+  const userDept = departments.find(
+    (d: any) => d.id === currentUser?.departmentId || d.name === currentUser?.department,
+  );
+  const userDeptId = currentUser?.departmentId || userDept?.id;
+  const userDeptName = currentUser?.department || userDept?.name || 'Bộ phận';
+
+  // Automatically scope departmentId for department head
+  useEffect(() => {
+    if (isDeptHead && userDeptId) {
+      setDepartmentId(String(userDeptId));
+    }
+  }, [isDeptHead, userDeptId]);
+
+  // If regular employee somehow has activeTab set to financial or audit_logs, fallback to documents
+  useEffect(() => {
+    if (isEmployee && (activeTab === 'financial' || activeTab === 'audit_logs')) {
+      setActiveTab('documents');
+    }
+  }, [isEmployee, activeTab]);
 
   // Load departments and users for filtering
   useEffect(() => {
@@ -53,6 +77,29 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     };
     fetchFilterOptions();
   }, [apiBaseUrl]);
+
+  // Filter available users according to user's scope
+  const availableUsers = React.useMemo(() => {
+    if (isEmployee) {
+      return users.filter((u: any) => u.id === currentUser?.id);
+    }
+    if (isDeptHead && userDeptId) {
+      return users.filter(
+        (u: any) =>
+          u.departmentId === userDeptId ||
+          u.department?.id === userDeptId ||
+          u.department === userDeptName,
+      );
+    }
+    if (departmentId) {
+      return users.filter(
+        (u: any) =>
+          String(u.departmentId) === String(departmentId) ||
+          String(u.department?.id) === String(departmentId),
+      );
+    }
+    return users;
+  }, [isEmployee, isDeptHead, userDeptId, userDeptName, departmentId, users, currentUser?.id]);
 
   // Fetch report summary
   const fetchSummary = async () => {
@@ -161,7 +208,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   const resetFilters = () => {
     setStartDate('');
     setEndDate('');
-    setDepartmentId('');
+    setDepartmentId(isDeptHead && userDeptId ? String(userDeptId) : '');
     setUserId('');
     setStatus('all');
     setDocType('');
@@ -172,11 +219,32 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
       {/* Header & Export Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
         <div>
-          <h1 className="text-2xl font-black text-gray-900 tracking-tight">
-            📈 Báo Cáo & Thống Kê Điều Hành
-          </h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-black text-gray-900 tracking-tight">
+              📈 Báo Cáo & Thống Kê Điều Hành
+            </h1>
+            {isEmployee && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                🔒 Phạm vi: Cá nhân
+              </span>
+            )}
+            {isDeptHead && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-200">
+                🏢 Phạm vi: Bộ phận {userDeptName}
+              </span>
+            )}
+            {isCompanyWide && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                🌐 Phạm vi: Toàn công ty
+              </span>
+            )}
+          </div>
           <p className="text-sm text-gray-500 mt-0.5">
-            Tổng hợp đa chiều về hồ sơ, tiến độ công việc, tài chính và nhật ký kiểm soát nội bộ
+            {isEmployee
+              ? 'Theo dõi dữ liệu các hồ sơ trình duyệt và nhiệm vụ công việc do bạn phụ trách hoặc tạo'
+              : isDeptHead
+              ? `Theo dõi và thống kê tổng hợp các chỉ số hoạt động của bộ phận ${userDeptName}`
+              : 'Tổng hợp đa chiều về hồ sơ, tiến độ công việc, tài chính và nhật ký kiểm soát nội bộ'}
           </p>
         </div>
 
@@ -220,16 +288,18 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           📋 Tiến độ công việc
         </button>
 
-        <button
-          onClick={() => setActiveTab('financial')}
-          className={`pb-3 px-4 text-sm font-bold border-b-2 transition-all ${
-            activeTab === 'financial'
-              ? 'border-[#0A66C2] text-[#0A66C2]'
-              : 'border-transparent text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          💰 Tài chính & Hợp đồng
-        </button>
+        {!isEmployee && (
+          <button
+            onClick={() => setActiveTab('financial')}
+            className={`pb-3 px-4 text-sm font-bold border-b-2 transition-all ${
+              activeTab === 'financial'
+                ? 'border-[#0A66C2] text-[#0A66C2]'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            💰 Tài chính & Hợp đồng
+          </button>
+        )}
 
         {/* Tab 4: Audit Logs - Giới hạn chỉ CEO & IT Admin xem */}
         {isCeoOrAdmin && (
@@ -286,35 +356,65 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           {/* Filter 3: Bộ phận */}
           <div>
             <label className="block text-[11px] font-bold text-gray-500 mb-1">Bộ phận</label>
-            <select
-              value={departmentId}
-              onChange={(e) => setDepartmentId(e.target.value)}
-              className="w-full text-xs p-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#0A66C2] bg-white"
-            >
-              <option value="">Tất cả phòng ban</option>
-              {departments.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
+            {isEmployee ? (
+              <input
+                type="text"
+                disabled
+                value={userDeptName ? `${userDeptName} (Cá nhân)` : 'Dữ liệu cá nhân'}
+                className="w-full text-xs p-2 rounded-lg border border-slate-200 bg-slate-100 text-slate-500 cursor-not-allowed font-medium"
+              />
+            ) : isDeptHead ? (
+              <input
+                type="text"
+                disabled
+                value={`${userDeptName} (Cố định)`}
+                className="w-full text-xs p-2 rounded-lg border border-slate-200 bg-slate-100 text-slate-700 cursor-not-allowed font-semibold"
+              />
+            ) : (
+              <select
+                value={departmentId}
+                onChange={(e) => {
+                  setDepartmentId(e.target.value);
+                  setUserId('');
+                }}
+                className="w-full text-xs p-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#0A66C2] bg-white"
+              >
+                <option value="">Tất cả phòng ban</option>
+                {departments.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
           {/* Filter 4: Người dùng */}
           <div>
             <label className="block text-[11px] font-bold text-gray-500 mb-1">Người dùng</label>
-            <select
-              value={userId}
-              onChange={(e) => setUserId(e.target.value)}
-              className="w-full text-xs p-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#0A66C2] bg-white"
-            >
-              <option value="">Tất cả nhân sự</option>
-              {users.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.name} ({u.email})
+            {isEmployee ? (
+              <input
+                type="text"
+                disabled
+                value={`${currentUser?.name || currentUser?.email || 'Bạn'} (Chính bạn)`}
+                className="w-full text-xs p-2 rounded-lg border border-slate-200 bg-slate-100 text-slate-500 cursor-not-allowed font-medium"
+              />
+            ) : (
+              <select
+                value={userId}
+                onChange={(e) => setUserId(e.target.value)}
+                className="w-full text-xs p-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#0A66C2] bg-white"
+              >
+                <option value="">
+                  {isDeptHead ? 'Tất cả nhân sự phòng ban' : 'Tất cả nhân sự'}
                 </option>
-              ))}
-            </select>
+                {availableUsers.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.name} ({u.email})
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
           {/* Filter 5: Trạng thái hoặc Loại hồ sơ */}
@@ -331,7 +431,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 <option value="">Tất cả loại hồ sơ</option>
                 <option value="payment_request">Đề nghị thanh toán</option>
                 <option value="proposal">Đề xuất / Tờ trình</option>
-                <option value="contract">Hợp đồng</option>
+                {!isEmployee && <option value="contract">Hợp đồng</option>}
               </select>
             ) : (
               <select
