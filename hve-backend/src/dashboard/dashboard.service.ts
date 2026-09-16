@@ -72,85 +72,96 @@ export class DashboardService {
   private async getCeoDashboard(_user: any) {
     const now = new Date();
     const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
+    const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
-    // Action Required 1: Documents waiting for CEO approval
-    const pendingDocuments = await this.prisma.document.findMany({
-      where: {
-        status: 'Chờ duyệt',
-        steps: {
-          some: {
-            status: 'pending',
-            roleRequired: 'ceo',
+    const [
+      pendingDocuments,
+      escalatedTasks,
+      totalDocs,
+      approvedDocs,
+      pendingDocs,
+      rejectedDocs,
+      totalTasks,
+      completedTasks,
+      overdueTasks,
+      inProgressTasks,
+      contracts,
+      departments,
+    ] = await Promise.all([
+      // 1. Pending documents for CEO approval
+      this.prisma.document.findMany({
+        where: {
+          status: 'Chờ duyệt',
+          steps: {
+            some: {
+              status: 'pending',
+              roleRequired: 'ceo',
+            },
           },
         },
-      },
-      select: {
-        id: true,
-        code: true,
-        title: true,
-        type: true,
-        createdAt: true,
-        createdBy: { select: { id: true, name: true, email: true } },
-      },
-      orderBy: { createdAt: 'asc' },
-    });
-
-    // Action Required 2: Tasks overdue >= 3 days (escalated to CEO)
-    const escalatedTasks = await this.prisma.task.findMany({
-      where: {
-        status: { not: 'Hoàn thành' },
-        dueDate: { lt: threeDaysAgo },
-      },
-      select: {
-        id: true,
-        code: true,
-        title: true,
-        dueDate: true,
-        status: true,
-        priority: true,
-        assignee: { select: { id: true, name: true, department: { select: { name: true } } } },
-      },
-      orderBy: { dueDate: 'asc' },
-    });
-
-    // Overview Stats
-    const totalDocs = await this.prisma.document.count();
-    const approvedDocs = await this.prisma.document.count({ where: { status: 'Đã duyệt' } });
-    const pendingDocs = await this.prisma.document.count({ where: { status: 'Chờ duyệt' } });
-    const rejectedDocs = await this.prisma.document.count({ where: { status: { in: ['Từ chối', 'Trả lại'] } } });
-
-    const totalTasks = await this.prisma.task.count();
-    const completedTasks = await this.prisma.task.count({ where: { status: 'Hoàn thành' } });
-    const overdueTasks = await this.prisma.task.count({
-      where: { status: { not: 'Hoàn thành' }, dueDate: { lt: now } },
-    });
-    const inProgressTasks = await this.prisma.task.count({ where: { status: 'Đang làm' } });
-
-    // Contracts expiring soon (<= 30 days)
-    const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-    const contracts = await this.prisma.document.findMany({
-      where: { type: 'contract' },
-      select: { id: true, code: true, title: true, dataJson: true, status: true },
-    });
+        select: {
+          id: true,
+          code: true,
+          title: true,
+          type: true,
+          createdAt: true,
+          createdBy: { select: { id: true, name: true, email: true } },
+        },
+        orderBy: { createdAt: 'asc' },
+      }),
+      // 2. Escalated tasks overdue >= 3 days
+      this.prisma.task.findMany({
+        where: {
+          parentTaskId: null,
+          status: { not: 'Hoàn thành' },
+          dueDate: { lt: threeDaysAgo },
+        },
+        select: {
+          id: true,
+          code: true,
+          title: true,
+          dueDate: true,
+          status: true,
+          priority: true,
+          assignee: { select: { id: true, name: true, department: { select: { name: true } } } },
+        },
+        orderBy: { dueDate: 'asc' },
+      }),
+      // 3-6. Document stats
+      this.prisma.document.count(),
+      this.prisma.document.count({ where: { status: 'Đã duyệt' } }),
+      this.prisma.document.count({ where: { status: 'Chờ duyệt' } }),
+      this.prisma.document.count({ where: { status: { in: ['Từ chối', 'Trả lại'] } } }),
+      // 7-10. Task stats (independent project tasks)
+      this.prisma.task.count({ where: { parentTaskId: null } }),
+      this.prisma.task.count({ where: { parentTaskId: null, status: 'Hoàn thành' } }),
+      this.prisma.task.count({ where: { parentTaskId: null, status: { not: 'Hoàn thành' }, dueDate: { lt: now } } }),
+      this.prisma.task.count({ where: { parentTaskId: null, status: 'Đang làm' } }),
+      // 11. Contracts
+      this.prisma.document.findMany({
+        where: { type: 'contract' },
+        select: { id: true, code: true, title: true, dataJson: true, status: true },
+      }),
+      // 12. Departments
+      this.prisma.department.findMany({
+        include: {
+          users: {
+            select: {
+              assignedTasks: {
+                where: { parentTaskId: null },
+                select: { status: true },
+              },
+            },
+          },
+        },
+      }),
+    ]);
 
     const expiringContracts = contracts.filter((c: any) => {
       const data = (c.dataJson as any) || {};
       if (!data.endDate) return false;
       const end = new Date(data.endDate);
       return end >= now && end <= in30Days;
-    });
-
-    // Department Performance
-    const departments = await this.prisma.department.findMany({
-      include: {
-        users: {
-          select: {
-            assignedTasks: {
-              select: { status: true },
-            },
-          },
-        },
-      },
     });
 
     const departmentStats = departments.map((d: any) => {
@@ -166,7 +177,7 @@ export class DashboardService {
         code: d.code,
         totalTasks: deptTotal,
         completedTasks: deptCompleted,
-        completionRate: deptTotal > 0 ? Math.round((deptCompleted / deptTotal) * 100) : 100,
+        completionRate: deptTotal > 0 ? Math.round((deptCompleted / deptTotal) * 100) : 0,
       };
     });
 
@@ -191,56 +202,55 @@ export class DashboardService {
     const now = new Date();
     const userDeptId = user.departmentId || user.department?.id;
 
-    // Action Required 1: Documents waiting for Department Head approval from dept members
-    const pendingDocuments = await this.prisma.document.findMany({
-      where: {
-        status: 'Chờ duyệt',
-        createdBy: userDeptId ? { departmentId: userDeptId } : undefined,
-        createdById: { not: user.id },
-        steps: {
-          some: {
-            status: 'pending',
-            roleRequired: 'department_head',
+    const [pendingDocuments, overdueTasks, deptTasks] = await Promise.all([
+      this.prisma.document.findMany({
+        where: {
+          status: 'Chờ duyệt',
+          createdBy: userDeptId ? { departmentId: userDeptId } : undefined,
+          createdById: { not: user.id },
+          steps: {
+            some: {
+              status: 'pending',
+              roleRequired: 'department_head',
+            },
           },
         },
-      },
-      select: {
-        id: true,
-        code: true,
-        title: true,
-        type: true,
-        createdAt: true,
-        createdBy: { select: { id: true, name: true } },
-      },
-      orderBy: { createdAt: 'asc' },
-    });
-
-    // Action Required 2: Tasks overdue within department
-    const overdueTasks = await this.prisma.task.findMany({
-      where: {
-        status: { not: 'Hoàn thành' },
-        dueDate: { lt: now },
-        assignee: userDeptId ? { departmentId: userDeptId } : undefined,
-      },
-      select: {
-        id: true,
-        code: true,
-        title: true,
-        dueDate: true,
-        status: true,
-        priority: true,
-        assignee: { select: { id: true, name: true } },
-      },
-      orderBy: { dueDate: 'asc' },
-    });
-
-    // Dept tasks summary
-    const deptTasks = await this.prisma.task.findMany({
-      where: {
-        assignee: userDeptId ? { departmentId: userDeptId } : undefined,
-      },
-      select: { status: true, progressPercent: true },
-    });
+        select: {
+          id: true,
+          code: true,
+          title: true,
+          type: true,
+          createdAt: true,
+          createdBy: { select: { id: true, name: true } },
+        },
+        orderBy: { createdAt: 'asc' },
+      }),
+      this.prisma.task.findMany({
+        where: {
+          parentTaskId: null,
+          status: { not: 'Hoàn thành' },
+          dueDate: { lt: now },
+          assignee: userDeptId ? { departmentId: userDeptId } : undefined,
+        },
+        select: {
+          id: true,
+          code: true,
+          title: true,
+          dueDate: true,
+          status: true,
+          priority: true,
+          assignee: { select: { id: true, name: true } },
+        },
+        orderBy: { dueDate: 'asc' },
+      }),
+      this.prisma.task.findMany({
+        where: {
+          parentTaskId: null,
+          assignee: userDeptId ? { departmentId: userDeptId } : undefined,
+        },
+        select: { status: true, progressPercent: true },
+      }),
+    ]);
 
     const total = deptTasks.length;
     const completed = deptTasks.filter((t: any) => t.status === 'Hoàn thành').length;
@@ -261,7 +271,7 @@ export class DashboardService {
           completed,
           inProgress,
           pendingReview,
-          completionRate: total > 0 ? Math.round((completed / total) * 100) : 100,
+          completionRate: total > 0 ? Math.round((completed / total) * 100) : 0,
         },
       },
     };
@@ -271,22 +281,21 @@ export class DashboardService {
     const now = new Date();
     const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
-    // Pending payment requests waiting for review / disbursement
-    const approvedPayments = await this.prisma.document.findMany({
-      where: {
-        type: 'payment_request',
-        status: 'Đã duyệt',
-      },
-      select: { id: true, code: true, title: true, dataJson: true, createdAt: true },
-      orderBy: { createdAt: 'desc' },
-      take: 10,
-    });
-
-    // Expiring contracts
-    const allContracts = await this.prisma.document.findMany({
-      where: { type: 'contract' },
-      select: { id: true, code: true, title: true, dataJson: true, status: true },
-    });
+    const [approvedPayments, allContracts] = await Promise.all([
+      this.prisma.document.findMany({
+        where: {
+          type: 'payment_request',
+          status: 'Đã duyệt',
+        },
+        select: { id: true, code: true, title: true, dataJson: true, createdAt: true },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+      }),
+      this.prisma.document.findMany({
+        where: { type: 'contract' },
+        select: { id: true, code: true, title: true, dataJson: true, status: true },
+      }),
+    ]);
 
     const expiringContracts = allContracts.filter((c: any) => {
       const data = (c.dataJson as any) || {};
@@ -295,7 +304,6 @@ export class DashboardService {
       return end >= now && end <= in30Days;
     });
 
-    // Calculate total disbursement amount
     let totalApprovedAmount = 0;
     for (const p of approvedPayments) {
       const d = (p.dataJson as any) || {};
@@ -322,39 +330,35 @@ export class DashboardService {
     const now = new Date();
     const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
 
-    // Documents returned to employee
-    const returnedDocs = await this.prisma.document.findMany({
-      where: {
-        createdById: user.id,
-        status: 'Nháp',
-        steps: {
-          some: { status: 'returned' },
+    const [returnedDocs, urgentTasks, myDocs, myTasks] = await Promise.all([
+      this.prisma.document.findMany({
+        where: {
+          createdById: user.id,
+          status: 'Nháp',
+          steps: {
+            some: { status: 'returned' },
+          },
         },
-      },
-      select: { id: true, code: true, title: true, updatedAt: true },
-    });
-
-    // Tasks due today or overdue
-    const urgentTasks = await this.prisma.task.findMany({
-      where: {
-        assigneeId: user.id,
-        status: { not: 'Hoàn thành' },
-        dueDate: { lte: endOfToday },
-      },
-      select: { id: true, code: true, title: true, dueDate: true, priority: true, status: true },
-      orderBy: { dueDate: 'asc' },
-    });
-
-    // My documents summary
-    const myDocs = await this.prisma.document.findMany({
-      where: { createdById: user.id },
-      select: { status: true },
-    });
-
-    const myTasks = await this.prisma.task.findMany({
-      where: { assigneeId: user.id },
-      select: { status: true },
-    });
+        select: { id: true, code: true, title: true, updatedAt: true },
+      }),
+      this.prisma.task.findMany({
+        where: {
+          assigneeId: user.id,
+          status: { not: 'Hoàn thành' },
+          dueDate: { lte: endOfToday },
+        },
+        select: { id: true, code: true, title: true, dueDate: true, priority: true, status: true },
+        orderBy: { dueDate: 'asc' },
+      }),
+      this.prisma.document.findMany({
+        where: { createdById: user.id },
+        select: { status: true },
+      }),
+      this.prisma.task.findMany({
+        where: { assigneeId: user.id, parentTaskId: null },
+        select: { status: true },
+      }),
+    ]);
 
     return {
       role: 'employee',

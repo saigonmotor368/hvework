@@ -347,14 +347,22 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
               <div key={dept.id} className="p-4 rounded-xl border border-slate-100 bg-slate-50/50">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-bold text-gray-800">{dept.name}</span>
-                  <span className="text-xs font-extrabold text-[#0A66C2] bg-blue-50 px-2 py-0.5 rounded-md">
-                    {dept.completionRate}%
+                  <span
+                    className={`text-xs font-extrabold px-2 py-0.5 rounded-md ${
+                      dept.totalTasks === 0
+                        ? 'text-gray-400 bg-gray-100'
+                        : 'text-[#0A66C2] bg-blue-50'
+                    }`}
+                  >
+                    {dept.totalTasks === 0 ? 'Chưa có việc' : `${dept.completionRate}%`}
                   </span>
                 </div>
                 <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden mb-2">
                   <div
                     className="bg-[#0A66C2] h-2 rounded-full transition-all duration-500"
-                    style={{ width: `${dept.completionRate}%` }}
+                    style={{
+                      width: `${dept.totalTasks === 0 ? 0 : dept.completionRate}%`,
+                    }}
                   />
                 </div>
                 <div className="flex justify-between text-[11px] text-gray-500">

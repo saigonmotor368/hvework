@@ -585,6 +585,9 @@ export class TasksService {
   ) {
     const { tab = 'all', status, priority, search, isOverdue, tags } = query;
     const where: any = {};
+    if (!search) {
+      where.parentTaskId = null;
+    }
 
     // 1. Phân loại theo 4 Tabs
     if (tab === 'assigned_to_me') {
