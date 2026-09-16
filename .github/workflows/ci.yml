@@ -2,58 +2,58 @@ name: CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-    - name: Use Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '22.x'
-        # cache từng sub-package đúng với cấu trúc monorepo
-        cache: 'npm'
-        cache-dependency-path: |
-          hve-backend/package-lock.json
-          hve-frontend/package-lock.json
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.x"
+          # cache từng sub-package đúng với cấu trúc monorepo
+          cache: "npm"
+          cache-dependency-path: |
+            hve-backend/package-lock.json
+            hve-frontend/package-lock.json
 
-    - name: Install dependencies (Backend)
-      working-directory: ./hve-backend
-      run: npm ci
+      - name: Install dependencies (Backend)
+        working-directory: ./hve-backend
+        run: npm ci
 
-    - name: Generate Prisma Client
-      working-directory: ./hve-backend
-      run: npx prisma generate
+      - name: Generate Prisma Client
+        working-directory: ./hve-backend
+        run: npx prisma generate
 
-    - name: Build (Backend)
-      working-directory: ./hve-backend
-      run: npm run build
+      - name: Build (Backend)
+        working-directory: ./hve-backend
+        run: npm run build
 
-    - name: Type-check (Backend)
-      working-directory: ./hve-backend
-      run: npx tsc --noEmit
+      - name: Type-check (Backend)
+        working-directory: ./hve-backend
+        run: npx tsc --noEmit
 
-    - name: Test (Backend)
-      working-directory: ./hve-backend
-      # DATABASE_URL dùng file SQLite tạm để Prisma không cần Postgres thật
-      env:
-        DATABASE_URL: "file:./test.db"
-        JWT_SECRET: "ci-test-secret-do-not-use-in-prod"
-      run: npm run test
+      - name: Test (Backend)
+        working-directory: ./hve-backend
+        # DATABASE_URL dùng file SQLite tạm để Prisma không cần Postgres thật
+        env:
+          DATABASE_URL: "file:./test.db"
+          JWT_SECRET: "ci-test-secret-do-not-use-in-prod"
+        run: npm run test
 
-    - name: Install dependencies (Frontend)
-      working-directory: ./hve-frontend
-      run: npm ci
+      - name: Install dependencies (Frontend)
+        working-directory: ./hve-frontend
+        run: npm ci
 
-    - name: Build (Frontend)
-      working-directory: ./hve-frontend
-      run: npm run build
+      - name: Build (Frontend)
+        working-directory: ./hve-frontend
+        run: npm run build
 
   deploy-staging:
     name: Deploy to Staging
@@ -61,9 +61,8 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    - name: Deploy Staging Services
-      run: |
-        echo "Triggering staging deployment for HVE Work..."
-        # Staging server trigger / container registry build & deploy step
-
+      - uses: actions/checkout@v4
+      - name: Deploy Staging Services
+        run: |
+          echo "Triggering staging deployment for HVE Work..."
+          # Staging server trigger / container registry build & deploy step

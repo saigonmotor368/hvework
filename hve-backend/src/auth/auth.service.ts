@@ -1,11 +1,19 @@
-import { Injectable, UnauthorizedException, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service.js';
 import * as bcrypt from 'bcrypt';
 import { AuditService } from '../audit/audit.service.js';
 import { LoginDto } from './dto/login.dto.js';
 import { ResetPasswordDto } from './dto/reset-password.dto.js';
-import { SetApprovalPinDto, ToggleApprovalPinDto } from './dto/set-approval-pin.dto.js';
+import {
+  SetApprovalPinDto,
+  ToggleApprovalPinDto,
+} from './dto/set-approval-pin.dto.js';
 import { VerifyLoginDto } from './dto/verify-login.dto.js';
 import { LoginVerificationMailer } from './login-verification-mailer.service.js';
 import { createHash, randomInt, randomUUID } from 'node:crypto';
@@ -60,12 +68,16 @@ export class AuthService {
     }
 
     if (user.status === 'locked') {
-      throw new UnauthorizedException('Tài khoản đã bị khoá. Vui lòng liên hệ quản trị viên.');
+      throw new UnauthorizedException(
+        'Tài khoản đã bị khoá. Vui lòng liên hệ quản trị viên.',
+      );
     }
 
     const now = new Date();
     if (user.lockedUntil && user.lockedUntil > now) {
-      const waitMinutes = Math.ceil((user.lockedUntil.getTime() - now.getTime()) / 60000);
+      const waitMinutes = Math.ceil(
+        (user.lockedUntil.getTime() - now.getTime()) / 60000,
+      );
       throw new UnauthorizedException(
         `Tài khoản tạm thời bị khoá do đăng nhập sai nhiều lần. Vui lòng thử lại sau ${waitMinutes} phút.`,
       );
@@ -75,7 +87,9 @@ export class AuthService {
     if (!isMatch) {
       const newAttempts = user.failedLoginAttempts + 1;
       const isLocking = newAttempts >= 5;
-      const lockedUntil = isLocking ? new Date(now.getTime() + 15 * 60 * 1000) : null;
+      const lockedUntil = isLocking
+        ? new Date(now.getTime() + 15 * 60 * 1000)
+        : null;
 
       await this.prisma.user.update({
         where: { id: user.id },
@@ -107,7 +121,9 @@ export class AuthService {
 
     if (this.loginVerificationMailer.isEnabled()) {
       if (!loginDto.deviceId) {
-        throw new BadRequestException('Thiết bị đăng nhập không hợp lệ. Vui lòng tải lại trang.');
+        throw new BadRequestException(
+          'Thiết bị đăng nhập không hợp lệ. Vui lòng tải lại trang.',
+        );
       }
 
       const deviceHash = this.hashDevice(loginDto.deviceId);
@@ -144,20 +160,29 @@ export class AuthService {
             deviceName: loginDto.deviceName || device,
             ip,
             firstLogin,
+            challengeId,
           });
         } catch (error) {
-          await this.prisma.loginChallenge.delete({ where: { id: challengeId } });
+          await this.prisma.loginChallenge.delete({
+            where: { id: challengeId },
+          });
           throw error;
         }
 
         await this.prisma.user.update({
           where: { id: user.id },
-          data: { failedLoginAttempts: 0, lockedUntil: null, refreshTokenHash: null },
+          data: {
+            failedLoginAttempts: 0,
+            lockedUntil: null,
+            refreshTokenHash: null,
+          },
         });
         await this.auditService.logEvent({
           entityType: 'User',
           entityId: user.id,
-          action: firstLogin ? 'first_login_email_requested' : 'unfamiliar_device_challenge',
+          action: firstLogin
+            ? 'first_login_email_requested'
+            : 'unfamiliar_device_challenge',
           actorId: user.id,
           ip,
           device: loginDto.deviceName || device,
@@ -173,7 +198,11 @@ export class AuthService {
 
       await this.prisma.trustedDevice.update({
         where: { id: trustedDevice.id },
-        data: { lastUsedAt: new Date(), lastIp: ip, label: loginDto.deviceName || device },
+        data: {
+          lastUsedAt: new Date(),
+          lastIp: ip,
+          label: loginDto.deviceName || device,
+        },
       });
     }
 
@@ -205,7 +234,11 @@ export class AuthService {
     };
   }
 
-  async verifyLoginChallenge(dto: VerifyLoginDto, ip?: string, device?: string) {
+  async verifyLoginChallenge(
+    dto: VerifyLoginDto,
+    ip?: string,
+    device?: string,
+  ) {
     const challenge = await this.prisma.loginChallenge.findUnique({
       where: { id: dto.challengeId },
       include: { user: { include: { roles: true, department: true } } },
@@ -217,11 +250,15 @@ export class AuthService {
       challenge.expiresAt < new Date() ||
       challenge.deviceHash !== this.hashDevice(dto.deviceId)
     ) {
-      throw new UnauthorizedException('Phiên xác minh không hợp lệ hoặc đã hết hạn');
+      throw new UnauthorizedException(
+        'Phiên xác minh không hợp lệ hoặc đã hết hạn',
+      );
     }
 
     if (challenge.attempts >= 5) {
-      throw new UnauthorizedException('Mã xác minh đã bị khóa do nhập sai quá nhiều lần');
+      throw new UnauthorizedException(
+        'Mã xác minh đã bị khóa do nhập sai quá nhiều lần',
+      );
     }
 
     const isMatch = await bcrypt.compare(dto.code, challenge.otpHash);
@@ -234,7 +271,8 @@ export class AuthService {
       await this.auditService.logEvent({
         entityType: 'User',
         entityId: challenge.userId,
-        action: attempts >= 5 ? 'login_email_code_locked' : 'login_email_code_failed',
+        action:
+          attempts >= 5 ? 'login_email_code_locked' : 'login_email_code_failed',
         actorId: challenge.userId,
         ip,
         device,
@@ -262,7 +300,10 @@ export class AuthService {
       }),
       this.prisma.trustedDevice.upsert({
         where: {
-          userId_deviceHash: { userId: user.id, deviceHash: challenge.deviceHash },
+          userId_deviceHash: {
+            userId: user.id,
+            deviceHash: challenge.deviceHash,
+          },
         },
         create: {
           userId: user.id,
@@ -292,7 +333,9 @@ export class AuthService {
     await this.auditService.logEvent({
       entityType: 'User',
       entityId: user.id,
-      action: user.emailVerifiedAt ? 'unfamiliar_device_verified' : 'first_login_email_verified',
+      action: user.emailVerifiedAt
+        ? 'unfamiliar_device_verified'
+        : 'first_login_email_verified',
       actorId: user.id,
       ip,
       device: challenge.deviceLabel || device,
@@ -310,7 +353,9 @@ export class AuthService {
     try {
       payload = this.jwtService.verify(refreshToken);
     } catch {
-      throw new UnauthorizedException('Refresh token không hợp lệ hoặc đã hết hạn');
+      throw new UnauthorizedException(
+        'Refresh token không hợp lệ hoặc đã hết hạn',
+      );
     }
 
     const user = await this.prisma.user.findUnique({
@@ -322,14 +367,21 @@ export class AuthService {
       throw new UnauthorizedException('Refresh token không hợp lệ');
     }
 
-    const isTokenMatch = await bcrypt.compare(refreshToken, user.refreshTokenHash);
+    const isTokenMatch = await bcrypt.compare(
+      refreshToken,
+      user.refreshTokenHash,
+    );
     if (!isTokenMatch) {
       throw new UnauthorizedException('Refresh token đã bị thu hồi');
     }
 
     const newPayload = { email: user.email, sub: user.id };
-    const newAccessToken = this.jwtService.sign(newPayload, { expiresIn: '15m' });
-    const newRefreshToken = this.jwtService.sign(newPayload, { expiresIn: '7d' });
+    const newAccessToken = this.jwtService.sign(newPayload, {
+      expiresIn: '15m',
+    });
+    const newRefreshToken = this.jwtService.sign(newPayload, {
+      expiresIn: '7d',
+    });
     const newRefreshTokenHash = await bcrypt.hash(newRefreshToken, 10);
 
     await this.prisma.user.update({
@@ -348,7 +400,8 @@ export class AuthService {
     if (!user) {
       // Do not reveal whether user exists
       return {
-        message: 'Nếu email tồn tại trong hệ thống, mã xác thực đặt lại mật khẩu đã được gửi.',
+        message:
+          'Nếu email tồn tại trong hệ thống, mã xác thực đặt lại mật khẩu đã được gửi.',
       };
     }
 
@@ -375,14 +428,17 @@ export class AuthService {
     console.log(`[AUTH-EMAIL-OTP] OTP for ${email}: ${resetOtp}`);
 
     return {
-      message: 'Mã xác thực đặt lại mật khẩu (OTP) đã được gửi tới email của bạn và có hiệu lực trong 15 phút.',
+      message:
+        'Mã xác thực đặt lại mật khẩu (OTP) đã được gửi tới email của bạn và có hiệu lực trong 15 phút.',
       // In dev environment, provide otp for testing convenience
       otpDev: process.env.NODE_ENV === 'production' ? undefined : resetOtp,
     };
   }
 
   async resetPassword(dto: ResetPasswordDto, ip?: string) {
-    const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    const user = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+    });
     if (!user) {
       throw new NotFoundException('Tài khoản không tồn tại');
     }
@@ -418,7 +474,8 @@ export class AuthService {
     });
 
     return {
-      message: 'Đặt lại mật khẩu thành công. Vui lòng đăng nhập với mật khẩu mới.',
+      message:
+        'Đặt lại mật khẩu thành công. Vui lòng đăng nhập với mật khẩu mới.',
     };
   }
 
@@ -432,7 +489,10 @@ export class AuthService {
       throw new NotFoundException('Không tìm thấy tài khoản');
     }
 
-    const passwordMatch = await bcrypt.compare(dto.currentPassword, user.passwordHash);
+    const passwordMatch = await bcrypt.compare(
+      dto.currentPassword,
+      user.passwordHash,
+    );
     if (!passwordMatch) {
       throw new UnauthorizedException('Mật khẩu hiện tại không chính xác');
     }
@@ -451,7 +511,9 @@ export class AuthService {
     await this.auditService.logEvent({
       entityType: 'User',
       entityId: userId,
-      action: user.approvalPinHash ? 'approval_pin_changed' : 'approval_pin_set',
+      action: user.approvalPinHash
+        ? 'approval_pin_changed'
+        : 'approval_pin_set',
       actorId: userId,
       ip,
     });
@@ -468,7 +530,10 @@ export class AuthService {
       where: { id: userId },
       select: { approvalPinHash: true, approvalPinEnabled: true },
     });
-    return { hasPin: !!user?.approvalPinHash, enabled: !!user?.approvalPinEnabled };
+    return {
+      hasPin: !!user?.approvalPinHash,
+      enabled: !!user?.approvalPinEnabled,
+    };
   }
 
   /**
@@ -488,7 +553,11 @@ export class AuthService {
    * sẵn (đặt qua setApprovalPin trước). Tắt trong khi đang bật thì bắt buộc
    * nhập đúng mã PIN hiện tại để xác nhận, tránh người khác lén tắt bảo vệ.
    */
-  async setApprovalPinEnabled(userId: number, dto: ToggleApprovalPinDto, ip?: string) {
+  async setApprovalPinEnabled(
+    userId: number,
+    dto: ToggleApprovalPinDto,
+    ip?: string,
+  ) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException('Không tìm thấy tài khoản');
@@ -566,7 +635,9 @@ export class AuthService {
         where: { id: userId },
         data: {
           approvalPinFailedAttempts: newAttempts,
-          approvalPinLockedUntil: isLocking ? new Date(now.getTime() + 15 * 60 * 1000) : null,
+          approvalPinLockedUntil: isLocking
+            ? new Date(now.getTime() + 15 * 60 * 1000)
+            : null,
         },
       });
 

@@ -36,9 +36,11 @@ describe('AuthService', () => {
         delete: vi.fn(),
         deleteMany: vi.fn(),
       },
-      $transaction: vi.fn().mockImplementation(async (operations: Promise<unknown>[]) =>
-        Promise.all(operations),
-      ),
+      $transaction: vi
+        .fn()
+        .mockImplementation(async (operations: Promise<unknown>[]) =>
+          Promise.all(operations),
+        ),
     };
 
     jwtService = {
@@ -83,17 +85,23 @@ describe('AuthService', () => {
 
       prisma.user.update.mockResolvedValue({});
 
-      const result = await service.login({ email: 'ceo@huyvoeducation.vn', password: '123456' });
+      const result = await service.login({
+        email: 'ceo@huyvoeducation.vn',
+        password: '123456',
+      });
 
       expect(result).toHaveProperty('access_token');
       expect(result).toHaveProperty('refresh_token');
-      expect(result.user.email).toBe('ceo@huyvoeducation.vn');
-      expect(result.user.roles).toContain('ceo');
+      expect(result.user!.email).toBe('ceo@huyvoeducation.vn');
+      expect(result.user!.roles).toContain('ceo');
       // Should reset failedLoginAttempts to 0
       expect(prisma.user.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: 1 },
-          data: expect.objectContaining({ failedLoginAttempts: 0, lockedUntil: null }),
+          data: expect.objectContaining({
+            failedLoginAttempts: 0,
+            lockedUntil: null,
+          }),
         }),
       );
       expect(auditService.logEvent).toHaveBeenCalledWith(
@@ -114,7 +122,10 @@ describe('AuthService', () => {
       prisma.user.update.mockResolvedValue({});
 
       await expect(
-        service.login({ email: 'user@huyvoeducation.vn', password: 'wrong_password' }),
+        service.login({
+          email: 'user@huyvoeducation.vn',
+          password: 'wrong_password',
+        }),
       ).rejects.toThrow(UnauthorizedException);
 
       expect(prisma.user.update).toHaveBeenCalledWith(
@@ -138,7 +149,10 @@ describe('AuthService', () => {
       prisma.user.update.mockResolvedValue({});
 
       await expect(
-        service.login({ email: 'attacker@huyvoeducation.vn', password: 'wrong_password' }),
+        service.login({
+          email: 'attacker@huyvoeducation.vn',
+          password: 'wrong_password',
+        }),
       ).rejects.toThrow('Tài khoản đã bị tạm khoá 15 phút');
 
       expect(prisma.user.update).toHaveBeenCalledWith(
@@ -168,7 +182,10 @@ describe('AuthService', () => {
       });
 
       await expect(
-        service.login({ email: 'locked@huyvoeducation.vn', password: '123456' }),
+        service.login({
+          email: 'locked@huyvoeducation.vn',
+          password: '123456',
+        }),
       ).rejects.toThrow('Tài khoản tạm thời bị khoá');
     });
 
@@ -201,7 +218,10 @@ describe('AuthService', () => {
       expect(result).toMatchObject({ requiresEmailVerification: true });
       expect(result).not.toHaveProperty('access_token');
       expect(loginVerificationMailer.sendLoginCode).toHaveBeenCalledWith(
-        expect.objectContaining({ email: 'new.user@huyvoeducation.vn', firstLogin: true }),
+        expect.objectContaining({
+          email: 'new.user@huyvoeducation.vn',
+          firstLogin: true,
+        }),
       );
     });
   });
@@ -213,7 +233,9 @@ describe('AuthService', () => {
         id: '30ecad53-9d42-4ed1-8b3e-bc66d5e39f4c',
         userId: 11,
         otpHash: bcrypt.hashSync(code, 10),
-        deviceHash: createHash('sha256').update('device-identifier-123456').digest('hex'),
+        deviceHash: createHash('sha256')
+          .update('device-identifier-123456')
+          .digest('hex'),
         deviceLabel: 'Chrome on Windows',
         ip: '127.0.0.1',
         expiresAt: new Date(Date.now() + 5 * 60 * 1000),
@@ -251,7 +273,10 @@ describe('AuthService', () => {
       const rawRefreshToken = 'valid_refresh_token';
       const tokenHash = bcrypt.hashSync(rawRefreshToken, 10);
 
-      jwtService.verify.mockReturnValue({ sub: 1, email: 'user@huyvoeducation.vn' });
+      jwtService.verify.mockReturnValue({
+        sub: 1,
+        email: 'user@huyvoeducation.vn',
+      });
       prisma.user.findUnique.mockResolvedValue({
         id: 1,
         email: 'user@huyvoeducation.vn',
@@ -376,7 +401,10 @@ describe('AuthService', () => {
       });
 
       await expect(
-        service.setApprovalPin(1, { currentPassword: 'wrong', newPin: '778899' }),
+        service.setApprovalPin(1, {
+          currentPassword: 'wrong',
+          newPin: '778899',
+        }),
       ).rejects.toThrow(UnauthorizedException);
     });
   });
@@ -393,7 +421,9 @@ describe('AuthService', () => {
       });
       prisma.user.update.mockResolvedValue({});
 
-      await expect(service.verifyApprovalPin(1, '778899')).resolves.toBeUndefined();
+      await expect(
+        service.verifyApprovalPin(1, '778899'),
+      ).resolves.toBeUndefined();
       expect(prisma.user.update).toHaveBeenCalledWith(
         expect.objectContaining({
           data: { approvalPinFailedAttempts: 0, approvalPinLockedUntil: null },
@@ -402,9 +432,14 @@ describe('AuthService', () => {
     });
 
     it('should throw if user has not set a PIN yet', async () => {
-      prisma.user.findUnique.mockResolvedValue({ id: 1, approvalPinHash: null });
+      prisma.user.findUnique.mockResolvedValue({
+        id: 1,
+        approvalPinHash: null,
+      });
 
-      await expect(service.verifyApprovalPin(1, '778899')).rejects.toThrow(BadRequestException);
+      await expect(service.verifyApprovalPin(1, '778899')).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should lock PIN for 15 minutes after 5 wrong attempts', async () => {
@@ -474,7 +509,10 @@ describe('AuthService', () => {
 
       expect(result.enabled).toBe(true);
       expect(prisma.user.update).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { id: 1 }, data: { approvalPinEnabled: true } }),
+        expect.objectContaining({
+          where: { id: 1 },
+          data: { approvalPinEnabled: true },
+        }),
       );
     });
 
@@ -485,9 +523,9 @@ describe('AuthService', () => {
         approvalPinEnabled: false,
       });
 
-      await expect(service.setApprovalPinEnabled(1, { enabled: true })).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(
+        service.setApprovalPinEnabled(1, { enabled: true }),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should disable directly when PIN feature is not currently enabled', async () => {
@@ -502,7 +540,10 @@ describe('AuthService', () => {
 
       expect(result.enabled).toBe(false);
       expect(prisma.user.update).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { id: 1 }, data: { approvalPinEnabled: false } }),
+        expect.objectContaining({
+          where: { id: 1 },
+          data: { approvalPinEnabled: false },
+        }),
       );
     });
 
@@ -515,9 +556,9 @@ describe('AuthService', () => {
         approvalPinLockedUntil: null,
       });
 
-      await expect(service.setApprovalPinEnabled(1, { enabled: false })).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(
+        service.setApprovalPinEnabled(1, { enabled: false }),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should reject disabling with wrong PIN when feature is currently enabled', async () => {
@@ -545,11 +586,17 @@ describe('AuthService', () => {
       });
       prisma.user.update.mockResolvedValue({});
 
-      const result = await service.setApprovalPinEnabled(1, { enabled: false, pin: '778899' });
+      const result = await service.setApprovalPinEnabled(1, {
+        enabled: false,
+        pin: '778899',
+      });
 
       expect(result.enabled).toBe(false);
       expect(prisma.user.update).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { id: 1 }, data: { approvalPinEnabled: false } }),
+        expect.objectContaining({
+          where: { id: 1 },
+          data: { approvalPinEnabled: false },
+        }),
       );
     });
   });
