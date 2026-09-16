@@ -72,6 +72,15 @@ export class TasksService {
     private notificationsService: NotificationsService,
   ) {}
 
+  private hasRole(
+    user: { roles?: Array<string | { name: string }> },
+    roleName: string,
+  ): boolean {
+    return (user.roles || []).some((role) =>
+      typeof role === 'string' ? role === roleName : role.name === roleName,
+    );
+  }
+
   /**
    * Sinh mã công việc tự động định dạng CV-YYYY-NNN
    */
@@ -121,10 +130,16 @@ export class TasksService {
    * Tạo công việc mới (có thể là việc cha hoặc việc con)
    */
   async createTask(
-    user: { id: number; name: string },
+    user: { id: number; name: string; roles?: Array<string | { name: string }> },
     dto: CreateTaskDto,
     ip?: string,
   ) {
+    if (!this.hasRole(user, 'department_head') && !this.hasRole(user, 'ceo')) {
+      throw new ForbiddenException(
+        'Chỉ Trưởng bộ phận hoặc CEO mới có quyền giao việc',
+      );
+    }
+
     // 1. Kiểm tra giới hạn 2 cấp công việc
     if (dto.parentTaskId) {
       const parent = await this.prisma.task.findUnique({
@@ -223,7 +238,7 @@ export class TasksService {
    * Cập nhật thông tin công việc
    */
   async updateTask(
-    user: { id: number; roles?: string[]; departmentId?: number | null },
+    user: { id: number; roles?: Array<string | { name: string }>; departmentId?: number | null },
     taskId: number,
     dto: UpdateTaskDto,
     ip?: string,
@@ -266,16 +281,23 @@ export class TasksService {
 
     if (hasAssigneeChange || hasDueDateChange) {
       const isCreator = task.createdById === user.id;
-      const isCeo = user.roles?.includes('ceo');
+      const isCeo = this.hasRole(user, 'ceo');
+      const isDepartmentHead = this.hasRole(user, 'department_head');
       const isHeadOfCreatorDept =
-        user.roles?.includes('department_head') &&
+        isDepartmentHead &&
         user.departmentId &&
         task.createdBy?.departmentId &&
         user.departmentId === task.createdBy.departmentId;
 
-      if (!isCreator && !isCeo && !isHeadOfCreatorDept) {
+      if (hasAssigneeChange && !isCeo && !isDepartmentHead) {
         throw new ForbiddenException(
-          'Chỉ người giao việc, Trưởng bộ phận cùng phòng hoặc Ban Giám đốc mới có quyền thay đổi người thực hiện hoặc hạn hoàn thành',
+          'Chỉ Trưởng bộ phận hoặc CEO mới có quyền thay đổi người thực hiện',
+        );
+      }
+
+      if (hasDueDateChange && !isCreator && !isCeo && !isHeadOfCreatorDept) {
+        throw new ForbiddenException(
+          'Chỉ người giao việc, Trưởng bộ phận cùng phòng hoặc CEO mới có quyền thay đổi hạn hoàn thành',
         );
       }
 
@@ -463,7 +485,7 @@ export class TasksService {
    * Chống double-submit và sinh kỳ lặp tiếp theo
    */
   async confirmCompletion(
-    user: { id: number; roles?: string[] },
+    user: { id: number; roles?: Array<string | { name: string }> },
     taskId: number,
     ip?: string,
   ) {
@@ -488,7 +510,7 @@ export class TasksService {
 
     // 2. Phân quyền: Chỉ người giao việc hoặc CEO mới được xác nhận
     const isCreator = task.createdById === user.id;
-    const isCeo = user.roles?.includes('ceo');
+    const isCeo = this.hasRole(user, 'ceo');
     if (!isCreator && !isCeo) {
       throw new ForbiddenException(
         'Chỉ người giao việc mới có quyền xác nhận hoàn thành công việc',
@@ -580,7 +602,7 @@ export class TasksService {
    * Lấy danh sách công việc theo tab và các tiêu chí lọc
    */
   async findAll(
-    user: { id: number; roles?: string[]; departmentId?: number | null },
+    user: { id: number; roles?: Array<string | { name: string }>; departmentId?: number | null },
     query: TaskQueryDto,
   ) {
     const { tab = 'all', status, priority, search, isOverdue, tags } = query;
@@ -605,7 +627,7 @@ export class TasksService {
       ];
     } else {
       // Tab 'all'
-      const isCeo = user.roles?.includes('ceo');
+      const isCeo = this.hasRole(user, 'ceo');
       if (!isCeo) {
         const orConditions: any[] = [
           { assigneeId: user.id },

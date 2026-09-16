@@ -13,6 +13,8 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
+import { RolesGuard } from '../auth/roles.guard.js';
+import { Roles } from '../auth/roles.decorator.js';
 import { TasksService } from './tasks.service.js';
 import { CreateTaskDto } from './dto/create-task.dto.js';
 import { UpdateTaskDto } from './dto/update-task.dto.js';
@@ -20,12 +22,13 @@ import { UpdateProgressDto } from './dto/update-progress.dto.js';
 import { CreateCommentDto } from './dto/create-comment.dto.js';
 import { TaskQueryDto } from './dto/task-query.dto.js';
 
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('tasks')
 export class TasksController {
   constructor(private readonly tasksService: TasksService) {}
 
   @Post()
+  @Roles('department_head', 'ceo')
   @HttpCode(HttpStatus.CREATED)
   async createTask(
     @Body() dto: CreateTaskDto,

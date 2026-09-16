@@ -19,6 +19,7 @@ import { subscribeToWebPush } from './utils/pwa';
 import {
   consumeSessionExpiredMessage,
   currentDeviceName,
+  fetchWithSession,
   getOrCreateDeviceId,
   SESSION_EXPIRED_EVENT,
   uploadAttachment,
@@ -61,6 +62,16 @@ export default function App() {
     id: string;
     maskedEmail: string;
   } | null>(null);
+  const [resendCooldown, setResendCooldown] = useState(0);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = window.setTimeout(
+      () => setResendCooldown((seconds) => Math.max(0, seconds - 1)),
+      1000,
+    );
+    return () => window.clearTimeout(timer);
+  }, [resendCooldown]);
 
   useEffect(() => {
     const handleSessionExpired = (event: Event) => {
@@ -173,8 +184,9 @@ export default function App() {
     isOpen: boolean;
     doc: DocumentItem | null;
     step: ApprovalStep | null;
+    action: 'step' | 'direct';
     errorMessage: string | null;
-  }>({ isOpen: false, doc: null, step: null, errorMessage: null });
+  }>({ isOpen: false, doc: null, step: null, action: 'step', errorMessage: null });
   const [isSetPinOpen, setIsSetPinOpen] = useState<boolean>(false);
   const [pinStatus, setPinStatus] = useState<{ hasPin: boolean; enabled: boolean } | null>(null);
   const [showFirstLoginPinPrompt, setShowFirstLoginPinPrompt] = useState<boolean>(false);
@@ -365,7 +377,7 @@ export default function App() {
     setIsProcessing(true);
 
     const formData = new FormData(e.currentTarget);
-    const email = formData.get('email') as string;
+    const email = String(formData.get('email') || '').trim().toLowerCase();
     const password = formData.get('password') as string;
 
     try {
@@ -389,6 +401,7 @@ export default function App() {
 
       if (data.requiresEmailVerification) {
         setEmailChallenge({ id: data.challengeId, maskedEmail: data.maskedEmail });
+        setResendCooldown(data.resendCooldownSeconds || 60);
         showToast(data.message || 'Đã gửi mã xác minh tới email công việc.');
         return;
       }
@@ -424,6 +437,34 @@ export default function App() {
         return;
       }
       completeLogin(data);
+    } catch (err: any) {
+      setAuthError(err.message || 'Không thể kết nối đến máy chủ');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleResendEmail = async () => {
+    if (!emailChallenge || resendCooldown > 0 || isProcessing) return;
+    setAuthError('');
+    setIsProcessing(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/resend-login-code`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          challengeId: emailChallenge.id,
+          deviceId: getOrCreateDeviceId(),
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setAuthError(data.message || 'Không thể gửi lại mã xác minh');
+        return;
+      }
+      setEmailChallenge({ id: data.challengeId, maskedEmail: data.maskedEmail });
+      setResendCooldown(data.resendCooldownSeconds || 60);
+      showToast(data.message || 'Đã gửi lại mã xác minh mới.');
     } catch (err: any) {
       setAuthError(err.message || 'Không thể kết nối đến máy chủ');
     } finally {
@@ -632,7 +673,7 @@ export default function App() {
       showToast('Đã phê duyệt bước thành công!');
       fetchDocuments();
       if (pinModal.isOpen) {
-        setPinModal({ isOpen: false, doc: null, step: null, errorMessage: null });
+        setPinModal({ isOpen: false, doc: null, step: null, action: 'step', errorMessage: null });
       }
     } catch (err: any) {
       if (pinModal.isOpen) {
@@ -656,15 +697,59 @@ export default function App() {
 
   const handleApproveStepClick = (doc: DocumentItem, step: ApprovalStep) => {
     if (isFinalCeoStep(doc, step) && pinStatus?.enabled) {
-      setPinModal({ isOpen: true, doc, step, errorMessage: null });
+      setPinModal({ isOpen: true, doc, step, action: 'step', errorMessage: null });
       return;
     }
     handleApproveStep(doc, step);
   };
 
   const handleConfirmPinModal = (pin: string) => {
-    if (!pinModal.doc || !pinModal.step) return;
-    handleApproveStep(pinModal.doc, pinModal.step, pin);
+    if (!pinModal.doc) return;
+    if (pinModal.action === 'direct') {
+      handleApproveDirect(pinModal.doc, pin);
+      return;
+    }
+    if (pinModal.step) handleApproveStep(pinModal.doc, pinModal.step, pin);
+  };
+
+  const handleApproveDirect = async (doc: DocumentItem, pin?: string) => {
+    setIsProcessing(true);
+    const token = localStorage.getItem('access_token');
+    try {
+      const res = await fetchWithSession(
+        `${API_BASE_URL}/documents/${doc.id}/approve-direct?version=${doc.version}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            comment: 'CEO duyệt thẳng toàn bộ quy trình',
+            ...(pin ? { pin } : {}),
+          }),
+        },
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || 'Duyệt thẳng hồ sơ thất bại');
+      setSelectedDoc(data);
+      setPinModal({ isOpen: false, doc: null, step: null, action: 'step', errorMessage: null });
+      showToast('CEO đã duyệt thẳng và hoàn tất hồ sơ!');
+      fetchDocuments();
+    } catch (err: any) {
+      if (pinModal.isOpen) {
+        setPinModal({ ...pinModal, errorMessage: err.message || 'Lỗi duyệt thẳng hồ sơ' });
+      } else {
+        showToast(err.message || 'Lỗi duyệt thẳng hồ sơ', 'error');
+      }
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleApproveDirectClick = (doc: DocumentItem) => {
+    if (pinStatus?.enabled) {
+      setPinModal({ isOpen: true, doc, step: null, action: 'direct', errorMessage: null });
+      return;
+    }
+    handleApproveDirect(doc);
   };
 
   // Create New Version
@@ -794,8 +879,11 @@ export default function App() {
           onLogin={handleLogin}
           verificationEmail={emailChallenge?.maskedEmail}
           onVerifyEmail={handleVerifyEmail}
+          onResendEmail={handleResendEmail}
+          resendCooldown={resendCooldown}
           onCancelVerification={() => {
             setEmailChallenge(null);
+            setResendCooldown(0);
             setAuthError('');
           }}
         />
@@ -924,6 +1012,7 @@ export default function App() {
                   onSubmitDraft={handleSubmitDraft}
                   onCreateNewVersion={handleCreateNewVersion}
                   onApproveStep={handleApproveStepClick}
+                  onApproveDirect={handleApproveDirectClick}
                   onOpenModalAction={(type, stepId, docId) => {
                     setModalAction({
                       isOpen: true,
@@ -1046,7 +1135,15 @@ export default function App() {
         <ApprovalPinModal
           isProcessing={isProcessing}
           errorMessage={pinModal.errorMessage}
-          onCancel={() => setPinModal({ isOpen: false, doc: null, step: null, errorMessage: null })}
+          onCancel={() =>
+            setPinModal({
+              isOpen: false,
+              doc: null,
+              step: null,
+              action: 'step',
+              errorMessage: null,
+            })
+          }
           onConfirm={handleConfirmPinModal}
         />
       )}

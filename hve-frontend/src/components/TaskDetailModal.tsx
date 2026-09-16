@@ -5,7 +5,7 @@ import {
   type TaskItem,
 } from '../types';
 import { MOCK_TASKS } from '../mockData';
-import { authenticatedFileUrl } from '../api/client';
+import { authenticatedFileUrl, fetchWithSession } from '../api/client';
 import { ENABLE_MOCK_DATA } from '../config';
 
 interface TaskDetailModalProps {
@@ -62,7 +62,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
     try {
       setIsLoading(true);
-      const res = await fetch(`${apiBaseUrl}/tasks/${taskId}`, {
+      const res = await fetchWithSession(`${apiBaseUrl}/tasks/${taskId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) {
@@ -101,7 +101,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
     try {
       setIsUpdatingProgress(true);
-      const res = await fetch(`${apiBaseUrl}/tasks/${task.id}/progress`, {
+      const res = await fetchWithSession(`${apiBaseUrl}/tasks/${task.id}/progress`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -136,7 +136,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
     try {
       setIsConfirming(true);
-      const res = await fetch(`${apiBaseUrl}/tasks/${task.id}/confirm-completion`, {
+      const res = await fetchWithSession(`${apiBaseUrl}/tasks/${task.id}/confirm-completion`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -175,7 +175,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
     try {
       setIsSubmittingComment(true);
-      const res = await fetch(`${apiBaseUrl}/tasks/${task.id}/comments`, {
+      const res = await fetchWithSession(`${apiBaseUrl}/tasks/${task.id}/comments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -204,6 +204,8 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
   const isCreator = task?.createdById === currentUser?.id;
   const isCeo = currentUser?.roles?.includes('ceo');
+  const canCreateTask =
+    currentUser?.roles?.includes('department_head') || currentUser?.roles?.includes('ceo');
   const hasSubTasks = task?.subTasks && task.subTasks.length > 0;
   const canConfirm =
     task?.status === 'Chờ duyệt' && (isCreator || isCeo);
@@ -426,7 +428,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                   Việc con trực thuộc ({task.subTasks?.length || 0})
                 </h4>
                 {/* Chỉ cho phép thêm việc con nếu task này chưa phải là việc con */}
-                {!task.parentTaskId && task.status !== 'Hoàn thành' && !task.recurrenceRule && (
+                {canCreateTask && !task.parentTaskId && task.status !== 'Hoàn thành' && !task.recurrenceRule && (
                   <button
                     onClick={() => onOpenCreateSubtask(task)}
                     className="text-xs font-bold text-[#0A66C2] hover:underline flex items-center"

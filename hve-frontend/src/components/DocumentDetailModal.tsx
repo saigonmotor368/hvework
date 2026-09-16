@@ -11,6 +11,7 @@ interface DocumentDetailModalProps {
   onSubmitDraft: (doc: DocumentItem) => void;
   onCreateNewVersion: (doc: DocumentItem) => void;
   onApproveStep: (doc: DocumentItem, step: ApprovalStep) => void;
+  onApproveDirect: (doc: DocumentItem) => void;
   onOpenModalAction: (type: 'return' | 'reject', stepId: number, docId: number) => void;
 }
 
@@ -24,6 +25,7 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
   onSubmitDraft,
   onCreateNewVersion,
   onApproveStep,
+  onApproveDirect,
   onOpenModalAction,
 }) => {
   return (
@@ -85,6 +87,17 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
 
           {/* Header Actions */}
           <div className="flex w-full flex-wrap items-center gap-2 md:w-auto">
+            {selectedDoc.status === 'Chờ duyệt' &&
+              user?.roles?.includes('ceo') &&
+              selectedDoc.createdById !== user?.id && (
+                <button
+                  onClick={() => onApproveDirect(selectedDoc)}
+                  disabled={isProcessing}
+                  className="w-full rounded-xl bg-violet-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition-all hover:bg-violet-700 disabled:opacity-50 sm:w-auto"
+                >
+                  {isProcessing ? 'Đang duyệt...' : '⚡ CEO duyệt thẳng'}
+                </button>
+              )}
             {selectedDoc.status === 'Nháp' && selectedDoc.createdById === user?.id && (
               <button
                 onClick={() => onSubmitDraft(selectedDoc)}

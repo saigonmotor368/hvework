@@ -189,3 +189,7 @@ Bám theo [02_KE_HOACH_TRIEN_KHAI.md](02_KE_HOACH_TRIEN_KHAI.md) và [01_KIEN_TR
 - [x] Dọn sạch dữ liệu UAT/seed production, giữ IT Admin và dữ liệu cấu hình nền
 - [x] Thêm OTP email cho lần đăng nhập đầu tiên và thiết bị chưa tin cậy
 - [x] Cấu hình SMTP Mắt Bão trên Railway, gửi mail thử và bật `LOGIN_EMAIL_OTP_ENABLED=true`
+- [x] Thêm nút gửi lại OTP sau 60 giây, thay challenge cũ an toàn và chống spam
+- [x] Thêm quyền CEO duyệt thẳng toàn bộ quy trình (giữ chống tự duyệt và PIN)
+- [x] Chỉ Trưởng bộ phận/CEO được giao hoặc giao lại công việc, kể cả việc con
+- [x] Thêm Kanban board 4 cột dùng task/comment/@mention thật trên server

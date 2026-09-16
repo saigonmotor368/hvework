@@ -7,6 +7,8 @@ interface LoginPageProps {
   onLogin: (e: React.FormEvent<HTMLFormElement>) => void;
   verificationEmail?: string;
   onVerifyEmail: (e: React.FormEvent<HTMLFormElement>) => void;
+  onResendEmail: () => void;
+  resendCooldown: number;
   onCancelVerification: () => void;
 }
 
@@ -16,12 +18,15 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   onLogin,
   verificationEmail,
   onVerifyEmail,
+  onResendEmail,
+  resendCooldown,
   onCancelVerification,
 }) => {
   const [verificationInput, setVerificationInput] = useState<{
     email?: string;
     code: string;
   }>({ code: '' });
+  const [showPassword, setShowPassword] = useState(false);
   const verificationCode =
     verificationInput.email === verificationEmail ? verificationInput.code : '';
 
@@ -89,6 +94,16 @@ export const LoginPage: React.FC<LoginPageProps> = ({
               </button>
               <button
                 type="button"
+                onClick={onResendEmail}
+                disabled={isProcessing || resendCooldown > 0}
+                className="w-full rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-semibold text-[#0A66C2] transition-colors hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-55"
+              >
+                {resendCooldown > 0
+                  ? `Có thể gửi lại mã sau ${resendCooldown}s`
+                  : 'Không nhận được email? Gửi lại mã mới'}
+              </button>
+              <button
+                type="button"
                 onClick={onCancelVerification}
                 disabled={isProcessing}
                 className="w-full text-sm font-medium text-gray-500 hover:text-gray-700"
@@ -118,14 +133,24 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
             <div>
               <label className="block text-sm font-semibold text-gray-700">Mật khẩu</label>
-              <input
-                name="password"
-                type="password"
-                required
-                autoComplete="current-password"
-                placeholder="Nhập mật khẩu"
-                className="mt-1 block w-full px-3.5 py-2.5 bg-slate-50 border border-gray-200 rounded-lg text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#0A66C2] focus:bg-white"
-              />
+              <div className="relative mt-1">
+                <input
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  autoComplete="current-password"
+                  placeholder="Nhập mật khẩu"
+                  className="block w-full px-3.5 py-2.5 pr-16 bg-slate-50 border border-gray-200 rounded-lg text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#0A66C2] focus:bg-white"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((value) => !value)}
+                  className="absolute inset-y-0 right-0 px-3 text-xs font-semibold text-[#0A66C2]"
+                  aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                >
+                  {showPassword ? 'Ẩn' : 'Hiện'}
+                </button>
+              </div>
             </div>
 
             <button

@@ -109,6 +109,30 @@ describe('AuthService', () => {
       );
     });
 
+    it('should normalize email before looking up the account', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: 1,
+        email: 'ceo@huyvoeducation.vn',
+        passwordHash: mockPasswordHash,
+        name: 'CEO User',
+        status: 'active',
+        failedLoginAttempts: 0,
+        lockedUntil: null,
+        roles: [{ name: 'ceo' }],
+        department: { name: 'Board' },
+      });
+      prisma.user.update.mockResolvedValue({});
+
+      await service.login({
+        email: '  CEO@HUYVOEDUCATION.VN  ',
+        password: '123456',
+      });
+
+      expect(prisma.user.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { email: 'ceo@huyvoeducation.vn' } }),
+      );
+    });
+
     it('should increment failedLoginAttempts when password does not match', async () => {
       prisma.user.findUnique.mockResolvedValue({
         id: 2,
@@ -265,6 +289,64 @@ describe('AuthService', () => {
       expect(auditService.logEvent).toHaveBeenCalledWith(
         expect.objectContaining({ action: 'first_login_email_verified' }),
       );
+    });
+  });
+
+  describe('resendLoginChallenge', () => {
+    it('should replace the old challenge and send a new email code after 60 seconds', async () => {
+      loginVerificationMailer.isEnabled.mockReturnValue(true);
+      const deviceId = 'device-identifier-123456';
+      prisma.loginChallenge.findUnique.mockResolvedValue({
+        id: '30ecad53-9d42-4ed1-8b3e-bc66d5e39f4c',
+        userId: 11,
+        deviceHash: createHash('sha256').update(deviceId).digest('hex'),
+        deviceLabel: 'Chrome on Windows',
+        consumedAt: null,
+        createdAt: new Date(Date.now() - 61_000),
+        user: {
+          id: 11,
+          email: 'new.user@huyvoeducation.vn',
+          name: 'New User',
+          status: 'active',
+          emailVerifiedAt: null,
+        },
+      });
+      prisma.loginChallenge.create.mockResolvedValue({});
+
+      const result = await service.resendLoginChallenge({
+        challengeId: '30ecad53-9d42-4ed1-8b3e-bc66d5e39f4c',
+        deviceId,
+      });
+
+      expect(result).toMatchObject({
+        requiresEmailVerification: true,
+        resendCooldownSeconds: 60,
+      });
+      expect(loginVerificationMailer.sendLoginCode).toHaveBeenCalledOnce();
+      expect(prisma.loginChallenge.delete).toHaveBeenCalledWith({
+        where: { id: '30ecad53-9d42-4ed1-8b3e-bc66d5e39f4c' },
+      });
+    });
+
+    it('should reject resending during the 60 second cooldown', async () => {
+      loginVerificationMailer.isEnabled.mockReturnValue(true);
+      const deviceId = 'device-identifier-123456';
+      prisma.loginChallenge.findUnique.mockResolvedValue({
+        id: '30ecad53-9d42-4ed1-8b3e-bc66d5e39f4c',
+        userId: 11,
+        deviceHash: createHash('sha256').update(deviceId).digest('hex'),
+        consumedAt: null,
+        createdAt: new Date(Date.now() - 10_000),
+        user: { status: 'active' },
+      });
+
+      await expect(
+        service.resendLoginChallenge({
+          challengeId: '30ecad53-9d42-4ed1-8b3e-bc66d5e39f4c',
+          deviceId,
+        }),
+      ).rejects.toThrow('Vui lòng chờ');
+      expect(loginVerificationMailer.sendLoginCode).not.toHaveBeenCalled();
     });
   });
 

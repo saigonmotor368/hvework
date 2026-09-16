@@ -15,6 +15,7 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto.js';
 import { ResetPasswordDto } from './dto/reset-password.dto.js';
 import { SetApprovalPinDto, ToggleApprovalPinDto } from './dto/set-approval-pin.dto.js';
 import { VerifyLoginDto } from './dto/verify-login.dto.js';
+import { ResendLoginCodeDto } from './dto/resend-login-code.dto.js';
 import { JwtAuthGuard } from './jwt-auth.guard.js';
 import { RolesGuard } from './roles.guard.js';
 import { Roles } from './roles.decorator.js';
@@ -39,6 +40,17 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async verifyLogin(@Body() body: VerifyLoginDto, @Req() request: any) {
     return this.authService.verifyLoginChallenge(body, request.ip, request.headers['user-agent']);
+  }
+
+  @Throttle(5, 60000)
+  @Post('resend-login-code')
+  @HttpCode(HttpStatus.OK)
+  async resendLoginCode(@Body() body: ResendLoginCodeDto, @Req() request: any) {
+    return this.authService.resendLoginChallenge(
+      body,
+      request.ip,
+      request.headers['user-agent'],
+    );
   }
 
   @Post('refresh')

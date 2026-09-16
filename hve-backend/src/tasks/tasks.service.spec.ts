@@ -119,7 +119,7 @@ describe('TasksService', () => {
         createdById: 1,
       });
 
-      const user = { id: 1, name: 'Nguyễn Văn A' };
+      const user = { id: 1, name: 'Nguyễn Văn A', roles: ['department_head'] };
       const dto: any = {
         title: 'Làm báo cáo',
         assigneeId: 2,
@@ -138,6 +138,15 @@ describe('TasksService', () => {
       expect(auditService.logEvent).toHaveBeenCalled();
     });
 
+    it('should reject task creation by a regular employee', async () => {
+      await expect(
+        service.createTask(
+          { id: 1, name: 'Nhân viên', roles: ['employee'] },
+          { title: 'Không được phép giao' },
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
     it('should reject creating subtask if parent task is already a subtask (max 2 levels)', async () => {
       prisma.task.findUnique.mockResolvedValue({
         id: 10,
@@ -146,7 +155,7 @@ describe('TasksService', () => {
 
       await expect(
         service.createTask(
-          { id: 1, name: 'User 1' },
+          { id: 1, name: 'User 1', roles: ['department_head'] },
           { title: 'Sub-subtask', parentTaskId: 10 },
         ),
       ).rejects.toThrow(BadRequestException);
@@ -160,7 +169,7 @@ describe('TasksService', () => {
 
       await expect(
         service.createTask(
-          { id: 1, name: 'User 1' },
+          { id: 1, name: 'User 1', roles: ['department_head'] },
           { title: 'Subtask with recurrence', parentTaskId: 5, recurrenceRule: 'daily' },
         ),
       ).rejects.toThrow(BadRequestException);
@@ -175,7 +184,7 @@ describe('TasksService', () => {
 
       await expect(
         service.createTask(
-          { id: 1, name: 'User 1' },
+          { id: 1, name: 'User 1', roles: ['department_head'] },
           { title: 'Subtask of recurring', parentTaskId: 5 },
         ),
       ).rejects.toThrow(BadRequestException);
@@ -183,7 +192,7 @@ describe('TasksService', () => {
   });
 
   describe('updateTask & Permissions', () => {
-    it('creator should be allowed to change assignee and dueDate, and audit log is recorded', async () => {
+    it('department head creator should be allowed to change assignee and dueDate, and audit log is recorded', async () => {
       prisma.task.findUnique.mockResolvedValue({
         id: 1,
         createdById: 1,
@@ -193,7 +202,7 @@ describe('TasksService', () => {
       });
       prisma.task.update.mockResolvedValue({ id: 1, assigneeId: 3 });
 
-      const user = { id: 1, roles: ['employee'], departmentId: 10 };
+      const user = { id: 1, roles: ['department_head'], departmentId: 10 };
       await service.updateTask(user, 1, { assigneeId: 3 });
 
       expect(auditService.logEvent).toHaveBeenCalledWith(
@@ -202,6 +211,24 @@ describe('TasksService', () => {
         }),
       );
       expect(prisma.task.update).toHaveBeenCalled();
+    });
+
+    it('employee creator should not be allowed to reassign a legacy task', async () => {
+      prisma.task.findUnique.mockResolvedValue({
+        id: 1,
+        createdById: 1,
+        assigneeId: 2,
+        dueDate: new Date('2026-09-20'),
+        createdBy: { departmentId: 10 },
+      });
+
+      await expect(
+        service.updateTask(
+          { id: 1, roles: ['employee'], departmentId: 10 },
+          1,
+          { assigneeId: 3 },
+        ),
+      ).rejects.toThrow('Chỉ Trưởng bộ phận hoặc CEO');
     });
 
     it('unauthorized user should be forbidden from changing assignee or dueDate', async () => {

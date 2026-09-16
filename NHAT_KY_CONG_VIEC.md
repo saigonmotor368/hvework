@@ -375,3 +375,14 @@ Dự án đã hoàn thành toàn bộ các giai đoạn (Phase 0 ➔ Phase 5) v�
 - **Phát hành:** migration `20260916145000_add_login_email_verification` đã áp dụng thành công; Railway deployment `b1094520-2775-46e2-8ae7-2dd01b68a447` đạt `SUCCESS`; Vercel deployment `dpl_GtcFPHHoGgLPYf7J3adjkwXNRjg8` đạt `Ready` và giữ alias production.
 - **Smoke test sau deploy:** backend/frontend HTTP 200; `/auth/verify-login` tồn tại và trả validation 400 với body rỗng; bundle production có UI OTP và tiếp tục dùng Railway.
 - **Kích hoạt OTP production:** Railway deployment `358c814a-b2bb-4c1e-9664-21831d3ad358` đạt `SUCCESS`; backend health HTTP 200 và log xác nhận Nest khởi động thành công sau khi bật OTP.
+
+---
+
+## 9. NÂNG CẤP XÁC MINH, PHÂN QUYỀN VÀ BOARD CÔNG VIỆC (17/09/2026)
+
+- Bổ sung gửi lại OTP đăng nhập sau 60 giây; mã mới thay mã cũ, giới hạn tần suất ở backend và giữ mã cũ nếu dịch vụ email gửi lỗi.
+- Chuẩn hóa email đăng nhập (bỏ khoảng trắng, không phân biệt hoa/thường) và thêm nút hiện/ẩn mật khẩu để giảm lỗi nhập liệu trên mobile.
+- CEO có thể duyệt thẳng hồ sơ đang chờ duyệt, hoàn tất toàn bộ bước còn lại; vẫn chặn tự duyệt hồ sơ do chính CEO tạo và vẫn yêu cầu PIN nếu đang bật.
+- Chỉ Trưởng bộ phận và CEO được tạo, giao lại hoặc chia việc con; quyền được chặn đồng thời ở frontend, guard và service backend.
+- Thêm board Kanban 4 cột lấy dữ liệu thật từ server; mở thẻ để cập nhật tiến độ, bình luận và @nhắc tên bằng luồng tương tác hiện hữu.
+- Baseline trước phát hành: backend 157/157 test pass, build/lint pass; frontend 9/9 test pass, build/lint không có error.

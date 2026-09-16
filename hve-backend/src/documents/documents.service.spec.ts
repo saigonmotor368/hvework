@@ -32,6 +32,7 @@ describe('DocumentsService', () => {
         findFirst: vi.fn(),
         create: vi.fn(),
         update: vi.fn(),
+        updateMany: vi.fn(),
         deleteMany: vi.fn(),
       },
       workflowTemplate: {
@@ -472,6 +473,68 @@ describe('DocumentsService', () => {
       await service.approveStep(1, 101, deptHeadUser, { comment: 'Đồng ý' });
 
       expect(authService.verifyApprovalPin).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('CEO direct approval', () => {
+    it('should let CEO approve every remaining step and complete the document', async () => {
+      prisma.document.findUnique.mockResolvedValue({
+        id: 1,
+        code: 'DX-2026-001',
+        title: 'Đề xuất cần duyệt nhanh',
+        status: 'Chờ duyệt',
+        createdById: 10,
+        createdBy: { id: 10, name: 'Nhân viên', email: 'employee@hve.vn' },
+        version: 2,
+        steps: [
+          { id: 101, stepOrder: 1, roleRequired: 'department_head', status: 'pending' },
+          { id: 102, stepOrder: 2, roleRequired: 'accountant', status: 'not_started' },
+          { id: 103, stepOrder: 3, roleRequired: 'ceo', status: 'not_started' },
+        ],
+      });
+      prisma.document.update.mockResolvedValue({
+        id: 1,
+        status: 'Đã duyệt',
+        version: 3,
+      });
+
+      const result = await service.approveDirect(
+        1,
+        { id: 30, roles: [{ name: 'ceo' }] },
+        { comment: 'CEO duyệt khẩn', pin: '123456' },
+        2,
+      );
+
+      expect(authService.verifyApprovalPin).toHaveBeenCalledWith(30, '123456');
+      expect(prisma.documentApprovalStep.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { documentId: 1, status: { not: 'approved' } },
+          data: expect.objectContaining({ status: 'approved', actedById: 30 }),
+        }),
+      );
+      expect(prisma.document.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { status: 'Đã duyệt', version: 3 } }),
+      );
+      expect(result.status).toBe('Đã duyệt');
+    });
+
+    it('should reject direct approval by a non-CEO user', async () => {
+      prisma.document.findUnique.mockResolvedValue({
+        id: 1,
+        status: 'Chờ duyệt',
+        createdById: 10,
+        version: 1,
+        steps: [],
+      });
+
+      await expect(
+        service.approveDirect(
+          1,
+          { id: 20, roles: [{ name: 'department_head' }] },
+          {},
+          1,
+        ),
+      ).rejects.toThrow('Chỉ CEO mới có quyền duyệt thẳng hồ sơ');
     });
   });
 

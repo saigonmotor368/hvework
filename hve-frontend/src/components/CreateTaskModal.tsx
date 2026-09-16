@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { TASK_PRIORITY_LABELS, type TaskItem } from '../types';
-import { uploadAttachment } from '../api/client';
+import { fetchWithSession, uploadAttachment } from '../api/client';
 
 interface CreateTaskModalProps {
   isOpen: boolean;
@@ -85,7 +85,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
         payload.recurrenceRule = recurrenceRule;
       }
 
-      const res = await fetch(`${apiBaseUrl}/tasks`, {
+      const res = await fetchWithSession(`${apiBaseUrl}/tasks`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

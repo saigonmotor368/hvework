@@ -15,6 +15,7 @@ import {
   ToggleApprovalPinDto,
 } from './dto/set-approval-pin.dto.js';
 import { VerifyLoginDto } from './dto/verify-login.dto.js';
+import { ResendLoginCodeDto } from './dto/resend-login-code.dto.js';
 import { LoginVerificationMailer } from './login-verification-mailer.service.js';
 import { createHash, randomInt, randomUUID } from 'node:crypto';
 
@@ -57,7 +58,8 @@ export class AuthService {
   }
 
   async login(loginDto: LoginDto, ip?: string, device?: string) {
-    const { email, password } = loginDto;
+    const email = loginDto.email.trim().toLowerCase();
+    const { password } = loginDto;
     const user = await this.prisma.user.findUnique({
       where: { email },
       include: { roles: true, department: true },
@@ -192,6 +194,7 @@ export class AuthService {
           requiresEmailVerification: true,
           challengeId,
           maskedEmail: this.maskEmail(user.email),
+          resendCooldownSeconds: 60,
           message: 'Mã xác minh đăng nhập đã được gửi tới email công việc.',
         };
       }
@@ -345,6 +348,94 @@ export class AuthService {
       access_token: accessToken,
       refresh_token: refreshToken,
       user: this.publicUser(user),
+    };
+  }
+
+  async resendLoginChallenge(
+    dto: ResendLoginCodeDto,
+    ip?: string,
+    device?: string,
+  ) {
+    if (!this.loginVerificationMailer.isEnabled()) {
+      throw new BadRequestException('Xác minh email hiện chưa được bật');
+    }
+
+    const previous = await this.prisma.loginChallenge.findUnique({
+      where: { id: dto.challengeId },
+      include: { user: true },
+    });
+    const now = new Date();
+    const oldestAllowed = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+    if (
+      !previous ||
+      previous.consumedAt ||
+      previous.createdAt < oldestAllowed ||
+      previous.deviceHash !== this.hashDevice(dto.deviceId) ||
+      previous.user?.status !== 'active'
+    ) {
+      throw new UnauthorizedException(
+        'Phiên xác minh không hợp lệ. Vui lòng quay lại đăng nhập.',
+      );
+    }
+
+    const elapsedSeconds = Math.floor(
+      (now.getTime() - previous.createdAt.getTime()) / 1000,
+    );
+    if (elapsedSeconds < 60) {
+      throw new BadRequestException(
+        `Vui lòng chờ ${60 - elapsedSeconds} giây trước khi gửi lại mã.`,
+      );
+    }
+
+    const code = randomInt(100000, 1000000).toString();
+    const challengeId = randomUUID();
+    const otpHash = await bcrypt.hash(code, 10);
+    const firstLogin = !previous.user.emailVerifiedAt;
+
+    await this.prisma.loginChallenge.create({
+      data: {
+        id: challengeId,
+        userId: previous.userId,
+        otpHash,
+        deviceHash: previous.deviceHash,
+        deviceLabel: previous.deviceLabel || device,
+        ip,
+        expiresAt: new Date(now.getTime() + 10 * 60 * 1000),
+      },
+    });
+
+    try {
+      await this.loginVerificationMailer.sendLoginCode({
+        email: previous.user.email,
+        name: previous.user.name,
+        code,
+        deviceName: previous.deviceLabel || device,
+        ip,
+        firstLogin,
+        challengeId,
+      });
+    } catch (error) {
+      await this.prisma.loginChallenge.delete({ where: { id: challengeId } });
+      throw error;
+    }
+
+    await this.prisma.loginChallenge.delete({ where: { id: previous.id } });
+    await this.auditService.logEvent({
+      entityType: 'User',
+      entityId: previous.userId,
+      action: 'login_email_code_resent',
+      actorId: previous.userId,
+      ip,
+      device: previous.deviceLabel || device,
+    });
+
+    return {
+      requiresEmailVerification: true,
+      challengeId,
+      maskedEmail: this.maskEmail(previous.user.email),
+      resendCooldownSeconds: 60,
+      message: 'Đã gửi một mã xác minh mới tới email công việc.',
     };
   }
 

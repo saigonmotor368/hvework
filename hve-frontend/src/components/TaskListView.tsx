@@ -6,6 +6,7 @@ import {
 } from '../types';
 import { MOCK_TASKS } from '../mockData';
 import { ENABLE_MOCK_DATA } from '../config';
+import { fetchWithSession } from '../api/client';
 
 interface TaskListViewProps {
   apiBaseUrl: string;
@@ -17,6 +18,7 @@ interface TaskListViewProps {
 
 export const TaskListView: React.FC<TaskListViewProps> = ({
   apiBaseUrl,
+  currentUser,
   showToast,
   onOpenCreate,
   onSelectTask,
@@ -32,6 +34,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [isOverdueOnly, setIsOverdueOnly] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [viewMode, setViewMode] = useState<'board' | 'list'>('board');
 
   // Expandable subtasks state
   const [expandedTaskIds, setExpandedTaskIds] = useState<number[]>([]);
@@ -52,7 +55,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
       if (isOverdueOnly) params.append('isOverdue', 'true');
       if (searchQuery.trim()) params.append('search', searchQuery.trim());
 
-      const res = await fetch(`${apiBaseUrl}/tasks?${params.toString()}`, {
+      const res = await fetchWithSession(`${apiBaseUrl}/tasks?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error('Không thể tải danh sách công việc');
@@ -98,6 +101,14 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
   // Tính số lượng thống kê nhanh
   const overdueCount = tasks.filter((t) => t.isOverdue).length;
   const pendingCount = tasks.filter((t) => t.status === 'Chờ duyệt').length;
+  const canCreateTask =
+    currentUser?.roles?.includes('department_head') || currentUser?.roles?.includes('ceo');
+  const boardColumns = [
+    { status: 'Chưa làm', label: 'Chưa làm', accent: 'border-slate-300', dot: 'bg-slate-400' },
+    { status: 'Đang làm', label: 'Đang làm', accent: 'border-blue-300', dot: 'bg-blue-500' },
+    { status: 'Chờ duyệt', label: 'Chờ duyệt', accent: 'border-amber-300', dot: 'bg-amber-500' },
+    { status: 'Hoàn thành', label: 'Hoàn thành', accent: 'border-emerald-300', dot: 'bg-emerald-500' },
+  ] as const;
 
   return (
     <div className="min-w-0 space-y-4 md:space-y-6 md:p-6 max-w-7xl mx-auto">
@@ -112,14 +123,32 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
           </p>
         </div>
 
-        <div className="flex w-full items-center md:w-auto">
-          <button
-            onClick={onOpenCreate}
-            className="w-full justify-center px-4 py-2.5 bg-[#0A66C2] hover:bg-blue-700 text-white rounded-xl font-semibold text-sm shadow-md shadow-blue-500/20 transition-all flex items-center space-x-2 cursor-pointer md:w-auto"
-          >
-            <span>➕</span>
-            <span>Giao việc mới</span>
-          </button>
+        <div className="flex w-full flex-col gap-2 sm:flex-row md:w-auto">
+          <div className="grid grid-cols-2 rounded-xl border border-slate-200 bg-white p-1 text-xs font-bold">
+            <button
+              type="button"
+              onClick={() => setViewMode('board')}
+              className={`rounded-lg px-3 py-2 ${viewMode === 'board' ? 'bg-blue-50 text-[#0A66C2]' : 'text-gray-500'}`}
+            >
+              ◫ Board
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('list')}
+              className={`rounded-lg px-3 py-2 ${viewMode === 'list' ? 'bg-blue-50 text-[#0A66C2]' : 'text-gray-500'}`}
+            >
+              ☰ Danh sách
+            </button>
+          </div>
+          {canCreateTask && (
+            <button
+              onClick={onOpenCreate}
+              className="w-full justify-center px-4 py-2.5 bg-[#0A66C2] hover:bg-blue-700 text-white rounded-xl font-semibold text-sm shadow-md shadow-blue-500/20 transition-all flex items-center space-x-2 cursor-pointer md:w-auto"
+            >
+              <span>➕</span>
+              <span>Giao việc mới</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -211,6 +240,11 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
           <span>Tổng số: <strong className="text-gray-800">{tasks.length}</strong> công việc</span>
           <span>Chờ duyệt: <strong className="text-amber-700">{pendingCount}</strong></span>
           <span>Quá hạn: <strong className="text-red-600">{overdueCount}</strong></span>
+          {viewMode === 'board' && (
+            <span className="basis-full text-slate-400 sm:ml-auto sm:basis-auto">
+              Mở một thẻ để cập nhật tiến độ, bình luận và @nhắc tên.
+            </span>
+          )}
         </div>
       </div>
 
@@ -228,6 +262,85 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
             <p className="text-xs text-gray-500 max-w-sm mx-auto">
               Không có đầu việc nào thuộc bộ lọc hiện tại. Bạn có thể giao việc mới hoặc đổi tiêu chí tìm kiếm.
             </p>
+          </div>
+        ) : viewMode === 'board' ? (
+          <div className="mobile-scroll overflow-x-auto p-3 sm:p-4">
+            <div className="grid min-w-[1040px] grid-cols-4 gap-3 xl:min-w-0">
+              {boardColumns.map((column) => {
+                const columnTasks = tasks.filter((task) => task.status === column.status);
+
+                return (
+                  <section
+                    key={column.status}
+                    className={`min-h-[360px] rounded-2xl border border-slate-200 border-t-4 ${column.accent} bg-slate-50/80 p-3`}
+                  >
+                    <div className="mb-3 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className={`h-2.5 w-2.5 rounded-full ${column.dot}`} />
+                        <h3 className="text-sm font-bold text-slate-800">{column.label}</h3>
+                      </div>
+                      <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-bold text-slate-500 shadow-sm">
+                        {columnTasks.length}
+                      </span>
+                    </div>
+
+                    <div className="space-y-3">
+                      {columnTasks.length === 0 ? (
+                        <div className="rounded-xl border border-dashed border-slate-300 bg-white/60 px-3 py-8 text-center text-xs text-slate-400">
+                          Chưa có công việc
+                        </div>
+                      ) : (
+                        columnTasks.map((task) => (
+                          <button
+                            key={task.id}
+                            type="button"
+                            onClick={() => onSelectTask(task)}
+                            className="block w-full rounded-xl border border-slate-200 bg-white p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-400"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] font-bold text-slate-600">
+                                {task.code}
+                              </span>
+                              <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${TASK_PRIORITY_LABELS[task.priority]?.color || 'bg-gray-100'}`}>
+                                {TASK_PRIORITY_LABELS[task.priority]?.label || task.priority}
+                              </span>
+                            </div>
+
+                            <span className="mt-2 block break-words text-sm font-bold leading-snug text-slate-900">
+                              {task.title}
+                            </span>
+
+                            {task.tags && (
+                              <span className="mt-1 block truncate text-[10px] text-slate-400">🏷️ {task.tags}</span>
+                            )}
+
+                            <div className="mt-3 flex items-center justify-between gap-2 text-[11px] text-slate-500">
+                              <span className="min-w-0 truncate font-semibold text-slate-700">
+                                👤 {task.assignee?.name || 'Chưa giao'}
+                              </span>
+                              <span className={task.isOverdue ? 'font-bold text-red-600' : ''}>
+                                {task.dueDate ? new Date(task.dueDate).toLocaleDateString('vi-VN') : 'Không hạn'}
+                              </span>
+                            </div>
+
+                            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200">
+                              <span
+                                className={`block h-full rounded-full ${task.progressPercent === 100 ? 'bg-emerald-500' : 'bg-blue-500'}`}
+                                style={{ width: `${task.progressPercent}%` }}
+                              />
+                            </div>
+                            <div className="mt-1 flex items-center justify-between text-[10px] font-semibold text-slate-400">
+                              <span>{task.progressPercent}% hoàn thành</span>
+                              <span className="text-blue-600">Mở trao đổi →</span>
+                            </div>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </section>
+                );
+              })}
+            </div>
           </div>
         ) : (
           <>

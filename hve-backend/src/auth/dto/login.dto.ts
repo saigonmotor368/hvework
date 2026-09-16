@@ -1,6 +1,8 @@
 import { IsEmail, IsNotEmpty, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 export class LoginDto {
+  @Transform(({ value }) => typeof value === 'string' ? value.trim().toLowerCase() : value)
   @IsEmail({}, { message: 'Email không hợp lệ' })
   @IsNotEmpty({ message: 'Email không được để trống' })
   email: string;

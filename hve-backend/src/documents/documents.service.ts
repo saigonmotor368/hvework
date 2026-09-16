@@ -734,6 +734,102 @@ export class DocumentsService {
     return result;
   }
 
+  async approveDirect(
+    documentId: number,
+    user: any,
+    dto?: ActionStepDto,
+    currentVersion?: number,
+    ip?: string,
+  ) {
+    const doc = await this.prisma.document.findUnique({
+      where: { id: documentId },
+      include: {
+        steps: { orderBy: { stepOrder: 'asc' } },
+        createdBy: { select: { id: true, name: true, email: true } },
+      },
+    });
+
+    if (!doc) throw new NotFoundException('Không tìm thấy hồ sơ');
+    if (doc.status !== 'Chờ duyệt') {
+      throw new BadRequestException('Hồ sơ không ở trạng thái Chờ duyệt');
+    }
+    if (currentVersion !== undefined && doc.version !== currentVersion) {
+      throw new ConflictException(
+        'Hồ sơ đã được cập nhật bởi người khác. Vui lòng tải lại.',
+      );
+    }
+    if (doc.createdById === user.id) {
+      throw new ForbiddenException(
+        'Quy định kiểm soát nội bộ: CEO không được tự phê duyệt hồ sơ do chính mình tạo',
+      );
+    }
+
+    const roleNames = (user.roles || []).map((role: any) =>
+      typeof role === 'string' ? role : role.name,
+    );
+    if (!roleNames.includes('ceo')) {
+      throw new ForbiddenException('Chỉ CEO mới có quyền duyệt thẳng hồ sơ');
+    }
+
+    const pinRequired = await this.authService.isApprovalPinEnabled(user.id);
+    if (pinRequired) {
+      if (!dto?.pin) {
+        throw new BadRequestException(
+          'Vui lòng nhập mã PIN 6 số để xác nhận duyệt thẳng hồ sơ.',
+        );
+      }
+      await this.authService.verifyApprovalPin(user.id, dto.pin);
+    }
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      await tx.documentApprovalStep.updateMany({
+        where: { documentId, status: { not: 'approved' } },
+        data: {
+          status: 'approved',
+          actedById: user.id,
+          actedAt: new Date(),
+          comment: dto?.comment || 'CEO duyệt thẳng toàn bộ quy trình',
+        },
+      });
+
+      const updatedDoc = await tx.document.update({
+        where: { id: documentId },
+        data: { status: 'Đã duyệt', version: doc.version + 1 },
+        include: {
+          steps: { orderBy: { stepOrder: 'asc' } },
+          createdBy: { select: { id: true, name: true, email: true } },
+        },
+      });
+
+      await this.auditService.logEvent({
+        entityType: 'Document',
+        entityId: doc.id,
+        action: 'approve_document_direct',
+        actorId: user.id,
+        beforeJson: { status: doc.status, remainingSteps: doc.steps.filter((s: any) => s.status !== 'approved').length },
+        afterJson: {
+          status: 'Đã duyệt',
+          comment: dto?.comment || 'CEO duyệt thẳng toàn bộ quy trình',
+        },
+        ip,
+      });
+
+      return updatedDoc;
+    });
+
+    await this.notificationsService.dispatchNotification({
+      userId: doc.createdById,
+      eventType: 'document_approved',
+      entityRef: `document:${doc.id}`,
+      title: `CEO đã duyệt thẳng hồ sơ: ${doc.code}`,
+      content: `Hồ sơ "${doc.title}" đã được CEO phê duyệt hoàn tất.`,
+      link: `/documents?id=${doc.id}`,
+      dedupeKey: `doc_direct_approved_${doc.id}_${Date.now()}`,
+    });
+
+    return result;
+  }
+
   async returnStep(
     documentId: number,
     stepId: number,
