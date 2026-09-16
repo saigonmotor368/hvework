@@ -353,61 +353,6 @@ export default function App() {
     }
   };
 
-  // Switch role demo account
-  const handleSwitchAccount = async (email: string) => {
-    setIsProcessing(true);
-    try {
-      const response = await fetch(`${API_BASE_URL}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password: 'password123' }),
-      });
-
-      let data;
-      if (!response.ok) {
-        // Fallback with default seed password
-        const retry = await fetch(`${API_BASE_URL}/auth/login`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password: '123456' }),
-        });
-        data = await retry.json();
-        if (!retry.ok) throw new Error(data.message || 'Chuyển tài khoản thất bại');
-      } else {
-        data = await response.json();
-      }
-
-      localStorage.setItem('access_token', data.access_token);
-      localStorage.setItem('refresh_token', data.refresh_token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-
-      setUser(data.user);
-      setIsAuthenticated(true);
-      setSelectedDoc(null);
-      showToast(`Đã chuyển sang tài khoản: ${data.user.name} (${email})`);
-      fetchDocuments();
-    } catch {
-      // Offline fallback: match mock user by email
-      let matchedUser: any = MOCK_USERS.employee;
-      if (email.includes('ceo')) matchedUser = MOCK_USERS.ceo;
-      else if (email.includes('tp_it')) matchedUser = MOCK_USERS.dept_head;
-      else if (email.includes('ketoan')) matchedUser = MOCK_USERS.accountant;
-      else if (email.includes('phapche')) matchedUser = MOCK_USERS.legal;
-      else if (email.includes('admin')) matchedUser = MOCK_USERS.it_admin;
-
-      localStorage.setItem('access_token', 'mock_token_' + matchedUser.id);
-      localStorage.setItem('refresh_token', 'mock_refresh_' + matchedUser.id);
-      localStorage.setItem('user', JSON.stringify(matchedUser));
-
-      setUser(matchedUser);
-      setIsAuthenticated(true);
-      setSelectedDoc(null);
-      setDocuments(MOCK_DOCUMENTS);
-      showToast(`Đã chuyển sang vai trò: ${matchedUser.name} (${matchedUser.email})`);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
 
   const handleLogout = () => {
     localStorage.removeItem('access_token');
