@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { PwaInstallPrompt } from './PwaInstallPrompt.js';
 
 interface LoginPageProps {
@@ -18,6 +18,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   onVerifyEmail,
   onCancelVerification,
 }) => {
+  const [verificationInput, setVerificationInput] = useState<{
+    email?: string;
+    code: string;
+  }>({ code: '' });
+  const verificationCode =
+    verificationInput.email === verificationEmail ? verificationInput.code : '';
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
@@ -36,7 +43,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-6 shadow-xl shadow-slate-200/60 rounded-2xl sm:px-10 border border-slate-100">
           {verificationEmail ? (
-            <form className="space-y-5" onSubmit={onVerifyEmail}>
+            <form className="space-y-5" onSubmit={onVerifyEmail} autoComplete="off" data-form-type="other">
               <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-900">
                 Thiết bị này cần được xác minh. Mã 6 số đã gửi tới{' '}
                 <strong>{verificationEmail}</strong> và có hiệu lực trong 10 phút.
@@ -56,7 +63,19 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   pattern="[0-9]{6}"
                   maxLength={6}
                   autoComplete="one-time-code"
-                  placeholder="000000"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  aria-label="Mã xác minh email gồm 6 chữ số"
+                  placeholder="••••••"
+                  value={verificationCode}
+                  onChange={(event) => {
+                    const nextCode = event.target.value;
+                    if (/^\d{0,6}$/.test(nextCode)) {
+                      setVerificationInput({ email: verificationEmail, code: nextCode });
+                    }
+                  }}
+                  data-1p-ignore
+                  data-lpignore="true"
                   autoFocus
                   className="mt-1 block w-full px-3.5 py-3 bg-slate-50 border border-gray-200 rounded-lg text-center text-xl tracking-[0.35em] font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#0A66C2] focus:bg-white"
                 />
@@ -132,4 +151,3 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     </div>
   );
 };
-
