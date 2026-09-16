@@ -8,6 +8,7 @@ import { DocumentsModule } from './documents/documents.module.js';
 import { AttachmentsModule } from './attachments/attachments.module.js';
 import { WorkflowsModule } from './workflows/workflows.module.js';
 import { AdminModule } from './admin/admin.module.js';
+import { TasksModule } from './tasks/tasks.module.js';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { AdminModule } from './admin/admin.module.js';
     AttachmentsModule,
     WorkflowsModule,
     AdminModule,
+    TasksModule,
   ],
   controllers: [AppController],
   providers: [AppService],

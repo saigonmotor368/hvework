@@ -99,3 +99,70 @@ export const DOCUMENT_TYPE_LABELS: Record<string, string> = {
   proposal: 'Đề xuất',
   contract: 'Hợp đồng',
 };
+
+export interface SubTaskItem {
+  id: number;
+  code: string;
+  title: string;
+  description?: string | null;
+  priority: 'low' | 'normal' | 'high' | 'urgent';
+  status: 'Chưa làm' | 'Đang làm' | 'Chờ duyệt' | 'Hoàn thành';
+  progressPercent: number;
+  startDate?: string | null;
+  dueDate?: string | null;
+  assigneeId?: number | null;
+  assignee?: { id: number; name: string };
+  isOverdue?: boolean;
+}
+
+export interface TaskComment {
+  id: number;
+  entityId: number;
+  userId: number;
+  content: string;
+  mentions?: number[];
+  createdAt: string;
+  user?: { id: number; name: string; email?: string };
+}
+
+export interface TaskItem {
+  id: number;
+  code: string;
+  title: string;
+  description?: string | null;
+  priority: 'low' | 'normal' | 'high' | 'urgent';
+  status: 'Chưa làm' | 'Đang làm' | 'Chờ duyệt' | 'Hoàn thành';
+  progressPercent: number;
+  startDate?: string | null;
+  dueDate?: string | null;
+  assigneeId?: number | null;
+  assignee?: { id: number; name: string; email: string; departmentId?: number | null };
+  createdById: number;
+  createdBy?: { id: number; name: string; email: string; departmentId?: number | null };
+  parentTaskId?: number | null;
+  parentTask?: { id: number; code: string; title: string; status: string } | null;
+  subTasks?: SubTaskItem[];
+  recurrenceRule?: 'daily' | 'weekly' | 'monthly' | null;
+  tags?: string | null;
+  collaboratorIds?: number[] | null;
+  isOverdue?: boolean;
+  createdAt: string;
+  updatedAt: string;
+  attachments?: Array<{ id: number; fileName: string; size: number; mimeType: string; fileUrl: string }>;
+  comments?: TaskComment[];
+}
+
+export const TASK_PRIORITY_LABELS: Record<string, { label: string; color: string }> = {
+  low: { label: 'Thấp', color: 'bg-slate-100 text-slate-700' },
+  normal: { label: 'Bình thường', color: 'bg-blue-100 text-blue-700' },
+  high: { label: 'Cao', color: 'bg-orange-100 text-orange-700' },
+  urgent: { label: 'Khẩn cấp', color: 'bg-red-100 text-red-700' },
+};
+
+export const TASK_STATUS_LABELS: Record<string, { label: string; color: string }> = {
+  'Chưa làm': { label: 'Chưa làm', color: 'bg-slate-100 text-slate-700' },
+  'Đang làm': { label: 'Đang làm', color: 'bg-blue-100 text-blue-700' },
+  'Chờ duyệt': { label: 'Chờ duyệt', color: 'bg-amber-100 text-amber-800' },
+  'Hoàn thành': { label: 'Hoàn thành', color: 'bg-emerald-100 text-emerald-800' },
+};
+

@@ -96,23 +96,23 @@ Bám theo [02_KE_HOACH_TRIEN_KHAI.md](02_KE_HOACH_TRIEN_KHAI.md) và [01_KIEN_TR
 ## Phase 3 — Quản lý công việc
 
 ### Backend
-- [ ] API tạo/giao việc: tiêu đề, mô tả, người thực hiện, người phối hợp, hạn hoàn thành, ưu tiên, thẻ phân loại
-- [ ] API việc con (parent_task_id), tính progress cha dựa theo việc con (nếu áp dụng — xác nhận rule với HVE)
-- [ ] API việc lặp lại: cấu hình chu kỳ (ngày/tuần/tháng), job tự tạo kỳ mới khi kỳ trước hoàn thành hoặc theo lịch
-- [ ] API cập nhật tiến độ (%), đổi trạng thái Chưa làm→Đang làm→Chờ duyệt
-- [ ] API xác nhận hoàn thành — chỉ người giao việc được gọi, không phải người thực hiện
-- [ ] Cờ `is_overdue` tính runtime, không lưu cứng trong DB
-- [ ] API bình luận + gắn tên người dùng (mention) trên task, sinh notification cho người được gắn tên
-- [ ] Audit log cho mọi thay đổi người phụ trách/hạn hoàn thành
+- [x] API tạo/giao việc: tiêu đề, mô tả, người thực hiện, người phối hợp, hạn hoàn thành, ưu tiên, thẻ phân loại (`CV-YYYY-NNN`)
+- [x] API việc con (parent_task_id), tính progress cha tự động từ việc con (khóa nhập tay tiến độ cha khi có việc con, giới hạn tối đa 2 cấp)
+- [x] API việc lặp lại: cấu hình chu kỳ (daily/weekly/monthly), tự tạo kỳ mới khi xác nhận hoàn thành (hỗ trợ round-forward tới mốc tương lai và helper safe-month chống tràn ngày cuối tháng)
+- [x] API cập nhật tiến độ (%), tự động đổi trạng thái Chưa làm (0%) → Đang làm (1-99%) → Chờ duyệt (100%)
+- [x] API xác nhận hoàn thành — chỉ người giao việc hoặc CEO được gọi, chặn double-submit (`status !== 'Chờ duyệt'`)
+- [x] Cờ `is_overdue` tính runtime (`now > dueDate && status !== 'Hoàn thành'`), không lưu cứng trong DB
+- [x] API bình luận + gắn tên người dùng (mention) trên task, sinh in-app notification với `dedupeKey` duy nhất
+- [x] Audit log cho mọi thay đổi người phụ trách (`assigneeId`) hoặc hạn hoàn thành (`dueDate`), chỉ người giao, Trưởng BP cùng phòng hoặc CEO mới có quyền sửa
 
 ### Frontend
-- [ ] Form tạo/giao việc (desktop + mobile)
-- [ ] Danh sách việc: của tôi / tôi giao / theo bộ phận, filter theo trạng thái/ưu tiên/hạn
-- [ ] Màn hình chi tiết việc: tiến độ, việc con, bình luận, file đính kèm, nút xác nhận hoàn thành (chỉ hiện cho người giao)
-- [ ] Badge "Quá hạn" tự động trên danh sách và chi tiết
-- [ ] UI cấu hình việc lặp lại (chọn chu kỳ)
+- [x] Form tạo/giao việc (desktop + mobile) với chọn người thực hiện, người phối hợp, ưu tiên, tag, chu kỳ lặp và đính kèm file
+- [x] Danh sách việc: 4 tab (Tất cả / Việc tôi làm / Việc tôi giao / Việc bộ phận — lọc đúng theo bộ phận của user), filter trạng thái/ưu tiên/quá hạn/tìm kiếm
+- [x] Màn hình chi tiết việc: tiến độ slider, khóa tiến độ cha nếu có việc con, việc con dạng danh sách, bình luận + mention, file đính kèm, nút xác nhận hoàn thành (chỉ hiện cho người giao khi Chờ duyệt)
+- [x] Badge "Quá hạn" tự động trên danh sách và chi tiết
+- [x] UI cấu hình việc lặp lại (chọn chu kỳ daily/weekly/monthly, chỉ áp dụng cho việc độc lập)
 
-**Nghiệm thu Phase 3:** giao 1 việc có việc con + lặp lại hàng tuần, thực hiện cập nhật tiến độ, chuyển Chờ duyệt, người giao xác nhận hoàn thành, kỳ mới tự sinh đúng lịch.
+**Nghiệm thu Phase 3:** ✅ **ĐÃ ĐẠT** (Backend 92/92 tests pass, Frontend build pass sạch sẽ, bao phủ đầy đủ state machine, chống double submit, round-forward kỳ lặp, lọc việc bộ phận chính xác và phân quyền chặt chẽ).
 
 ---
 

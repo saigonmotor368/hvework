@@ -2,10 +2,11 @@ import React from 'react';
 import { ROLE_LABELS } from '../types';
 
 interface SidebarProps {
-  activeTab: 'overview' | 'documents' | 'create' | 'admin_workflows' | 'admin_users';
+  activeTab: 'overview' | 'documents' | 'create' | 'tasks' | 'admin_workflows' | 'admin_users';
   pendingCount: number;
+  taskCount?: number;
   user: any;
-  onSelectTab: (tab: 'overview' | 'documents' | 'create' | 'admin_workflows' | 'admin_users') => void;
+  onSelectTab: (tab: 'overview' | 'documents' | 'create' | 'tasks' | 'admin_workflows' | 'admin_users') => void;
   onLogout: () => void;
   onSwitchAccount: (email: string) => void;
 }
@@ -13,6 +14,7 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
   pendingCount,
+  taskCount = 0,
   user,
   onSelectTab,
   onLogout,
@@ -62,6 +64,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {pendingCount > 0 && (
               <span className="bg-amber-100 text-amber-900 text-xs px-2 py-0.5 rounded-full font-bold">
                 {pendingCount}
+              </span>
+            )}
+          </button>
+
+          <button
+            onClick={() => onSelectTab('tasks')}
+            className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
+              activeTab === 'tasks'
+                ? 'bg-blue-50 text-[#0A66C2] font-semibold'
+                : 'text-gray-600 hover:bg-slate-50'
+            }`}
+          >
+            <div className="flex items-center">
+              <span className="mr-3">📋</span> Quản lý công việc
+            </div>
+            {taskCount > 0 && (
+              <span className="bg-blue-100 text-blue-900 text-xs px-2 py-0.5 rounded-full font-bold">
+                {taskCount}
               </span>
             )}
           </button>

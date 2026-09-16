@@ -10,10 +10,10 @@
 | Phase | Tên giai đoạn | Trạng thái | Đánh giá |
 |---|---|---|---|
 | **Phase 0** | Nền tảng & Hạ tầng (Auth, RBAC, DB Schema, CI) | **ĐÃ HOÀN THÀNH** | ✅ Đạt nghiệm thu ([04_REVIEW_PHASE0.md](04_REVIEW_PHASE0.md)) |
-| **Phase 1** | Lõi phê duyệt: Đề nghị thanh toán (Backend + Frontend) | **ĐÃ HOÀN THÀNH** | ✅ Đã bổ sung đủ Frontend, Pre-signed URL, Versioning, Validate chứng từ. 40/40 Unit tests pass, Frontend build pass. |
-| **Phase 2** | Mở rộng phê duyệt: Đề xuất, Hợp đồng, IT Admin Workflow | ⏳ **CHỜ BẮT ĐẦU** | Sẵn sàng triển khai tiếp theo |
-| **Phase 3** | Quản lý công việc (Task Management, Recurring Tasks) | ⏳ Chưa bắt đầu | Kế hoạch sau Phase 2 |
-| **Phase 4** | Thông báo, Báo cáo, Dashboard nâng cao | ⏳ Chưa bắt đầu | Kế hoạch sau Phase 3 |
+| **Phase 1** | Lõi phê duyệt: Đề nghị thanh toán (Backend + Frontend) | **ĐÃ HOÀN THÀNH** | ✅ Đạt nghiệm thu ([05_REVIEW_PHASE1.md](05_REVIEW_PHASE1.md)) |
+| **Phase 2** | Mở rộng phê duyệt: Đề xuất, Hợp đồng, IT Admin Workflow | **ĐÃ HOÀN THÀNH** | ✅ Đạt nghiệm thu ([07_REVIEW_PHASE2.md](07_REVIEW_PHASE2.md)) |
+| **Phase 3** | Quản lý công việc (Task Management, Recurring Tasks) | **ĐÃ HOÀN THÀNH** | ✅ Đạt 92/92 tests pass, build sạch sẽ, xử lý triệt để 6 điểm theo review [08_REVIEW_PHASE3_PLAN.md](08_REVIEW_PHASE3_PLAN.md) |
+| **Phase 4** | Thông báo, Báo cáo, Dashboard nâng cao | ⏳ **CHỜ BẮT ĐẦU** | Sẵn sàng triển khai tiếp theo |
 | **Phase 5** | PWA, Bảo mật (Hardening), UAT & Bàn giao | ⏳ Chưa bắt đầu | Giai đoạn cuối |
 
 ---
@@ -145,22 +145,59 @@
      - Frontend build: **Pass sạch sẽ trong 216ms** (tsc + vite build 0 lỗi).
      - Nghiệm thu Phase 2: **CHÍNH THỨC ĐẠT** (Cả 3 loại hồ sơ chạy đúng luồng riêng bằng chung 1 engine; IT admin đổi được cấu hình duyệt và quản lý user qua UI mà không cần sửa code).
 
+### 3.3. Phiên làm việc: Triển khai Phase 3 — Quản lý công việc (16/09/2026)
+- **Mục tiêu**: Xây dựng toàn bộ phân hệ Quản lý công việc (Task Management) theo đúng brief, tuân thủ nghiêm ngặt 6 điểm chốt và 2 lưu ý kỹ thuật từ [08_REVIEW_PHASE3_PLAN.md](08_REVIEW_PHASE3_PLAN.md).
+- **Các hạng mục đã hoàn thành**:
+  1. **Schema Database Prisma**:
+     - Bổ sung `tags String?` và `collaboratorIds Json?` vào model `Task`. Chạy `npx prisma generate` cập nhật Prisma Client.
+  2. **Backend `TasksModule` & `TasksService`**:
+     - Sinh mã việc tự động chuẩn hóa `CV-YYYY-NNN` (ví dụ `CV-2026-001`).
+     - **Chặn double-submit `confirmCompletion`**: Kiểm tra `if (task.status !== 'Chờ duyệt') throw new BadRequestException(...)` ngay đầu hàm. Phân quyền: chỉ người giao việc (`createdById`) hoặc CEO mới được xác nhận hoàn thành.
+     - **Xử lý việc lặp lại & helper an toàn**:
+       - Helper `addMonthsSafe` chống tràn ngày cuối tháng (VD: 31/01 -> 28/02).
+       - Helper `calculateNextDueDate` round-forward từ `dueDate` cũ tới mốc tương lai gần nhất (`>= now`).
+       - Tự động sinh task kỳ mới khi xác nhận hoàn thành trong Prisma `$transaction`.
+     - **Tính toán tiến độ việc con & việc cha**:
+       - Khóa cập nhật tiến độ trực tiếp trên việc cha khi đã có việc con.
+       - Tự động tính trung bình cộng tiến độ từ các việc con lên việc cha: 0% → Chưa làm, 1-99% → Đang làm, 100% → Chờ duyệt.
+     - **Giới hạn 2 cấp công việc**: Chặn không cho tạo việc con vượt quá 2 cấp (việc cha và việc con).
+     - **Cờ runtime `isOverdue`**: Tính động `status !== 'Hoàn thành' && dueDate < now`, không lưu cứng trong DB.
+     - **Lọc 4 tab danh sách**:
+       - `all`: Danh sách chung.
+       - `assigned_to_me`: Lọc theo `assigneeId = user.id`.
+       - `assigned_by_me`: Lọc theo `createdById = user.id`.
+       - `department`: Lọc chính xác các việc mà `assignee.departmentId === userDeptId` HOẶC `createdBy.departmentId === userDeptId`.
+     - **Bình luận, Mention & In-app Notification**:
+       - `addComment` lưu bình luận kèm mảng ID người được nhắc tên (`mentions`).
+       - Tự động tạo `Notification` với `dedupeKey: task_mention_${comment.id}_${userId}_${timestamp}` đảm bảo duy nhất tuyệt đối.
+     - **Phân quyền sửa việc & Audit Log**:
+       - Chỉ người giao việc, Trưởng BP cùng phòng hoặc CEO mới có quyền đổi `assigneeId` hoặc `dueDate`. Ghi nhận Audit Log sự kiện thay đổi.
+     - **API danh sách nhân viên khả dụng**: Thêm `GET /tasks/users` để nhân viên dễ dàng chọn người thực hiện, người phối hợp và mention đồng nghiệp.
+  3. **Frontend Phase 3**:
+     - `types.ts`: Bổ sung `TaskItem`, `SubTaskItem`, `TaskComment`, bảng màu trạng thái và ưu tiên.
+     - `CreateTaskModal.tsx`: Form tạo việc mới / việc con, chọn người làm, người phối hợp, mức độ ưu tiên, hạn, tag, chu kỳ lặp lại và tải file đính kèm.
+     - `TaskDetailModal.tsx`: Xem chi tiết việc, thanh kéo slider cập nhật tiến độ (tự khóa khi có việc con), nút "Xác nhận hoàn thành" chỉ hiện cho người giao khi Chờ duyệt, danh sách việc con, tệp đính kèm và khu vực thảo luận mention.
+     - `TaskListView.tsx`: Giao diện 4 tab, bộ lọc trạng thái, độ ưu tiên, checkbox xem việc quá hạn, tìm kiếm, bảng danh sách có thể mở rộng (accordion) xem việc con trực thuộc.
+     - `Sidebar.tsx` & `App.tsx`: Tích hợp tab `tasks`, hiển thị badge số việc cần xử lý.
+  4. **Kiểm thử & Build**:
+     - Backend unit tests: **92/92 tests pass 100%** (bao phủ 21 unit tests mới trong `tasks.service.spec.ts` cho toàn bộ các case nghiệp vụ).
+     - Backend build: **Pass sạch sẽ** (`nest build` 0 lỗi).
+     - Frontend build: **Pass sạch sẽ** (`tsc -b && vite build` 0 lỗi).
+
 ---
 
 ## 🎯 4. KẾ HOẠCH BƯỚC TIẾP THEO (NEXT STEPS)
 
-Khi bắt đầu phiên làm việc tiếp theo, chuyển sang triển khai **Phase 3 — Quản lý công việc ([03_TASKLIST_DEV.md](03_TASKLIST_DEV.md) §Phase 3)**:
+Khi bắt đầu phiên làm việc tiếp theo, chuyển sang triển khai **Phase 4 — Thông báo, Báo cáo, Dashboard ([03_TASKLIST_DEV.md](03_TASKLIST_DEV.md) §Phase 4)**:
 
 1. **Backend**:
-   - API tạo/giao việc: tiêu đề, mô tả, người thực hiện, người phối hợp, hạn hoàn thành, ưu tiên, thẻ phân loại.
-   - API việc con (`parentTaskId`), tính progress cha theo việc con.
-   - API việc lặp lại: cấu hình chu kỳ (ngày/tuần/tháng), job tự sinh kỳ mới.
-   - API cập nhật tiến độ (%), đổi trạng thái Chưa làm → Đang làm → Chờ duyệt.
-   - API xác nhận hoàn thành (chỉ người giao việc được xác nhận).
-   - Runtime flag `is_overdue`.
-   - API bình luận + mention người dùng trên task.
+   - Bảng `reminder_rules` + API cấu hình mốc nhắc nhở (hồ sơ cần duyệt, việc sắp/quá hạn, hợp đồng sắp hết hạn).
+   - Job scheduler quét mốc nhắc + dedupe key.
+   - Cơ chế gửi email qua SMTP/Nodemailer với template cấu hình được.
+   - API Dashboard theo vai trò (CEO, Trưởng bộ phận, Nhân viên, Kế toán/Pháp chế) với cache 60s.
+   - API Báo cáo tổng hợp: công việc, hồ sơ, thanh toán, hợp đồng; xuất Excel/PDF tuân thủ phân quyền.
 2. **Frontend**:
-   - Form tạo & giao việc (desktop + mobile).
-   - Danh sách việc: của tôi / tôi giao / theo bộ phận, filter theo trạng thái/ưu tiên/hạn.
-   - Màn hình chi tiết việc: tiến độ, việc con, bình luận, nút xác nhận hoàn thành cho người giao việc.
+   - Trung tâm thông báo (Notification Center chuông + popover + đánh dấu đã đọc).
+   - 4 Dashboard theo vai trò.
+   - Màn hình Báo cáo động với bộ lọc và xuất file Excel/PDF.
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { type DocumentItem, type ApprovalStep, ROLE_LABELS } from './types';
+import { type DocumentItem, type ApprovalStep, type TaskItem, ROLE_LABELS } from './types';
 
 import { Toast } from './components/Toast';
 import { LoginPage } from './components/LoginPage';
@@ -11,6 +11,9 @@ import { CreateDocumentForm, type CreateFormData } from './components/CreateDocu
 import { ActionReasonModal } from './components/ActionReasonModal';
 import { AdminWorkflowView } from './components/AdminWorkflowView';
 import { AdminUserView } from './components/AdminUserView';
+import { TaskListView } from './components/TaskListView';
+import { CreateTaskModal } from './components/CreateTaskModal';
+import { TaskDetailModal } from './components/TaskDetailModal';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -27,10 +30,17 @@ export default function App() {
 
   // Main navigation & document state
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'documents' | 'create' | 'admin_workflows' | 'admin_users'
+    'overview' | 'documents' | 'create' | 'tasks' | 'admin_workflows' | 'admin_users'
   >('overview');
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
   const [selectedDoc, setSelectedDoc] = useState<DocumentItem | null>(null);
+
+  // Task management state
+  const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
+  const [isCreateTaskOpen, setIsCreateTaskOpen] = useState<boolean>(false);
+  const [parentTaskForCreate, setParentTaskForCreate] = useState<TaskItem | null>(null);
+  const [assignableUsers, setAssignableUsers] = useState<any[]>([]);
+  const [taskCount, setTaskCount] = useState<number>(0);
 
   // Filters
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -112,9 +122,44 @@ export default function App() {
     }
   };
 
+  const fetchAssignableUsers = async () => {
+    const token = localStorage.getItem('access_token');
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/tasks/users`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAssignableUsers(data);
+      }
+    } catch {
+      // offline
+    }
+  };
+
+  const fetchTaskCount = async () => {
+    const token = localStorage.getItem('access_token');
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/tasks?tab=assigned_to_me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const pending = data.filter((t: any) => t.status === 'Chờ duyệt' || t.isOverdue);
+        setTaskCount(pending.length);
+      }
+    } catch {
+      // offline
+    }
+  };
+
   useEffect(() => {
     if (isAuthenticated) {
       fetchDocuments();
+      fetchAssignableUsers();
+      fetchTaskCount();
     }
   }, [isAuthenticated, tabFilter, statusFilter, typeFilter]);
 
@@ -580,9 +625,11 @@ export default function App() {
       <Sidebar
         activeTab={activeTab}
         pendingCount={pendingCount}
+        taskCount={taskCount}
         user={user}
         onSelectTab={(tab) => {
           setSelectedDoc(null);
+          setSelectedTaskId(null);
           setActiveTab(tab);
         }}
         onLogout={handleLogout}
@@ -597,6 +644,7 @@ export default function App() {
             <h2 className="text-base font-bold text-gray-900">
               {activeTab === 'overview' && 'Tổng quan điều hành'}
               {activeTab === 'documents' && 'Danh sách hồ sơ phê duyệt'}
+              {activeTab === 'tasks' && 'Quản lý công việc & Giao nhiệm vụ'}
               {activeTab === 'create' && 'Khởi tạo hồ sơ phê duyệt mới'}
               {activeTab === 'admin_workflows' && 'Cấu hình quy trình phê duyệt (IT Admin)'}
               {activeTab === 'admin_users' && 'Quản lý người dùng & phân quyền (IT Admin)'}
@@ -675,6 +723,20 @@ export default function App() {
             </div>
           )}
 
+          {/* TAB: TASKS LIST */}
+          {activeTab === 'tasks' && (
+            <TaskListView
+              apiBaseUrl={API_BASE_URL}
+              currentUser={user}
+              showToast={showToast}
+              onOpenCreate={() => {
+                setParentTaskForCreate(null);
+                setIsCreateTaskOpen(true);
+              }}
+              onSelectTask={(task) => setSelectedTaskId(task.id)}
+            />
+          )}
+
           {/* TAB 3: CREATE FORM */}
           {activeTab === 'create' && (
             <CreateDocumentForm
@@ -697,6 +759,43 @@ export default function App() {
           )}
         </div>
       </main>
+
+      {/* Task Creation Modal */}
+      <CreateTaskModal
+        isOpen={isCreateTaskOpen}
+        onClose={() => {
+          setIsCreateTaskOpen(false);
+          setParentTaskForCreate(null);
+        }}
+        onSuccess={() => {
+          fetchTaskCount();
+        }}
+        apiBaseUrl={API_BASE_URL}
+        users={assignableUsers}
+        parentTask={parentTaskForCreate}
+        showToast={showToast}
+      />
+
+      {/* Task Detail Modal */}
+      {selectedTaskId && (
+        <TaskDetailModal
+          taskId={selectedTaskId}
+          isOpen={!!selectedTaskId}
+          onClose={() => setSelectedTaskId(null)}
+          currentUser={user}
+          apiBaseUrl={API_BASE_URL}
+          users={assignableUsers}
+          showToast={showToast}
+          onRefreshList={() => {
+            fetchTaskCount();
+          }}
+          onOpenCreateSubtask={(parent) => {
+            setSelectedTaskId(null);
+            setParentTaskForCreate(parent);
+            setIsCreateTaskOpen(true);
+          }}
+        />
+      )}
 
       <ActionReasonModal
         modalAction={modalAction}
