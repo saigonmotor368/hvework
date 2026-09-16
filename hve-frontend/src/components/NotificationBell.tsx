@@ -158,7 +158,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ apiBaseUrl, 
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-[90vw] max-w-96 bg-white rounded-2xl shadow-xl border border-slate-200 z-50 overflow-hidden animate-fadeIn">
+        <div className="fixed left-3 right-3 top-14 mt-2 bg-white rounded-2xl shadow-xl border border-slate-200 z-50 overflow-hidden animate-fadeIn sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:w-[90vw] sm:max-w-96">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50/50">
             <div className="flex items-center space-x-2">
@@ -181,7 +181,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ apiBaseUrl, 
           </div>
 
           {/* List */}
-          <div className="max-h-[380px] overflow-y-auto divide-y divide-slate-100">
+          <div className="mobile-scroll max-h-[min(60dvh,380px)] overflow-y-auto divide-y divide-slate-100">
             {notifications.length === 0 ? (
               <div className="py-8 text-center text-sm text-gray-400">
                 <span className="text-2xl block mb-1">🎉</span>

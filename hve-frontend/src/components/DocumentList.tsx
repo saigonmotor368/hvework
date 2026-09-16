@@ -54,14 +54,14 @@ export const DocumentList: React.FC<DocumentListProps> = ({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-4 md:space-y-6">
       {/* Toolbar */}
       <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         {/* Scope Tabs */}
-        <div className="flex rounded-xl bg-slate-100 p-1">
+        <div className="grid w-full grid-cols-3 rounded-xl bg-slate-100 p-1 md:flex md:w-auto">
           <button
             onClick={() => setTabFilter('all')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            className={`px-2 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold transition-all ${
               tabFilter === 'all' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-900'
             }`}
           >
@@ -69,7 +69,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
           </button>
           <button
             onClick={() => setTabFilter('my')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            className={`px-2 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold transition-all ${
               tabFilter === 'my' ? 'bg-white shadow text-[#0A66C2]' : 'text-gray-500 hover:text-gray-900'
             }`}
           >
@@ -77,7 +77,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
           </button>
           <button
             onClick={() => setTabFilter('to_review')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            className={`px-2 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold transition-all ${
               tabFilter === 'to_review' ? 'bg-white shadow text-amber-800' : 'text-gray-500 hover:text-gray-900'
             }`}
           >
@@ -86,12 +86,12 @@ export const DocumentList: React.FC<DocumentListProps> = ({
         </div>
 
         {/* Filter Dropdowns & Search */}
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="grid w-full grid-cols-2 gap-2.5 sm:flex sm:flex-wrap sm:items-center">
           {/* Type Filter */}
           <select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
-            className="text-xs font-medium bg-slate-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#0A66C2]"
+            className="w-full text-xs font-medium bg-slate-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#0A66C2] sm:w-auto"
           >
             <option value="all">Tất cả loại hồ sơ</option>
             <option value="payment_request">Đề nghị thanh toán</option>
@@ -103,7 +103,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="text-xs font-medium bg-slate-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#0A66C2]"
+            className="w-full text-xs font-medium bg-slate-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#0A66C2] sm:w-auto"
           >
             <option value="all">Tất cả trạng thái</option>
             <option value="Nháp">Bản nháp</option>
@@ -118,21 +118,71 @@ export const DocumentList: React.FC<DocumentListProps> = ({
             placeholder="Tìm mã, tiêu đề, đối tác..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="text-xs bg-slate-50 border border-gray-200 rounded-lg px-3.5 py-2 text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0A66C2]"
+            className="col-span-2 w-full text-xs bg-slate-50 border border-gray-200 rounded-lg px-3.5 py-2 text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0A66C2] sm:w-auto"
           />
 
           <button
             onClick={onCreateNew}
-            className="px-3.5 py-2 rounded-lg bg-[#0A66C2] text-white text-xs font-bold hover:bg-blue-700 shadow-sm transition-all"
+            className="col-span-2 w-full px-3.5 py-2 rounded-lg bg-[#0A66C2] text-white text-xs font-bold hover:bg-blue-700 shadow-sm transition-all sm:w-auto"
           >
             + Tạo mới
           </button>
         </div>
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-        <table className="w-full text-left text-sm">
+      {/* Mobile card list */}
+      <div className="space-y-3 md:hidden">
+        {filteredDocuments.length === 0 ? (
+          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-10 text-center text-sm text-gray-400">
+            Chưa có hồ sơ phù hợp với bộ lọc hiện tại.
+          </div>
+        ) : (
+          filteredDocuments.map((doc) => (
+            <button
+              type="button"
+              key={doc.id}
+              onClick={() => onSelectDoc(doc)}
+              className="w-full rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition active:scale-[0.99]"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="font-mono text-xs font-extrabold text-[#0A66C2]">{doc.code}</span>
+                <div className="flex flex-wrap items-center justify-end gap-1.5">
+                  {getTypeBadge(doc.type)}
+                  {getStatusBadge(doc.status)}
+                </div>
+              </div>
+              <h3 className="mt-3 break-words text-sm font-bold leading-snug text-gray-900">{doc.title}</h3>
+              <p className="mt-1 line-clamp-2 text-xs text-gray-500">
+                {doc.type === 'payment_request' && `Thụ hưởng: ${doc.dataJson?.receiver || '—'}`}
+                {doc.type === 'contract' && `Đối tác: ${doc.dataJson?.partner || '—'}`}
+                {doc.type === 'proposal' && (doc.dataJson?.content || 'Đề xuất nội bộ')}
+              </p>
+              <div className="mt-3 grid grid-cols-2 gap-3 border-t border-slate-100 pt-3 text-xs">
+                <div className="min-w-0">
+                  <span className="block text-[10px] font-bold uppercase text-gray-400">Người tạo</span>
+                  <span className="block truncate font-semibold text-gray-700">{doc.createdBy?.name || 'Nhân viên'}</span>
+                </div>
+                <div className="text-right">
+                  <span className="block text-[10px] font-bold uppercase text-gray-400">Giá trị / thời hạn</span>
+                  <span className="font-semibold text-gray-700">
+                    {doc.type === 'payment_request' && doc.dataJson?.amount !== undefined
+                      ? `${doc.dataJson.amount.toLocaleString('vi-VN')} đ`
+                      : doc.type === 'contract' && doc.dataJson?.endDate
+                        ? doc.dataJson.endDate
+                        : new Date(doc.createdAt).toLocaleDateString('vi-VN')}
+                  </span>
+                </div>
+              </div>
+              <span className="mt-3 block text-right text-xs font-bold text-[#0A66C2]">Xem chi tiết →</span>
+            </button>
+          ))
+        )}
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden md:block">
+        <div className="mobile-scroll overflow-x-auto">
+        <table className="min-w-[1100px] w-full text-left text-sm">
           <thead className="bg-slate-50/70 border-b border-slate-200 text-xs font-bold text-gray-500 uppercase tracking-wider">
             <tr>
               <th className="px-6 py-3.5">Mã hồ sơ</th>
@@ -233,6 +283,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

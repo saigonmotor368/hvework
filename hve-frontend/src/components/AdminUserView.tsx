@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { type AdminUser, type RoleItem, type DepartmentItem, ROLE_LABELS, DOCUMENT_TYPE_LABELS } from '../types';
+import { fetchWithSession } from '../api/client';
 
 interface AdminUserViewProps {
   apiBaseUrl: string;
@@ -105,9 +106,9 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
     const token = localStorage.getItem('access_token');
     try {
       const [uRes, rRes, dRes] = await Promise.all([
-        fetch(`${apiBaseUrl}/admin/users`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${apiBaseUrl}/admin/roles`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${apiBaseUrl}/admin/departments`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetchWithSession(`${apiBaseUrl}/admin/users`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetchWithSession(`${apiBaseUrl}/admin/roles`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetchWithSession(`${apiBaseUrl}/admin/departments`, { headers: { Authorization: `Bearer ${token}` } }),
       ]);
 
       if (uRes.ok && rRes.ok && dRes.ok) {
@@ -130,7 +131,7 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
     setIsLoadingStuck(true);
     const token = localStorage.getItem('access_token');
     try {
-      const res = await fetch(`${apiBaseUrl}/admin/stuck-data`, {
+      const res = await fetchWithSession(`${apiBaseUrl}/admin/stuck-data`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -166,7 +167,7 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
     const token = localStorage.getItem('access_token');
 
     try {
-      const res = await fetch(`${apiBaseUrl}/admin/users/${user.id}/status`, {
+      const res = await fetchWithSession(`${apiBaseUrl}/admin/users/${user.id}/status`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -208,7 +209,7 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
     const token = localStorage.getItem('access_token');
 
     try {
-      const res = await fetch(`${apiBaseUrl}/admin/users`, {
+      const res = await fetchWithSession(`${apiBaseUrl}/admin/users`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -282,7 +283,7 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
     const token = localStorage.getItem('access_token');
 
     try {
-      const res = await fetch(`${apiBaseUrl}/admin/users/${editUser.id}`, {
+      const res = await fetchWithSession(`${apiBaseUrl}/admin/users/${editUser.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -332,7 +333,7 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
     const token = localStorage.getItem('access_token');
 
     try {
-      const res = await fetch(`${apiBaseUrl}/admin/users/${resetUser.id}/reset-password`, {
+      const res = await fetchWithSession(`${apiBaseUrl}/admin/users/${resetUser.id}/reset-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -371,7 +372,7 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
         : `${apiBaseUrl}/admin/documents/${deleteTarget.id}`;
 
     try {
-      const res = await fetch(url, {
+      const res = await fetchWithSession(url, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -421,14 +422,14 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
   );
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-4 md:space-y-6">
       {/* Sub-tab Switcher Header */}
-      <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <div className="flex items-center space-x-2">
+          <div className="flex min-w-0 items-start space-x-2">
             <span className="text-2xl">🛠️</span>
             <div>
-              <h3 className="text-xl font-bold text-gray-900 tracking-tight">
+              <h3 className="text-lg sm:text-xl font-bold text-gray-900 tracking-tight">
                 Quản trị Hệ thống IT
               </h3>
               <p className="text-xs text-gray-500 mt-0.5">
@@ -439,10 +440,10 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
         </div>
 
         {/* View Toggle Tabs */}
-        <div className="flex items-center space-x-1 bg-slate-100 p-1 rounded-xl">
+        <div className="grid w-full grid-cols-2 bg-slate-100 p-1 rounded-xl md:flex md:w-auto md:items-center md:space-x-1">
           <button
             onClick={() => setActiveSubTab('users')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+            className={`px-2 sm:px-4 py-2 rounded-lg text-[11px] sm:text-xs font-bold transition-all ${
               activeSubTab === 'users'
                 ? 'bg-white text-[#0A66C2] shadow-xs'
                 : 'text-gray-600 hover:text-gray-900'
@@ -452,7 +453,7 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
           </button>
           <button
             onClick={() => setActiveSubTab('stuck_data')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+            className={`px-2 sm:px-4 py-2 rounded-lg text-[11px] sm:text-xs font-bold transition-all ${
               activeSubTab === 'stuck_data'
                 ? 'bg-white text-red-600 shadow-xs'
                 : 'text-gray-600 hover:text-gray-900'
@@ -468,11 +469,11 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
         <div className="space-y-6">
           {/* Action Bar */}
           <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:gap-3">
               <select
                 value={deptFilter}
                 onChange={(e) => setDeptFilter(e.target.value)}
-                className="text-xs font-medium bg-slate-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#0A66C2]"
+                className="w-full text-xs font-medium bg-slate-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#0A66C2] sm:w-auto"
               >
                 <option value="all">Tất cả phòng ban</option>
                 {departments.map((d) => (
@@ -487,13 +488,13 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                 placeholder="Tìm tên, email..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="text-xs bg-slate-50 border border-gray-200 rounded-lg px-3.5 py-2 text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0A66C2] w-64"
+                className="w-full text-xs bg-slate-50 border border-gray-200 rounded-lg px-3.5 py-2 text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0A66C2] sm:w-64"
               />
             </div>
 
             <button
               onClick={() => setIsAddModalOpen(true)}
-              className="inline-flex items-center justify-center px-4 py-2 rounded-xl bg-[#0A66C2] text-white text-xs font-bold hover:bg-blue-700 shadow-sm transition-all"
+              className="inline-flex w-full items-center justify-center px-4 py-2 rounded-xl bg-[#0A66C2] text-white text-xs font-bold hover:bg-blue-700 shadow-sm transition-all md:w-auto"
             >
               <span className="mr-1.5 text-base leading-none">➕</span> Thêm người dùng mới
             </button>
@@ -501,8 +502,8 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
 
           {/* Users Table */}
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
+            <div className="mobile-scroll overflow-x-auto">
+              <table className="min-w-[900px] w-full text-left text-sm">
                 <thead className="bg-slate-50/70 border-b border-slate-200 text-xs font-bold text-gray-500 uppercase tracking-wider">
                   <tr>
                     <th className="px-5 py-3.5">Họ và tên</th>
@@ -627,13 +628,13 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <input
               type="text"
               placeholder="Lọc mã công việc, mã hồ sơ hoặc tiêu đề..."
               value={stuckSearch}
               onChange={(e) => setStuckSearch(e.target.value)}
-              className="text-xs bg-white border border-gray-200 rounded-lg px-3.5 py-2 text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0A66C2] w-80 shadow-xs"
+              className="w-full text-xs bg-white border border-gray-200 rounded-lg px-3.5 py-2 text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0A66C2] shadow-xs sm:w-80"
             />
             <button
               onClick={fetchStuckData}
@@ -834,7 +835,7 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
       {/* ===================== MODAL 1: ADD NEW USER ===================== */}
       {isAddModalOpen && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-slate-200">
+          <div className="mobile-scroll max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 shadow-xl sm:p-6">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
               <h4 className="text-base font-bold text-gray-900 flex items-center">
                 <span className="mr-2">➕</span> Thêm người dùng mới
@@ -919,7 +920,7 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                 <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
                   Vai trò đảm nhiệm <span className="text-red-500">*</span>
                 </label>
-                <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto p-1 border border-slate-100 rounded-xl">
+                <div className="grid grid-cols-1 gap-2 max-h-40 overflow-y-auto p-1 border border-slate-100 rounded-xl sm:grid-cols-2">
                   {roles.map((r) => {
                     const isChecked = newRoleIds.includes(r.id);
                     return (
@@ -951,19 +952,19 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
               </div>
 
               {/* Actions */}
-              <div className="flex items-center justify-end space-x-2.5 pt-4 border-t border-slate-100">
+              <div className="grid grid-cols-2 gap-2.5 pt-4 border-t border-slate-100 sm:flex sm:items-center sm:justify-end">
                 <button
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
                   disabled={isCreatingUser}
-                  className="px-4 py-2 rounded-xl border border-gray-200 text-xs font-bold text-gray-600 hover:bg-slate-50"
+                  className="w-full px-4 py-2 rounded-xl border border-gray-200 text-xs font-bold text-gray-600 hover:bg-slate-50 sm:w-auto"
                 >
                   Hủy bỏ
                 </button>
                 <button
                   type="submit"
                   disabled={isCreatingUser}
-                  className="px-5 py-2 rounded-xl bg-[#0A66C2] text-white text-xs font-bold hover:bg-blue-700 shadow-sm"
+                  className="w-full px-5 py-2 rounded-xl bg-[#0A66C2] text-white text-xs font-bold hover:bg-blue-700 shadow-sm sm:w-auto"
                 >
                   {isCreatingUser ? 'Đang tạo...' : 'Tạo người dùng'}
                 </button>

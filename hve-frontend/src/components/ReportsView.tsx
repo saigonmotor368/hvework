@@ -240,12 +240,12 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-4 md:space-y-6">
       {/* Header & Export Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
         <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-black text-gray-900 tracking-tight">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <h1 className="w-full text-xl sm:w-auto sm:text-2xl font-black text-gray-900 tracking-tight">
               📈 Báo Cáo & Thống Kê Điều Hành
             </h1>
             {isEmployee && (
@@ -273,16 +273,16 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center space-x-3">
+        <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:items-center sm:space-x-3">
           <button
             onClick={handlePrint}
-            className="inline-flex items-center px-3.5 py-2 text-xs font-semibold text-gray-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors shadow-sm"
+            className="inline-flex items-center justify-center px-2 sm:px-3.5 py-2 text-[11px] sm:text-xs font-semibold text-gray-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors shadow-sm"
           >
             🖨️ In / Xuất PDF
           </button>
           <button
             onClick={handleExportCsv}
-            className="inline-flex items-center px-3.5 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-colors shadow-sm"
+            className="inline-flex items-center justify-center px-2 sm:px-3.5 py-2 text-[11px] sm:text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-colors shadow-sm"
           >
             📥 Xuất Excel (CSV UTF-8)
           </button>
@@ -290,10 +290,10 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
       </div>
 
       {/* 4 Tabs Selector */}
-      <div className="flex border-b border-slate-200 space-x-2">
+      <div className="mobile-scroll flex overflow-x-auto border-b border-slate-200 space-x-1 sm:space-x-2">
         <button
           onClick={() => setActiveTab('documents')}
-          className={`pb-3 px-4 text-sm font-bold border-b-2 transition-all ${
+          className={`shrink-0 pb-3 px-3 sm:px-4 text-xs sm:text-sm font-bold border-b-2 transition-all ${
             activeTab === 'documents'
               ? 'border-[#0A66C2] text-[#0A66C2]'
               : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -304,7 +304,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
 
         <button
           onClick={() => setActiveTab('tasks')}
-          className={`pb-3 px-4 text-sm font-bold border-b-2 transition-all ${
+          className={`shrink-0 pb-3 px-3 sm:px-4 text-xs sm:text-sm font-bold border-b-2 transition-all ${
             activeTab === 'tasks'
               ? 'border-[#0A66C2] text-[#0A66C2]'
               : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -316,7 +316,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         {!isEmployee && (
           <button
             onClick={() => setActiveTab('financial')}
-            className={`pb-3 px-4 text-sm font-bold border-b-2 transition-all ${
+            className={`shrink-0 pb-3 px-3 sm:px-4 text-xs sm:text-sm font-bold border-b-2 transition-all ${
               activeTab === 'financial'
                 ? 'border-[#0A66C2] text-[#0A66C2]'
                 : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -330,7 +330,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         {isCeoOrAdmin && (
           <button
             onClick={() => setActiveTab('audit_logs')}
-            className={`pb-3 px-4 text-sm font-bold border-b-2 transition-all ${
+            className={`shrink-0 pb-3 px-3 sm:px-4 text-xs sm:text-sm font-bold border-b-2 transition-all ${
               activeTab === 'audit_logs'
                 ? 'border-[#0A66C2] text-[#0A66C2]'
                 : 'border-transparent text-gray-500 hover:text-gray-700'

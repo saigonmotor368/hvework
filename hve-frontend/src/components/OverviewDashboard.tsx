@@ -95,11 +95,11 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
   }
 
   return (
-    <div className="space-y-8">
+    <div className="min-w-0 space-y-5 md:space-y-8">
       {/* Header with Role & Refresh Button */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200/60">
         <div>
-          <h1 className="text-2xl font-black text-gray-900 tracking-tight">
+          <h1 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">
             Tổng quan điều hành
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">
@@ -121,11 +121,11 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center space-x-3">
+        <div className="flex w-full items-center sm:w-auto">
           <button
             onClick={() => fetchDashboard(true)}
             disabled={isRefreshing}
-            className="inline-flex items-center px-3.5 py-2 text-xs font-semibold text-gray-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors shadow-sm disabled:opacity-50"
+            className="inline-flex w-full sm:w-auto items-center justify-center px-3.5 py-2 text-xs font-semibold text-gray-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors shadow-sm disabled:opacity-50"
           >
             <span className={`mr-1.5 ${isRefreshing ? 'animate-spin' : ''}`}>🔄</span>
             {isRefreshing ? 'Đang làm mới...' : 'Làm mới dữ liệu'}
@@ -134,28 +134,28 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
       </div>
 
       {/* KHỐI 1: CẦN HÀNH ĐỘNG NGAY (ACTION REQUIRED) - ĐẶT TRÊN CÙNG */}
-      <section className="bg-gradient-to-br from-rose-50/70 via-amber-50/40 to-white rounded-3xl p-6 border-2 border-rose-200/70 shadow-sm">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center space-x-2.5">
+      <section className="bg-gradient-to-br from-rose-50/70 via-amber-50/40 to-white rounded-2xl md:rounded-3xl p-4 md:p-6 border-2 border-rose-200/70 shadow-sm">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
+          <div className="flex min-w-0 items-start sm:items-center space-x-2.5">
             <span className="flex h-3 w-3 relative">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-500"></span>
             </span>
-            <h2 className="text-base font-extrabold text-gray-900 tracking-tight flex items-center">
+            <h2 className="text-sm sm:text-base font-extrabold text-gray-900 tracking-tight flex flex-wrap items-center gap-y-1">
               ⚠️ CẦN HÀNH ĐỘNG NGAY
               <span className="ml-2 text-xs bg-rose-100 text-rose-700 px-2.5 py-0.5 rounded-full font-bold">
                 Ưu tiên cao nhất
               </span>
             </h2>
           </div>
-          <span className="text-xs text-gray-500">Tự động quét theo chu kỳ kiểm soát nội bộ</span>
+          <span className="hidden text-xs text-gray-500 sm:block">Tự động quét theo chu kỳ kiểm soát nội bộ</span>
         </div>
 
         {/* Action Items according to Role */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Action Box 1: Pending Documents for Approval */}
           <div className="bg-white rounded-2xl p-4 border border-rose-100 shadow-sm">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+            <div className="flex flex-wrap items-start justify-between gap-2 pb-2 border-b border-slate-100">
               <span className="text-xs font-bold text-gray-600 uppercase tracking-wider">
                 {isCeo
                   ? 'Hồ sơ chờ CEO phê duyệt'
@@ -201,7 +201,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
 
           {/* Action Box 2: Overdue / Escalated Tasks or Expiring Contracts */}
           <div className="bg-white rounded-2xl p-4 border border-rose-100 shadow-sm">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+            <div className="flex flex-wrap items-start justify-between gap-2 pb-2 border-b border-slate-100">
               <span className="text-xs font-bold text-gray-600 uppercase tracking-wider">
                 {isCeo
                   ? 'Việc quá hạn leo thang CEO (≥3 ngày)'
@@ -345,8 +345,8 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
 
       {/* KHỐI 3: TIẾN ĐỘ PHÒNG BAN (NẾU LÀ CEO) HOẶC CHI TIẾT TÀI CHÍNH */}
       {isCeo && dashboardData?.departmentStats && (
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
-          <div className="flex items-center justify-between mb-4">
+        <div className="bg-white rounded-2xl p-4 md:p-6 shadow-sm border border-slate-200">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
             <h3 className="text-base font-bold text-gray-900">Tỷ lệ hoàn thành công việc theo Phòng ban</h3>
             <span className="text-xs text-gray-400 font-medium">Cập nhật tự động</span>
           </div>
@@ -385,8 +385,8 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
       )}
 
       {/* KHỐI 4: HỒ SƠ GẦN ĐÂY */}
-      <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
-        <div className="flex items-center justify-between mb-4">
+      <div className="bg-white rounded-2xl p-4 md:p-6 shadow-sm border border-slate-200">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
           <h3 className="text-base font-bold text-gray-900">Hồ sơ luân chuyển gần đây</h3>
           <button
             onClick={onViewAll}
@@ -404,7 +404,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
               <div
                 key={doc.id}
                 onClick={() => onSelectDoc(doc)}
-                className="py-3.5 flex items-center justify-between hover:bg-slate-50 cursor-pointer rounded-lg px-3 transition-all"
+                className="py-3.5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between hover:bg-slate-50 cursor-pointer rounded-lg px-2 sm:px-3 transition-all"
               >
                 <div>
                   <div className="flex items-center space-x-2">
@@ -421,7 +421,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                     )}
                   </p>
                 </div>
-                <div className="flex items-center space-x-3">
+                <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-end">
                   {getStatusBadge(doc.status)}
                   <span className="text-xs text-gray-400">v{doc.version}</span>
                 </div>

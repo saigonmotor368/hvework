@@ -100,11 +100,11 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
   const pendingCount = tasks.filter((t) => t.status === 'Chờ duyệt').length;
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="min-w-0 space-y-4 md:space-y-6 md:p-6 max-w-7xl mx-auto">
       {/* Top Header & Quick Action */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900 tracking-tight">
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
             Quản lý công việc
           </h2>
           <p className="text-sm text-gray-500 mt-1">
@@ -112,10 +112,10 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center space-x-3">
+        <div className="flex w-full items-center md:w-auto">
           <button
             onClick={onOpenCreate}
-            className="px-4 py-2.5 bg-[#0A66C2] hover:bg-blue-700 text-white rounded-xl font-semibold text-sm shadow-md shadow-blue-500/20 transition-all flex items-center space-x-2 cursor-pointer"
+            className="w-full justify-center px-4 py-2.5 bg-[#0A66C2] hover:bg-blue-700 text-white rounded-xl font-semibold text-sm shadow-md shadow-blue-500/20 transition-all flex items-center space-x-2 cursor-pointer md:w-auto"
           >
             <span>➕</span>
             <span>Giao việc mới</span>
@@ -124,7 +124,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
       </div>
 
       {/* 4 Tabs Phân Loại */}
-      <div className="flex items-center space-x-1 border-b border-slate-200 overflow-x-auto pb-px">
+      <div className="mobile-scroll flex items-center space-x-1 border-b border-slate-200 overflow-x-auto pb-px">
         {[
           { id: 'all', label: 'Tất cả công việc' },
           { id: 'assigned_to_me', label: 'Việc tôi làm' },
@@ -134,7 +134,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}
-            className={`px-4 py-3 text-sm font-semibold transition-all border-b-2 whitespace-nowrap cursor-pointer ${
+            className={`shrink-0 px-4 py-3 text-sm font-semibold transition-all border-b-2 whitespace-nowrap cursor-pointer ${
               activeTab === tab.id
                 ? 'border-[#0A66C2] text-[#0A66C2]'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-slate-300'
@@ -149,7 +149,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
       <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm space-y-3">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           {/* Search form */}
-          <form onSubmit={handleSearch} className="flex-1 max-w-md flex items-center space-x-2">
+          <form onSubmit={handleSearch} className="flex w-full min-w-0 flex-1 items-center space-x-2 md:max-w-md">
             <input
               type="text"
               value={searchQuery}
@@ -166,12 +166,12 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
           </form>
 
           {/* Select filters */}
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
             {/* Trạng thái */}
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#0A66C2]"
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#0A66C2] sm:w-auto"
             >
               <option value="all">Tất cả trạng thái</option>
               <option value="Chưa làm">Chưa làm</option>
@@ -184,7 +184,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
             <select
               value={priorityFilter}
               onChange={(e) => setPriorityFilter(e.target.value)}
-              className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#0A66C2]"
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#0A66C2] sm:w-auto"
             >
               <option value="all">Tất cả ưu tiên</option>
               <option value="low">Thấp</option>
@@ -194,7 +194,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
             </select>
 
             {/* Checkbox quá hạn */}
-            <label className="flex items-center space-x-1.5 px-3 py-2 bg-red-50/70 border border-red-200 rounded-xl text-xs font-bold text-red-700 cursor-pointer">
+            <label className="col-span-2 flex items-center justify-center space-x-1.5 px-3 py-2 bg-red-50/70 border border-red-200 rounded-xl text-xs font-bold text-red-700 cursor-pointer sm:w-auto">
               <input
                 type="checkbox"
                 checked={isOverdueOnly}
@@ -207,7 +207,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
         </div>
 
         {/* Quick summary line */}
-        <div className="flex items-center space-x-4 text-xs text-gray-500 pt-1 border-t border-slate-100">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500 pt-1 border-t border-slate-100">
           <span>Tổng số: <strong className="text-gray-800">{tasks.length}</strong> công việc</span>
           <span>Chờ duyệt: <strong className="text-amber-700">{pendingCount}</strong></span>
           <span>Quá hạn: <strong className="text-red-600">{overdueCount}</strong></span>
@@ -230,8 +230,84 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+          <>
+          <div className="space-y-3 p-3 md:hidden">
+            {tasks.map((t) => {
+              const hasSub = Boolean(t.subTasks?.length);
+              const isExpanded = expandedTaskIds.includes(t.id);
+              return (
+                <article key={t.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[11px] font-bold text-slate-700">{t.code}</span>
+                      {t.recurrenceRule && <span className="text-xs text-blue-600">🔄</span>}
+                      {t.isOverdue && <span className="rounded bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">Quá hạn</span>}
+                    </div>
+                    <span className={`rounded-lg px-2 py-1 text-[11px] font-bold ${TASK_STATUS_LABELS[t.status]?.color || 'bg-gray-100'}`}>
+                      {t.status}
+                    </span>
+                  </div>
+
+                  <button type="button" onClick={() => onSelectTask(t)} className="mt-3 block w-full break-words text-left text-sm font-bold leading-snug text-gray-900">
+                    {t.title}
+                  </button>
+
+                  <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
+                    <div className="min-w-0">
+                      <span className="block text-[10px] font-bold uppercase text-gray-400">Người thực hiện</span>
+                      <span className="block truncate font-semibold text-gray-800">{t.assignee?.name || 'Chưa giao'}</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="block text-[10px] font-bold uppercase text-gray-400">Hạn hoàn thành</span>
+                      <span className={`font-semibold ${t.isOverdue ? 'text-red-600' : 'text-gray-700'}`}>
+                        {t.dueDate ? new Date(t.dueDate).toLocaleDateString('vi-VN') : '—'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mt-3">
+                    <div className="mb-1 flex items-center justify-between text-[11px] font-bold text-gray-600">
+                      <span className={`rounded px-2 py-0.5 ${TASK_PRIORITY_LABELS[t.priority]?.color || 'bg-gray-100'}`}>
+                        {TASK_PRIORITY_LABELS[t.priority]?.label || t.priority}
+                      </span>
+                      <span>{t.progressPercent}%</span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-slate-200">
+                      <div className={`h-full rounded-full ${t.progressPercent === 100 ? 'bg-emerald-500' : 'bg-[#0A66C2]'}`} style={{ width: `${t.progressPercent}%` }} />
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
+                    {hasSub ? (
+                      <button type="button" onClick={() => toggleExpand(t.id)} className="text-xs font-semibold text-gray-600">
+                        {isExpanded ? 'Ẩn việc con ▲' : `${t.subTasks?.length} việc con ▼`}
+                      </button>
+                    ) : <span />}
+                    <button type="button" onClick={() => onSelectTask(t)} className="rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-bold text-[#0A66C2]">
+                      Xem chi tiết
+                    </button>
+                  </div>
+
+                  {hasSub && isExpanded && (
+                    <div className="mt-3 space-y-2 border-l-2 border-blue-200 pl-3">
+                      {t.subTasks?.map((st) => (
+                        <div key={st.id} className="block w-full rounded-xl bg-slate-50 p-3 text-left">
+                          <span className="font-mono text-[10px] font-bold text-slate-500">{st.code}</span>
+                          <span className="mt-0.5 block break-words text-xs font-semibold text-gray-800">{st.title}</span>
+                          <span className="mt-1 flex items-center justify-between text-[10px] text-gray-500">
+                            <span>{st.assignee?.name || 'Chưa gán'}</span>
+                            <strong className="text-blue-700">{st.progressPercent}%</strong>
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+          <div className="mobile-scroll hidden overflow-x-auto md:block">
+            <table className="min-w-[1050px] w-full text-left text-xs">
               <thead className="bg-slate-50 border-b border-slate-200/70 text-gray-500 font-semibold uppercase tracking-wider text-[11px]">
                 <tr>
                   <th className="py-3 px-4 w-10"></th>
@@ -430,6 +506,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
               </tbody>
             </table>
           </div>
+          </>
         )}
       </div>
     </div>

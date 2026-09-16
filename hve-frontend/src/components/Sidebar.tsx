@@ -47,15 +47,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       <aside
         className={`
-          w-64 bg-white border-r border-slate-200 flex flex-col justify-between
+          w-[min(20rem,88vw)] md:w-64 bg-white border-r border-slate-200 flex flex-col justify-between
           fixed inset-y-0 left-0 z-40 transform transition-transform duration-300 ease-in-out
           md:relative md:translate-x-0 md:z-auto
           ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'}
         `}
       >
-      <div>
+      <div className="min-h-0 overflow-y-auto mobile-scroll">
         {/* Logo Header */}
-        <div className="h-16 flex items-center px-6 border-b border-slate-100 space-x-3">
+        <div className="h-16 flex items-center px-4 sm:px-6 border-b border-slate-100 space-x-3">
           <img
             src="/favicon.svg"
             alt="HVE Logo"
@@ -64,10 +64,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div>
             <h1 className="text-sm font-black text-gray-900 tracking-tight leading-tight">Hệ Thống Quản Lý Công Việc</h1>
           </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="ml-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-lg text-gray-500 hover:bg-slate-100 md:hidden"
+            aria-label="Đóng menu"
+          >
+            ✕
+          </button>
         </div>
 
         {/* Navigation Links */}
-        <nav className="p-4 space-y-1.5">
+        <nav className="p-3 sm:p-4 space-y-1.5">
           <button
             onClick={() => handleTabSelect('overview')}
             className={`w-full flex items-center px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${

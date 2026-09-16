@@ -1,6 +1,86 @@
 export type Fetcher = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
 const DEVICE_ID_KEY = 'hve_device_id';
+const SESSION_EXPIRED_MESSAGE_KEY = 'hve_session_expired_message';
+export const SESSION_EXPIRED_EVENT = 'hve:session-expired';
+
+const SESSION_EXPIRED_MESSAGE = 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.';
+let refreshSessionPromise: Promise<boolean> | null = null;
+
+export function consumeSessionExpiredMessage(): string {
+  const message = sessionStorage.getItem(SESSION_EXPIRED_MESSAGE_KEY) || '';
+  sessionStorage.removeItem(SESSION_EXPIRED_MESSAGE_KEY);
+  return message;
+}
+
+export async function fetchWithSession(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+  fetcher: Fetcher = fetch,
+): Promise<Response> {
+  const response = await fetcher(input, init);
+  if (response.status !== 401) return response;
+
+  const refreshToken = localStorage.getItem('refresh_token');
+  if (refreshToken) {
+    if (!refreshSessionPromise) {
+      const requestUrl =
+        typeof input === 'string'
+          ? input
+          : input instanceof URL
+            ? input.href
+            : input.url;
+      const apiOrigin = new URL(requestUrl, window.location.origin).origin;
+      refreshSessionPromise = refreshSession(apiOrigin, refreshToken, fetcher).finally(() => {
+        refreshSessionPromise = null;
+      });
+    }
+
+    if (await refreshSessionPromise) {
+      const headers = new Headers(init?.headers);
+      headers.set('Authorization', `Bearer ${localStorage.getItem('access_token')}`);
+      const retriedResponse = await fetcher(input, { ...init, headers });
+      if (retriedResponse.status !== 401) return retriedResponse;
+    }
+  }
+
+  localStorage.removeItem('access_token');
+  localStorage.removeItem('refresh_token');
+  localStorage.removeItem('user');
+  sessionStorage.setItem(SESSION_EXPIRED_MESSAGE_KEY, SESSION_EXPIRED_MESSAGE);
+  window.dispatchEvent(
+    new CustomEvent(SESSION_EXPIRED_EVENT, { detail: SESSION_EXPIRED_MESSAGE }),
+  );
+  window.location.assign('/');
+
+  throw new Error(SESSION_EXPIRED_MESSAGE);
+}
+
+async function refreshSession(
+  apiOrigin: string,
+  refreshToken: string,
+  fetcher: Fetcher,
+): Promise<boolean> {
+  try {
+    const response = await fetcher(`${apiOrigin}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken }),
+    });
+    if (!response.ok) return false;
+
+    const tokens = await response.json();
+    if (typeof tokens.access_token !== 'string' || typeof tokens.refresh_token !== 'string') {
+      return false;
+    }
+
+    localStorage.setItem('access_token', tokens.access_token);
+    localStorage.setItem('refresh_token', tokens.refresh_token);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export function getOrCreateDeviceId(): string {
   const existing = localStorage.getItem(DEVICE_ID_KEY);

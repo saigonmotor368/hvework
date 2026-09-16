@@ -212,12 +212,12 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 overflow-y-auto">
       <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-          <div className="flex items-center space-x-3">
+        <div className="px-4 sm:px-6 py-4 border-b border-slate-100 flex items-start justify-between gap-3 bg-slate-50/50">
+          <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
             <span className="font-mono text-xs font-bold px-2.5 py-1 bg-slate-200 text-slate-800 rounded-lg">
               {task?.code || 'CV-...'}
             </span>
-            <h3 className="text-base md:text-lg font-bold text-gray-900 truncate max-w-md">
+            <h3 className="w-full text-base md:w-auto md:max-w-md md:text-lg font-bold text-gray-900 break-words md:truncate">
               {task?.title || 'Chi tiết công việc'}
             </h3>
             {task?.isOverdue && (
@@ -258,10 +258,10 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
             </button>
           </div>
         ) : (
-          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          <div className="mobile-scroll flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 sm:space-y-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
             {/* Thông báo nghiệm thu hoàn thành */}
             {canConfirm && (
-              <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between">
+              <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h4 className="text-sm font-bold text-emerald-900">
                     Công việc đã hoàn thành 100% và đang Chờ bạn duyệt
@@ -283,7 +283,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
             )}
 
             {/* Quick Metadata Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-slate-50 rounded-xl border border-slate-100 text-xs">
+            <div className="grid grid-cols-1 min-[380px]:grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-slate-50 rounded-xl border border-slate-100 text-xs">
               <div>
                 <span className="text-gray-400 block font-medium">Người giao việc</span>
                 <span className="font-bold text-gray-800 mt-0.5 block">
@@ -343,7 +343,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
             {/* Tiến độ (Progress Bar & Update) */}
             <div className="p-4 bg-blue-50/50 border border-blue-100 rounded-xl space-y-3">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <h4 className="text-xs font-bold text-[#0A66C2] uppercase tracking-wider">
                     Tiến độ công việc
@@ -370,7 +370,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
               {/* Cập nhật tiến độ form (chỉ khi không có subtasks và chưa hoàn thành) */}
               {!hasSubTasks && task.status !== 'Hoàn thành' && (
                 <div className="pt-2 border-t border-blue-100/60 space-y-2">
-                  <div className="flex items-center space-x-4">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:space-x-4">
                     <input
                       type="range"
                       min="0"
@@ -394,7 +394,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                     </div>
                   </div>
 
-                  <div className="flex items-center space-x-2">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:space-x-2">
                     <input
                       type="text"
                       value={progressNote}
@@ -421,7 +421,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
             {/* Danh sách Việc con (Subtasks) */}
             <div>
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                 <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider">
                   Việc con trực thuộc ({task.subTasks?.length || 0})
                 </h4>
@@ -441,9 +441,9 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                   {task.subTasks.map((st) => (
                     <div
                       key={st.id}
-                      className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between text-xs"
+                      className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex flex-col gap-2 text-xs sm:flex-row sm:items-center sm:justify-between"
                     >
-                      <div className="flex items-center space-x-3">
+                      <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
                         <span className="font-mono font-bold text-slate-700">
                           {st.code}
                         </span>
@@ -454,7 +454,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center space-x-4">
+                      <div className="flex flex-wrap items-center gap-2 sm:gap-4">
                         <span className="text-gray-500">
                           {st.assignee?.name || 'Chưa gán'}
                         </span>
@@ -499,7 +499,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                       className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-blue-700 hover:bg-blue-50 flex items-center space-x-2 transition-colors"
                     >
                       <span>📎</span>
-                      <span className="truncate max-w-[200px]">{file.fileName}</span>
+                      <span className="max-w-[min(200px,55vw)] truncate">{file.fileName}</span>
                     </a>
                   ))}
                 </div>

@@ -26,7 +26,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     verificationInput.email === verificationEmail ? verificationInput.code : '';
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-[100dvh] bg-slate-50 flex flex-col justify-center py-6 sm:py-12 px-3 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-slate-50 shadow-lg shadow-blue-500/20">
           <svg viewBox="0 0 200 200" className="w-12 h-12" aria-label="Huy Võ Education">
@@ -36,12 +36,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             <path d="M68 150 Q100 170 132 150" fill="none" stroke="#1D1D1F" strokeWidth="11" strokeLinecap="round" />
           </svg>
         </div>
-        <h2 className="mt-4 text-2xl font-extrabold text-[#1D1D1F] tracking-tight">Hệ Thống Quản Lý Công Việc</h2>
+        <h2 className="mt-4 text-xl sm:text-2xl font-extrabold text-[#1D1D1F] tracking-tight">Hệ Thống Quản Lý Công Việc</h2>
         <p className="mt-1 text-sm text-gray-500">Huy Võ Education – Hệ thống điều hành &amp; Phê duyệt nội bộ</p>
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-6 shadow-xl shadow-slate-200/60 rounded-2xl sm:px-10 border border-slate-100">
+      <div className="mt-6 sm:mt-8 sm:mx-auto w-full sm:max-w-md">
+        <div className="bg-white py-6 sm:py-8 px-4 sm:px-10 shadow-xl shadow-slate-200/60 rounded-2xl border border-slate-100">
           {verificationEmail ? (
             <form className="space-y-5" onSubmit={onVerifyEmail} autoComplete="off" data-form-type="other">
               <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-900">

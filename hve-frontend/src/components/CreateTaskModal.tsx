@@ -113,9 +113,9 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 overflow-y-auto">
       <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-          <div>
-            <h3 className="text-lg font-bold text-gray-900">
+        <div className="px-4 sm:px-6 py-4 border-b border-slate-100 flex items-start justify-between gap-3 bg-slate-50/50">
+          <div className="min-w-0">
+            <h3 className="text-base sm:text-lg font-bold text-gray-900 break-words">
               {parentTask ? `Thêm việc con cho [${parentTask.code}]` : 'Giao việc mới'}
             </h3>
             <p className="text-xs text-gray-500 mt-0.5">
@@ -133,7 +133,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="mobile-scroll flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
           <div>
             <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
               Tiêu đề công việc <span className="text-red-500">*</span>
@@ -298,19 +298,19 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
           </div>
 
           {/* Buttons */}
-          <div className="pt-4 border-t border-slate-100 flex items-center justify-end space-x-3">
+          <div className="grid grid-cols-2 gap-2 pt-4 border-t border-slate-100 sm:flex sm:items-center sm:justify-end sm:gap-3">
             <button
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
-              className="px-4 py-2 rounded-xl text-sm font-semibold text-gray-600 hover:bg-slate-100 transition-colors"
+              className="w-full px-4 py-2 rounded-xl text-sm font-semibold text-gray-600 hover:bg-slate-100 transition-colors sm:w-auto"
             >
               Hủy bỏ
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-5 py-2 rounded-xl text-sm font-semibold bg-[#0A66C2] text-white hover:bg-blue-700 shadow-md shadow-blue-500/20 disabled:opacity-50 transition-all flex items-center"
+              className="w-full justify-center px-5 py-2 rounded-xl text-sm font-semibold bg-[#0A66C2] text-white hover:bg-blue-700 shadow-md shadow-blue-500/20 disabled:opacity-50 transition-all flex items-center sm:w-auto"
             >
               {isSubmitting ? (
                 <>

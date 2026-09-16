@@ -16,7 +16,13 @@ import { NotificationBell } from './components/NotificationBell';
 import { OfflineBanner } from './components/OfflineBanner';
 import { ViewErrorBoundary } from './components/ViewErrorBoundary';
 import { subscribeToWebPush } from './utils/pwa';
-import { currentDeviceName, getOrCreateDeviceId, uploadAttachment } from './api/client';
+import {
+  consumeSessionExpiredMessage,
+  currentDeviceName,
+  getOrCreateDeviceId,
+  SESSION_EXPIRED_EVENT,
+  uploadAttachment,
+} from './api/client';
 import { ENABLE_MOCK_DATA } from './config';
 import {
   MOCK_USERS,
@@ -50,11 +56,24 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     return !!localStorage.getItem('access_token') && !!localStorage.getItem('user');
   });
-  const [authError, setAuthError] = useState<string>('');
+  const [authError, setAuthError] = useState<string>(() => consumeSessionExpiredMessage());
   const [emailChallenge, setEmailChallenge] = useState<{
     id: string;
     maskedEmail: string;
   } | null>(null);
+
+  useEffect(() => {
+    const handleSessionExpired = (event: Event) => {
+      const message = (event as CustomEvent<string>).detail;
+      setUser(null);
+      setIsAuthenticated(false);
+      setEmailChallenge(null);
+      setAuthError(message || 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+    };
+
+    window.addEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
+  }, []);
 
   // Check URL params on initial load for direct demo/screenshot routing
   useEffect(() => {
@@ -786,7 +805,7 @@ export default function App() {
 
   // Authenticated View
   return (
-    <div className="flex h-screen bg-[#F5F5F7] overflow-hidden text-gray-900 font-sans">
+    <div className="flex h-[100dvh] w-full min-w-0 bg-[#F5F5F7] overflow-hidden text-gray-900 font-sans">
       <Toast toast={toast} />
 
       {/* Left Sidebar */}
@@ -807,12 +826,12 @@ export default function App() {
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col h-full overflow-hidden">
+      <main className="flex-1 min-w-0 flex flex-col h-full overflow-hidden">
         <OfflineBanner />
 
         {/* Header Bar */}
-        <header className="h-14 md:h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-8 z-10 flex-shrink-0">
-          <div className="flex items-center space-x-3">
+        <header className="min-h-14 md:h-16 bg-white border-b border-slate-200 flex items-center justify-between gap-2 px-3 sm:px-4 md:px-8 z-10 flex-shrink-0 pt-[env(safe-area-inset-top)]">
+          <div className="flex min-w-0 flex-1 items-center space-x-2 sm:space-x-3">
             {/* Mobile hamburger */}
             <button
               className="md:hidden p-2 rounded-lg text-gray-600 hover:bg-slate-100 transition-colors"
@@ -823,7 +842,7 @@ export default function App() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
-            <h2 className="text-sm md:text-base font-bold text-gray-900 truncate">
+            <h2 className="min-w-0 text-sm md:text-base font-bold text-gray-900 truncate">
               {activeTab === 'overview' && 'Tổng quan điều hành'}
               {activeTab === 'documents' && 'Danh sách hồ sơ phê duyệt'}
               {activeTab === 'tasks' && 'Quản lý công việc & Giao nhiệm vụ'}
@@ -837,7 +856,7 @@ export default function App() {
             )}
           </div>
 
-          <div className="flex items-center space-x-2 md:space-x-4">
+          <div className="flex shrink-0 items-center space-x-1 md:space-x-4">
             <NotificationBell
               apiBaseUrl={API_BASE_URL}
               onNavigate={handleNotificationNavigate}
@@ -851,7 +870,7 @@ export default function App() {
         </header>
 
         {/* Tab Body */}
-        <div className="flex-1 p-4 md:p-8 overflow-y-auto">
+        <div className="flex-1 min-w-0 overflow-x-hidden overflow-y-auto overscroll-contain p-3 sm:p-4 md:p-8 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           <ViewErrorBoundary key={activeTab}>
           <Suspense fallback={<div className="py-24 text-center text-sm text-gray-400">Đang tải màn hình...</div>}>
           {/* TAB 1: OVERVIEW */}

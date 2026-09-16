@@ -208,11 +208,11 @@ export const AdminWorkflowView: React.FC<AdminWorkflowViewProps> = ({
   const currentWf = workflows.find((w) => w.type === selectedType);
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-4 md:space-y-6">
       {/* Header */}
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h3 className="text-xl font-bold text-gray-900 flex items-center">
+          <h3 className="text-lg sm:text-xl font-bold text-gray-900 flex items-start sm:items-center">
             <span className="mr-2.5">⚙️</span> Quản lý Cấu hình Quy trình Phê duyệt
           </h3>
           <p className="text-xs text-gray-500 mt-1">
@@ -223,7 +223,7 @@ export const AdminWorkflowView: React.FC<AdminWorkflowViewProps> = ({
         <button
           onClick={handleSave}
           disabled={isSaving || isLoading}
-          className="px-5 py-2.5 rounded-xl bg-[#0A66C2] text-white text-xs font-bold hover:bg-blue-700 shadow-sm transition-all disabled:opacity-50"
+          className="w-full px-5 py-2.5 rounded-xl bg-[#0A66C2] text-white text-xs font-bold hover:bg-blue-700 shadow-sm transition-all disabled:opacity-50 md:w-auto"
         >
           {isSaving ? 'Đang lưu...' : '💾 Lưu cấu hình quy trình'}
         </button>
@@ -272,8 +272,8 @@ export const AdminWorkflowView: React.FC<AdminWorkflowViewProps> = ({
       </div>
 
       {/* Step Config Canvas */}
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-        <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-6">
+      <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pb-4 border-b border-slate-100 mb-6">
           <div>
             <h4 className="text-base font-bold text-gray-900">
               {currentWf?.name || 'Cấu hình các cấp duyệt'}
@@ -294,8 +294,8 @@ export const AdminWorkflowView: React.FC<AdminWorkflowViewProps> = ({
         {/* Steps List */}
         <div className="space-y-4">
           {/* Step 0 - Creator (Fixed) */}
-          <div className="flex items-center justify-between p-4 rounded-xl bg-slate-50 border border-slate-100 text-sm">
-            <div className="flex items-center space-x-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-4 rounded-xl bg-slate-50 border border-slate-100 text-sm">
+            <div className="flex min-w-0 items-center space-x-3">
               <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 font-bold flex items-center justify-center text-xs">
                 0
               </div>
@@ -315,7 +315,7 @@ export const AdminWorkflowView: React.FC<AdminWorkflowViewProps> = ({
               key={index}
               className="flex flex-col md:flex-row md:items-center justify-between p-4 rounded-xl bg-white border border-slate-200 shadow-xs gap-3 hover:border-slate-300 transition-all"
             >
-              <div className="flex items-center space-x-3">
+              <div className="flex min-w-0 items-start space-x-3">
                 <div className="w-8 h-8 rounded-lg bg-blue-100 text-[#0A66C2] font-bold flex items-center justify-center text-xs">
                   {step.stepOrder}
                 </div>
@@ -323,12 +323,12 @@ export const AdminWorkflowView: React.FC<AdminWorkflowViewProps> = ({
                   <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">
                     Cấp phê duyệt {step.stepOrder}
                   </span>
-                  <div className="flex items-center space-x-2 mt-1">
+                  <div className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:space-x-2 mt-1">
                     <label className="text-xs font-medium text-gray-600">Vai trò đảm nhiệm:</label>
                     <select
                       value={step.roleRequired}
                       onChange={(e) => handleRoleChange(index, e.target.value)}
-                      className="text-xs font-bold bg-slate-50 border border-gray-200 rounded-lg px-3 py-1.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#0A66C2]"
+                      className="max-w-full text-xs font-bold bg-slate-50 border border-gray-200 rounded-lg px-3 py-1.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#0A66C2]"
                     >
                       {availableRoles.map((r) => (
                         <option key={r.value} value={r.value}>
