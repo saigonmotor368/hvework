@@ -1,5 +1,6 @@
 import React from 'react';
-import { ROLE_LABELS } from '../types';
+import { ROLE_LABELS } from '../types.js';
+import { PwaInstallPrompt } from './PwaInstallPrompt.js';
 
 interface SidebarProps {
   activeTab: 'overview' | 'documents' | 'create' | 'tasks' | 'reports' | 'admin_workflows' | 'admin_users';
@@ -28,12 +29,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div>
         {/* Logo Header */}
         <div className="h-16 flex items-center px-6 border-b border-slate-100 space-x-3">
-          <div className="w-9 h-9 rounded-xl bg-[#0A66C2] text-white flex items-center justify-center font-bold text-lg shadow-sm">
-            HVE
-          </div>
+          <img
+            src="/favicon.svg"
+            alt="HVE Logo"
+            className="w-9 h-9 rounded-xl shadow-sm object-contain"
+          />
           <div>
-            <h1 className="text-base font-bold text-[#1D1D1F]">HVE Work</h1>
-            <span className="text-[11px] text-gray-400 font-medium tracking-tight">Quy trình điều hành</span>
+            <h1 className="text-base font-black text-gray-900 tracking-tight">HVE Work</h1>
+            <span className="text-[11px] text-gray-400 font-medium tracking-tight">Điều hành & Phê duyệt</span>
           </div>
         </div>
 
@@ -139,6 +142,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           )}
         </nav>
+        <div className="px-4 pb-2">
+          <PwaInstallPrompt />
+        </div>
       </div>
 
       {/* User Info & Demo Switcher */}

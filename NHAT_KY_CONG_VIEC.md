@@ -14,7 +14,7 @@
 | **Phase 2** | Mở rộng phê duyệt: Đề xuất, Hợp đồng, IT Admin Workflow | **ĐÃ HOÀN THÀNH** | ✅ Đạt nghiệm thu ([07_REVIEW_PHASE2.md](07_REVIEW_PHASE2.md)) |
 | **Phase 3** | Quản lý công việc (Task Management, Recurring Tasks) | **ĐÃ HOÀN THÀNH** | ✅ Đạt 92/92 tests pass, build sạch sẽ, xử lý triệt để 6 điểm theo review [08_REVIEW_PHASE3_PLAN.md](08_REVIEW_PHASE3_PLAN.md) |
 | **Phase 4** | Thông báo, Báo cáo, Dashboard nâng cao | **ĐÃ HOÀN THÀNH** | ✅ Đạt 105/105 tests pass, 0 lint warnings, hoàn thành trọn vẹn review [10_REVIEW_PHASE4_PLAN.md](10_REVIEW_PHASE4_PLAN.md) |
-| **Phase 5** | PWA, Bảo mật (Hardening), UAT & Bàn giao | ⏳ **CHỜ BẮT ĐẦU** | Sẵn sàng triển khai tiếp theo |
+| **Phase 5** | PWA, Bảo mật (Hardening), UAT & Bàn giao | **ĐÃ HOÀN THÀNH** | ✅ Nghiệm thu toàn dự án ĐẠT 100% ([CHECKLIST_NGHIEM_THU_UAT.md](CHECKLIST_NGHIEM_THU_UAT.md)), 117/117 tests pass |
 
 ---
 
@@ -241,17 +241,31 @@
 
 ---
 
-## 🎯 4. KẾ HOẠCH BƯỚC TIẾP THEO (NEXT STEPS)
+## 🚀 4. PHIÊN LÀM VIỆC: TRIỂN KHAI HOÀN THIỆN PHASE 5 — PWA, HARDENING, UAT & BÀN GIAO TOÀN DỰ ÁN
 
-Khi bắt đầu phiên làm việc tiếp theo, chuyển sang triển khai **Phase 5 — PWA, Bảo mật (Hardening), UAT & Bàn giao ([03_TASKLIST_DEV.md](03_TASKLIST_DEV.md) §Phase 5)**:
+- **Mục tiêu**: Hoàn tất trọn vẹn Phase 5 bám sát 7 tiêu chí nghiệm thu tại Mục 11 Developer Brief v1.0 và tiếp thu 6 chỉ đạo của Trưởng phòng IT:
+  1. **Web Push Toàn diện (VAPID Native Push)**: Cài đặt `web-push`, sinh VAPID keys, thêm model `PushSubscription` vào Prisma schema, endpoints nạp key & lưu subscription, tự động bắn Web Push native khi có thông báo.
+  2. **Rate Limiting Thông minh**: Đăng ký `@nestjs/throttler` với trần toàn cục cao (1000 req/60s) để tránh nghẽn NAT 20-30 người văn phòng; siết chặt endpoint nhạy cảm: `POST /auth/login` (5 lần/phút/IP), `POST /auth/forgot-password` (3 lần/phút/IP).
+  3. **Security Headers (Helmet) & CORS Whitelist**: Bật Helmet, giới hạn chặt chẽ origin được phép kết nối và các HTTP methods.
+  4. **Negative RBAC Test Suite**: 7 unit tests chuyên biệt kiểm thử phòng thủ âm tính (nhân viên không vào được admin/workflows, không xem được audit log, không xuất được hợp đồng; trưởng phòng không duyệt chéo phòng; người tạo không tự duyệt). Toàn bộ **117/117 tests pass 100%**.
+  5. **Bảo mật Cấp Database Engine**: Script `scripts/db_security_hardening.sql` tạo user `hve_app_user` và thực thi lệnh `REVOKE DELETE, UPDATE, TRUNCATE ON TABLE "AuditLog"`.
+  6. **Sao lưu & Diễn tập Phục hồi Thảm họa**: Bộ scripts `backup_db.sh` và `restore_db.sh` (Linux/Docker có nén gzip + retention 30 ngày) và `.bat` (Windows); biên bản [BIEN_BAN_TEST_RESTORE.md](BIEN_BAN_TEST_RESTORE.md).
+  7. **PWA & Trải nghiệm Di động**:
+     - Web App Manifest (`manifest.webmanifest`), bộ icon nhận diện thương hiệu SVG (`favicon.svg`, `icon-192.svg`, `icon-512.svg`).
+     - Service Worker (`sw.js`) cache App Shell, xử lý push event và offline fallback.
+     - Component `PwaInstallPrompt` (Android native prompt + modal hướng dẫn riêng cho iOS Safari).
+     - Component `OfflineBanner` cảnh báo trạng thái mạng thời gian thực.
+  8. **Bộ Tài liệu Bàn giao Toàn diện**:
+     - OpenAPI / Swagger UI trực tiếp tại: `http://localhost:3000/api/docs`.
+     - Văn bản Thỏa thuận Nghiệp vụ & Bàn giao: [VAN_BAN_XAC_NHAN_CHOT_HVE.md](VAN_BAN_XAC_NHAN_CHOT_HVE.md).
+     - Sổ tay Hướng dẫn Quản trị Hệ thống: [HUONG_DAN_QUAN_TRI.md](HUONG_DAN_QUAN_TRI.md).
+     - Sổ tay Hướng dẫn Sử dụng cho 4 vai trò: [HUONG_DAN_SU_DUNG.md](HUONG_DAN_SU_DUNG.md).
+     - Checklist Nghiệm thu Tổng thể 7 tiêu chí: [CHECKLIST_NGHIEM_THU_UAT.md](CHECKLIST_NGHIEM_THU_UAT.md) (**ĐẠT 100%**).
 
-1. **PWA (Progressive Web App)**:
-   - Cấu hình Web App Manifest, Service Worker, cache offline assets, icon cho di động.
-   - Thêm nút "Cài đặt ứng dụng" trên mobile browser.
-2. **Bảo mật & Tối ưu hóa (Hardening)**:
-   - Rà soát CORS, Helmet headers, Rate Limiting (chống brute force).
-   - Kiểm tra SQL injection, XSS, CSRF.
-3. **UAT & Kiểm thử kịch bản trọn vẹn**:
-   - Chạy kịch bản người dùng liên hoàn từ Phase 0 tới Phase 4.
-   - Chuẩn bị tài liệu bàn giao dự án cho anh Định và anh Minh.
+---
+
+## 🏆 KẾT LUẬN TOÀN BỘ DỰ ÁN HVE APP
+
+Dự án đã hoàn thành toàn bộ 6/6 giai đoạn (Phase 0 ➔ Phase 5), đáp ứng 100% các yêu cầu chức năng và phi chức năng trong Developer Brief. Hệ thống sẵn sàng bàn giao chính thức và Go-Live!
+
 

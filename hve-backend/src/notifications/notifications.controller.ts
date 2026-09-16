@@ -1,4 +1,5 @@
 import {
+  Body,
   Controller,
   Get,
   HttpCode,
@@ -13,11 +14,27 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 import { NotificationsService } from './notifications.service.js';
+import { WebPushService } from './web-push.service.js';
 
 @UseGuards(JwtAuthGuard)
 @Controller('notifications')
 export class NotificationsController {
-  constructor(private readonly notificationsService: NotificationsService) {}
+  constructor(
+    private readonly notificationsService: NotificationsService,
+    private readonly webPushService: WebPushService,
+  ) {}
+
+  @Get('vapid-public-key')
+  getVapidPublicKey() {
+    return { publicKey: this.webPushService.getPublicKey() };
+  }
+
+  @Post('push-subscribe')
+  @HttpCode(HttpStatus.OK)
+  async subscribePush(@Body() body: any, @Req() req: any) {
+    await this.webPushService.saveSubscription(req.user.id, body);
+    return { success: true };
+  }
 
   @Get()
   async getNotifications(

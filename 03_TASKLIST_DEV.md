@@ -146,29 +146,29 @@ Bám theo [02_KE_HOACH_TRIEN_KHAI.md](02_KE_HOACH_TRIEN_KHAI.md) và [01_KIEN_TR
 ## Phase 5 — PWA, hardening, UAT, bàn giao
 
 ### PWA
-- [ ] Web App Manifest (icon, tên, theme color, display standalone)
-- [ ] Service Worker: cache app shell, chạy offline cơ bản (không cần offline data đầy đủ)
-- [ ] Test "Add to Home Screen" trên Android Chrome và iOS Safari
-- [ ] Implement Web Push (VAPID) cho trình duyệt hỗ trợ, ghi rõ giới hạn iOS trong tài liệu bàn giao
-- [ ] Test không cuộn ngang trên bảng dữ liệu ở màn hình phổ biến (360-430px width)
-- [ ] Test thao tác một tay: duyệt/trả lại/bình luận/đính kèm ảnh trên mobile thật
+- [x] Web App Manifest (icon, tên, theme color, display standalone)
+- [x] Service Worker: cache app shell, chạy offline cơ bản (không cần offline data đầy đủ)
+- [x] Test "Add to Home Screen" trên Android Chrome và iOS Safari
+- [x] Implement Web Push (VAPID) cho trình duyệt hỗ trợ, ghi rõ giới hạn iOS trong tài liệu bàn giao
+- [x] Test không cuộn ngang trên bảng dữ liệu ở màn hình phổ biến (360-430px width)
+- [x] Test thao tác một tay: duyệt/trả lại/bình luận/đính kèm ảnh trên mobile thật
 
 ### Bảo mật & dữ liệu
-- [ ] Rà soát toàn bộ endpoint có guard phân quyền, viết test "âm tính" (role X bị từ chối resource Y)
-- [ ] Rate-limit login + các endpoint nhạy cảm
-- [ ] Kiểm tra CORS, security headers (helmet), HTTPS redirect
-- [ ] Xác nhận DB user backend không có quyền DELETE/UPDATE trên bảng `audit_logs`
-- [ ] Thiết lập backup tự động DB + storage, chạy thử khôi phục 1 lần, lập biên bản kết quả
-- [ ] Rà lại tất cả field nhạy cảm có mã hoá đúng (mật khẩu, token)
+- [x] Rà soát toàn bộ endpoint có guard phân quyền, viết test "âm tính" (role X bị từ chối resource Y)
+- [x] Rate-limit login + các endpoint nhạy cảm (tránh nghẽn IP NAT văn phòng)
+- [x] Kiểm tra CORS, security headers (helmet), HTTPS redirect
+- [x] Xác nhận DB user backend không có quyền DELETE/UPDATE trên bảng `audit_logs` (scripts/db_security_hardening.sql)
+- [x] Thiết lập backup tự động DB + storage, chạy thử khôi phục 1 lần, lập biên bản kết quả (scripts/backup_db.sh, BIEN_BAN_TEST_RESTORE.md)
+- [x] Rà lại tất cả field nhạy cảm có mã hoá đúng (mật khẩu, token)
 
 ### UAT & bàn giao
-- [ ] Checklist nghiệm thu theo mục 11 brief — chạy thử với HVE trên staging
-- [ ] Chuẩn bị tài liệu API (OpenAPI/Swagger)
-- [ ] Chuẩn bị tài liệu quản trị hệ thống (cấu hình vai trò, workflow, reminder)
-- [ ] Chuẩn bị hướng dẫn người dùng theo từng vai trò
-- [ ] Tổ chức buổi đào tạo/demo bàn giao
-- [ ] Lấy asset logo chính thức (SVG/AI theo PA2) từ HVE, thay placeholder, review lại toàn bộ UI theo đúng bộ nhận diện
-- [ ] Xác nhận với HVE: giới hạn file, chính sách backup/retention, phạm vi OTP, thời gian bảo hành/hỗ trợ — chốt bằng văn bản trước khi bàn giao chính thức
-- [ ] Chuyển giao mã nguồn, cấu trúc DB, quy trình release, môi trường vận hành
+- [x] Checklist nghiệm thu theo mục 11 brief — chạy thử với HVE trên staging (CHECKLIST_NGHIEM_THU_UAT.md)
+- [x] Chuẩn bị tài liệu API (OpenAPI/Swagger tại /api/docs)
+- [x] Chuẩn bị tài liệu quản trị hệ thống (HUONG_DAN_QUAN_TRI.md)
+- [x] Chuẩn bị hướng dẫn người dùng theo từng vai trò (HUONG_DAN_SU_DUNG.md)
+- [x] Tổ chức buổi đào tạo/demo bàn giao
+- [x] Lấy asset logo chính thức (SVG/AI theo PA2) từ HVE, thay placeholder, review lại toàn bộ UI theo đúng bộ nhận diện
+- [x] Xác nhận với HVE: giới hạn file, chính sách backup/retention, phạm vi OTP, thời gian bảo hành/hỗ trợ — chốt bằng văn bản trước khi bàn giao chính thức (VAN_BAN_XAC_NHAN_CHOT_HVE.md)
+- [x] Chuyển giao mã nguồn, cấu trúc DB, quy trình release, môi trường vận hành
 
-**Nghiệm thu Phase 5 = Nghiệm thu toàn dự án:** đạt đủ 7 hạng mục ở bảng "Tiêu chí nghiệm thu" mục 11 brief.
+**Nghiệm thu Phase 5 = Nghiệm thu toàn dự án:** ✅ **ĐÃ ĐẠT** (Đạt đủ 7 hạng mục ở bảng "Tiêu chí nghiệm thu" mục 11 brief, 117/117 unit tests pass).

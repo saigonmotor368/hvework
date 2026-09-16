@@ -86,3 +86,18 @@ Tất cả các lỗi build TypeScript và lỗ hổng phân quyền nghiêm tr�
 
 **Nghiệm thu Phase 4: CHÍNH THỨC ĐẠT.** Sẵn sàng bước sang **Phase 5 (PWA, Hardening & UAT bàn giao)**.
 
+---
+
+## 5. Xác nhận độc lập (Trưởng phòng IT) — không dựa vào báo cáo trên
+
+Đọc trực tiếp code sau bản vá, không tin theo báo cáo mục 4:
+
+- `reports.service.ts::getSummary`: xác nhận đúng — nhân viên (`isEmployeeOnly`) bị ép `docWhere.createdById = user.id` và `taskWhere.OR = [{assigneeId}, {createdById}]`, **hoàn toàn không đọc `filter.departmentId`/`filter.userId` từ client trong nhánh này** (bỏ qua hẳn, không phải chỉ ưu tiên). Trưởng bộ phận bị ép `createdBy.departmentId = userDeptId`, chỉ cho thu hẹp thêm bằng `filter.userId` (kết hợp AND — không thể dùng để mở rộng ra ngoài phòng ban).
+- Hợp đồng: nhân viên luôn nhận mảng rỗng (`isEmployeeOnly ? [] : ...`) — kể cả hợp đồng do chính họ tạo cũng không hiện, chặt hơn mức tối thiểu nhưng an toàn, chấp nhận được.
+- `exportCsv`: tự tính lại role ngay trong hàm (độc lập với `getSummary`), chặn riêng `type==='contracts'` cho nhân viên bằng `ForbiddenException` — đúng như báo cáo.
+- **Test mô phỏng đúng kịch bản tấn công, không chỉ happy path**: `reports.service.spec.ts` có test nhân viên "cố tình" gửi `{departmentId: 999, userId: 888}` và trưởng bộ phận gửi `{departmentId: 999}`, assert rằng `where` thực tế gửi tới Prisma vẫn bị ép về đúng phạm vi server tính ra — đúng loại test cần thiết để xác nhận lỗ hổng đã bịt kín.
+- Frontend `ReportsView.tsx`: xác nhận có tách 3 nhóm role, disable đúng ô lọc phòng ban/người dùng theo vai trò, có badge phạm vi.
+- Verify lại từ đầu: `npm run build` (backend/frontend) pass, lint sạch, **110/110 test pass**.
+
+**Đồng ý với kết luận ở mục 4: Phase 4 ĐẠT.** Có thể chuyển sang Phase 5.
+

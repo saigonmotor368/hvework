@@ -13,8 +13,17 @@ import { NotificationsModule } from './notifications/notifications.module.js';
 import { DashboardModule } from './dashboard/dashboard.module.js';
 import { ReportsModule } from './reports/reports.module.js';
 
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
+
 @Module({
   imports: [
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60000,
+        limit: 1000, // Safe overall ceiling to prevent office NAT IP block
+      },
+    ]),
     PrismaModule,
     AuditModule,
     AuthModule,
@@ -28,7 +37,13 @@ import { ReportsModule } from './reports/reports.module.js';
     ReportsModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule {}
 

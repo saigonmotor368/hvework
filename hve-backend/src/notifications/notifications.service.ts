@@ -4,6 +4,7 @@ import { NotificationPayload } from './channels/notification-channel.interface.j
 import { InAppChannel } from './channels/in-app.channel.js';
 import { EmailChannel } from './channels/email.channel.js';
 import { ZaloChannel } from './channels/zalo.channel.js';
+import { WebPushService } from './web-push.service.js';
 
 @Injectable()
 export class NotificationsService {
@@ -14,6 +15,7 @@ export class NotificationsService {
     private inAppChannel: InAppChannel,
     private emailChannel: EmailChannel,
     private zaloChannel: ZaloChannel,
+    private webPushService: WebPushService,
   ) {}
 
   /**
@@ -27,6 +29,16 @@ export class NotificationsService {
 
     if (channels.includes('in_app')) {
       results.in_app = await this.inAppChannel.send(payload);
+      // Tự động đẩy Web Push Notification thật tới trình duyệt
+      this.webPushService
+        .sendNotification(payload.userId, {
+          title: payload.title || 'HVE Work - Thông báo mới',
+          body: payload.content || '',
+          url: payload.link || '/',
+        })
+        .catch((err) =>
+          this.logger.warn(`Web push error: ${err.message || err}`),
+        );
     }
     if (channels.includes('email')) {
       results.email = await this.emailChannel.send(payload);

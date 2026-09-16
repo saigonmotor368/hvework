@@ -16,6 +16,8 @@ import { CreateTaskModal } from './components/CreateTaskModal';
 import { TaskDetailModal } from './components/TaskDetailModal';
 import { NotificationBell } from './components/NotificationBell';
 import { ReportsView } from './components/ReportsView';
+import { OfflineBanner } from './components/OfflineBanner';
+import { subscribeToWebPush } from './utils/pwa';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -288,6 +290,13 @@ export default function App() {
     setSelectedDoc(null);
     showToast('Đã đăng xuất tài khoản.');
   };
+
+  // Auto-subscribe Web Push when authenticated
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      subscribeToWebPush(API_BASE_URL);
+    }
+  }, [isAuthenticated, user]);
 
   // Upload Attachment via Presigned URL
   const uploadAttachmentReal = async (file: File): Promise<number | null> => {
@@ -678,6 +687,8 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col h-full overflow-hidden">
+        <OfflineBanner />
+
         {/* Header Bar */}
         <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 z-10">
           <div className="flex items-center space-x-3">
