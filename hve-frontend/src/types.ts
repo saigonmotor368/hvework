@@ -91,7 +91,7 @@ export const ROLE_LABELS: Record<string, string> = {
   accountant: 'Kế toán',
   legal: 'Pháp chế',
   ceo: 'CEO',
-  it_admin: 'IT Admin',
+  it_admin: 'Quản trị IT',
 };
 
 export const DOCUMENT_TYPE_LABELS: Record<string, string> = {

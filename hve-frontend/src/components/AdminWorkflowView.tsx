@@ -21,7 +21,7 @@ export const AdminWorkflowView: React.FC<AdminWorkflowViewProps> = ({
     { value: 'accountant', label: 'Kế toán' },
     { value: 'legal', label: 'Pháp chế' },
     { value: 'ceo', label: 'CEO' },
-    { value: 'it_admin', label: 'IT Admin' },
+    { value: 'it_admin', label: 'Quản trị IT' },
     { value: 'employee', label: 'Nhân viên' },
   ];
 
@@ -279,7 +279,7 @@ export const AdminWorkflowView: React.FC<AdminWorkflowViewProps> = ({
               {currentWf?.name || 'Cấu hình các cấp duyệt'}
             </h4>
             <p className="text-xs text-gray-400 mt-0.5">
-              Hồ sơ tạo mới sẽ tự động snapshot theo đúng cấu hình bên dưới khi người tạo bấm gửi duyệt
+              Hồ sơ tạo mới sẽ tự động ghi nhận đúng cấu hình bên dưới khi người tạo bấm gửi duyệt
             </p>
           </div>
 
@@ -376,7 +376,7 @@ export const AdminWorkflowView: React.FC<AdminWorkflowViewProps> = ({
 
         {/* Rule note */}
         <div className="mt-6 p-4 rounded-xl bg-blue-50/60 border border-blue-100 text-xs text-blue-900 leading-relaxed">
-          <strong>Lưu ý kiến trúc HVE Work:</strong> Khi cập nhật quy trình, các hồ sơ đang trong tiến trình phê duyệt (Chờ duyệt) sẽ tiếp tục hoàn tất theo danh sách cấp duyệt đã được snapshot tại thời điểm gửi duyệt, đảm bảo tính toàn vẹn và không bị đứt gãy luồng xử lý.
+          <strong>Lưu ý:</strong> Khi cập nhật quy trình, các hồ sơ đang trong tiến trình phê duyệt (Chờ duyệt) sẽ tiếp tục hoàn tất theo danh sách cấp duyệt đã được ghi nhận tại thời điểm gửi duyệt, đảm bảo tính toàn vẹn và không bị đứt gãy luồng xử lý.
         </div>
       </div>
     </div>

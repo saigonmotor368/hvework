@@ -200,7 +200,7 @@ export class DocumentsService {
 
   async createContract(userId: number, dto: CreateContractDto, ip?: string) {
     if (new Date(dto.endDate) < new Date(dto.startDate)) {
-      throw new BadRequestException('Ngày hết hạn hợp đồng không thể trước ngày hiệu lực');
+      throw new BadRequestException('Ngày hết hạn hợp đồng không được trước ngày hiệu lực');
     }
 
     const code = await this.generateDocumentCode('HD');
@@ -501,7 +501,7 @@ export class DocumentsService {
         );
       }
       if (new Date(data.endDate) < new Date(data.startDate)) {
-        throw new BadRequestException('Ngày hết hạn hợp đồng không thể trước ngày hiệu lực');
+        throw new BadRequestException('Ngày hết hạn hợp đồng không được trước ngày hiệu lực');
       }
       if (attachmentCount === 0 && !hasAttachmentInJson) {
         throw new BadRequestException(

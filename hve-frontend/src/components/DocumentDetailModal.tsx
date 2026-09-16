@@ -224,7 +224,7 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
       {/* Dynamic Workflow Timeline */}
       <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
         <h4 className="text-base font-bold text-gray-900 mb-6">
-          Tiến trình phê duyệt {(selectedDoc.steps?.length || 0) + 1} cấp (Workflow Timeline)
+          Tiến trình phê duyệt {(selectedDoc.steps?.length || 0) + 1} cấp
         </h4>
 
         {selectedDoc.steps && selectedDoc.steps.length > 0 ? (
@@ -336,7 +336,7 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
                           {isCreator ? (
                             <div className="text-xs font-semibold text-amber-800 bg-amber-50 p-2.5 rounded-lg border border-amber-200 flex items-center">
                               <span className="mr-2">⚠️</span>
-                              Quy định Anti Self-Approval: Bạn là người tạo hồ sơ này nên không thể tự phê duyệt.
+                              Quy định chống tự phê duyệt: Bạn là người tạo hồ sơ này nên không được tự phê duyệt.
                             </div>
                           ) : !departmentMatch && hasRole ? (
                             <div className="text-xs font-semibold text-gray-600 bg-gray-50 p-2.5 rounded-lg border border-gray-200 flex items-center">

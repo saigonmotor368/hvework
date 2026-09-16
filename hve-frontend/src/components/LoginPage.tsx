@@ -119,7 +119,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 onClick={() => onSwitchAccount('admin@huyvoeducation.vn')}
                 className="p-2 text-xs font-medium text-center rounded-lg bg-slate-100 text-slate-800 hover:bg-slate-200"
               >
-                IT Admin
+                Quản trị IT
               </button>
             </div>
           </div>

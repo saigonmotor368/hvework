@@ -21,12 +21,12 @@ export class RolesGuard implements CanActivate {
     const user = request.user;
     
     if (!user || !user.roles) {
-      throw new ForbiddenException('User has no roles');
+      throw new ForbiddenException('Tài khoản chưa được gán vai trò nào trong hệ thống');
     }
 
     const hasRole = user.roles.some((role: { name: string }) => requiredRoles.includes(role.name));
     if (!hasRole) {
-      throw new ForbiddenException('Access denied');
+      throw new ForbiddenException('Bạn không có quyền thực hiện thao tác này');
     }
 
     return true;

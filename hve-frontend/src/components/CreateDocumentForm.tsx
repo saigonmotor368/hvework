@@ -342,7 +342,7 @@ export const CreateDocumentForm: React.FC<CreateDocumentFormProps> = ({
               ? 'Tệp Hợp đồng đính kèm (Bắt buộc khi gửi duyệt) *'
               : createForm.type === 'payment_request'
               ? 'Chứng từ / Hóa đơn đính kèm (Bắt buộc khi gửi duyệt) *'
-              : 'Tài liệu / Tài liệu tham khảo đính kèm (Tùy chọn)'}
+              : 'Tệp tài liệu tham khảo đính kèm (Tùy chọn)'}
           </label>
           <div className="mt-1.5 flex items-center space-x-3">
             <input

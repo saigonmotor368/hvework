@@ -43,7 +43,7 @@ export const OfflineBanner: React.FC = () => {
     <div className="bg-amber-500 text-white text-xs font-semibold py-2 px-4 text-center flex items-center justify-center space-x-2 transition-all shadow-sm z-50 animate-pulse">
       <span>⚡</span>
       <span>
-        <strong>Chế độ ngoại tuyến (Offline):</strong> Bạn đang xem dữ liệu từ bộ nhớ đệm. Vui lòng kết nối mạng để thực hiện phê duyệt và đồng bộ mới nhất.
+        <strong>Chế độ ngoại tuyến:</strong> Bạn đang xem dữ liệu từ bộ nhớ đệm. Vui lòng kết nối mạng để thực hiện phê duyệt và đồng bộ mới nhất.
       </span>
     </div>
   );

@@ -261,7 +261,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
 
             <div>
               <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
-                Hạn hoàn thành (Due date)
+                Hạn hoàn thành
               </label>
               <input
                 type="date"
@@ -302,7 +302,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
-                Thẻ phân loại (Tags)
+                Thẻ phân loại
               </label>
               <input
                 type="text"
@@ -317,7 +317,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
             {!parentTask && (
               <div>
                 <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
-                  Chu kỳ lặp lại (Recurrence)
+                  Chu kỳ lặp lại
                 </label>
                 <select
                   value={recurrenceRule}
@@ -325,9 +325,9 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                   className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0A66C2] focus:bg-white transition-all"
                 >
                   <option value="">Không lặp lại</option>
-                  <option value="daily">Hàng ngày (Daily)</option>
-                  <option value="weekly">Hàng tuần (Weekly)</option>
-                  <option value="monthly">Hàng tháng (Monthly)</option>
+                  <option value="daily">Hàng ngày</option>
+                  <option value="weekly">Hàng tuần</option>
+                  <option value="monthly">Hàng tháng</option>
                 </select>
               </div>
             )}
@@ -353,7 +353,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
               disabled={isSubmitting}
               className="px-4 py-2 rounded-xl text-sm font-semibold text-gray-600 hover:bg-slate-100 transition-colors"
             >
-              Hủy
+              Hủy bỏ
             </button>
             <button
               type="submit"

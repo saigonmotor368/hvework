@@ -71,7 +71,7 @@ describe('RolesGuard', () => {
       });
 
       expect(() => guard.canActivate(context)).toThrow(ForbiddenException);
-      expect(() => guard.canActivate(context)).toThrow('Access denied');
+      expect(() => guard.canActivate(context)).toThrow('Bạn không có quyền thực hiện thao tác này');
     });
 
     it('should throw ForbiddenException if accountant tries to access legal-only route', () => {

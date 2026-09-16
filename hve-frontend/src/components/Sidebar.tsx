@@ -162,7 +162,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             className="text-xs text-red-600 hover:text-red-700 font-semibold p-1 hover:bg-red-50 rounded"
             title="Đăng xuất"
           >
-            Thoát
+            Đăng xuất
           </button>
         </div>
 
@@ -193,9 +193,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               onClick={() => onSwitchAccount('admin@huyvoeducation.vn')}
               className="p-1 rounded bg-white hover:bg-slate-100 text-gray-700 font-medium border border-slate-200 text-left truncate"
-              title="IT Admin (Cấu hình luồng, Quản lý user)"
+              title="Quản trị IT (Cấu hình luồng, Quản lý người dùng)"
             >
-              🛠 IT Admin
+              🛠 Quản trị IT
             </button>
             <button
               onClick={() => onSwitchAccount('ceo@huyvoeducation.vn')}

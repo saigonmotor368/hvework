@@ -512,7 +512,7 @@ export default function App() {
         return;
       }
       if (new Date(createForm.endDate) < new Date(createForm.startDate)) {
-        showToast('Ngày hết hạn hợp đồng không thể trước ngày hiệu lực!', 'error');
+        showToast('Ngày hết hạn hợp đồng không được trước ngày hiệu lực!', 'error');
         return;
       }
       if (submitNow && !createForm.selectedFile) {
@@ -854,8 +854,8 @@ export default function App() {
               {activeTab === 'tasks' && 'Quản lý công việc & Giao nhiệm vụ'}
               {activeTab === 'reports' && 'Báo cáo & Thống kê điều hành'}
               {activeTab === 'create' && 'Khởi tạo hồ sơ phê duyệt mới'}
-              {activeTab === 'admin_workflows' && 'Cấu hình quy trình phê duyệt (IT Admin)'}
-              {activeTab === 'admin_users' && 'Quản lý người dùng & phân quyền (IT Admin)'}
+              {activeTab === 'admin_workflows' && 'Cấu hình quy trình phê duyệt (Quản trị IT)'}
+              {activeTab === 'admin_users' && 'Quản lý người dùng & phân quyền (Quản trị IT)'}
             </h2>
             {selectedDoc && (
               <span className="text-sm text-gray-400 font-medium">/ Chi tiết {selectedDoc.code}</span>

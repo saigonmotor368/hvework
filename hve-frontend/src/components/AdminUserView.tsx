@@ -133,7 +133,7 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
 
   const handleToggleStatus = async (user: AdminUser) => {
     if (user.id === currentUser?.id && user.status === 'active') {
-      showToast('Quy định an toàn: Bạn không thể tự khóa tài khoản của chính mình', 'error');
+      showToast('Quy định an toàn: Bạn không được tự khóa tài khoản của chính mình', 'error');
       return;
     }
 
@@ -447,7 +447,7 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                 disabled={isSavingUser}
                 className="px-4 py-2 rounded-xl border border-gray-200 text-xs font-bold text-gray-600 hover:bg-slate-50"
               >
-                Hủy
+                Hủy bỏ
               </button>
               <button
                 type="button"

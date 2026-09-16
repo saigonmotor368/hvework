@@ -339,7 +339,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
-            🛡️ Nhật ký hệ thống (CEO / Admin)
+            🛡️ Nhật ký hệ thống (CEO / Quản trị IT)
           </button>
         )}
       </div>
@@ -519,7 +519,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
               {/* Data Table */}
               <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
                 <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-                  <h3 className="font-bold text-gray-800 text-sm">Danh sách hồ sơ chi tiết (Click để xem)</h3>
+                  <h3 className="font-bold text-gray-800 text-sm">Danh sách hồ sơ chi tiết (Nhấn để xem)</h3>
                   <span className="text-xs text-gray-400">Hiển thị tối đa 100 bản ghi</span>
                 </div>
                 <div className="overflow-x-auto">
@@ -592,7 +592,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
               {/* Data Table */}
               <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
                 <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-                  <h3 className="font-bold text-gray-800 text-sm">Danh sách công việc (Click để đôn đốc / xem)</h3>
+                  <h3 className="font-bold text-gray-800 text-sm">Danh sách công việc (Nhấn để đôn đốc / xem)</h3>
                   <span className="text-xs text-gray-400">Hiển thị tối đa 100 bản ghi</span>
                 </div>
                 <div className="overflow-x-auto">
@@ -729,7 +729,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-xs text-amber-900 flex items-start space-x-2">
                 <span className="text-base">🛡️</span>
                 <div>
-                  <strong>Phân quyền nghiêm ngặt:</strong> Nhật ký kiểm soát nội bộ (Audit Log) chỉ mở
+                  <strong>Phân quyền nghiêm ngặt:</strong> Nhật ký kiểm soát nội bộ chỉ mở
                   cho Chủ tịch / CEO và Quản trị IT để tra cứu dấu vết thay đổi và bảo toàn tính toàn vẹn dữ liệu.
                 </div>
               </div>
