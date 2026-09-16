@@ -156,7 +156,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ apiBaseUrl, 
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-96 bg-white rounded-2xl shadow-xl border border-slate-200 z-50 overflow-hidden animate-fadeIn">
+        <div className="absolute right-0 mt-2 w-[90vw] max-w-96 bg-white rounded-2xl shadow-xl border border-slate-200 z-50 overflow-hidden animate-fadeIn">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50/50">
             <div className="flex items-center space-x-2">

@@ -9,7 +9,7 @@ export const Toast: React.FC<ToastProps> = ({ toast }) => {
 
   return (
     <div
-      className={`fixed top-4 right-4 z-50 flex items-center px-4 py-3 rounded-xl shadow-lg border transition-all ${
+      className={`fixed top-4 right-4 left-4 sm:left-auto max-w-md z-50 flex items-center px-4 py-3 rounded-xl shadow-lg border transition-all ${
         toast.type === 'success'
           ? 'bg-emerald-50 text-emerald-900 border-emerald-200'
           : 'bg-red-50 text-red-900 border-red-200'
