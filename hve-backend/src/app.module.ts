@@ -9,6 +9,9 @@ import { AttachmentsModule } from './attachments/attachments.module.js';
 import { WorkflowsModule } from './workflows/workflows.module.js';
 import { AdminModule } from './admin/admin.module.js';
 import { TasksModule } from './tasks/tasks.module.js';
+import { NotificationsModule } from './notifications/notifications.module.js';
+import { DashboardModule } from './dashboard/dashboard.module.js';
+import { ReportsModule } from './reports/reports.module.js';
 
 @Module({
   imports: [
@@ -20,6 +23,9 @@ import { TasksModule } from './tasks/tasks.module.js';
     WorkflowsModule,
     AdminModule,
     TasksModule,
+    NotificationsModule,
+    DashboardModule,
+    ReportsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -8,10 +8,13 @@ import {
   ConflictException,
 } from '@nestjs/common';
 
+import { NotificationsService } from '../notifications/notifications.service.js';
+
 describe('DocumentsService', () => {
   let service: DocumentsService;
   let prisma: any;
   let auditService: any;
+  let notificationsService: any;
 
   beforeEach(async () => {
     prisma = {
@@ -37,6 +40,9 @@ describe('DocumentsService', () => {
         findMany: vi.fn(),
         count: vi.fn(),
       },
+      user: {
+        findMany: vi.fn().mockResolvedValue([{ id: 2 }]),
+      },
       $transaction: vi.fn(async (cb: any) => cb(prisma)),
     };
 
@@ -44,11 +50,16 @@ describe('DocumentsService', () => {
       logEvent: vi.fn().mockResolvedValue({ id: 1 }),
     };
 
+    notificationsService = {
+      dispatchNotification: vi.fn().mockResolvedValue({ in_app: true, email: true }),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         DocumentsService,
         { provide: PrismaService, useValue: prisma },
         { provide: AuditService, useValue: auditService },
+        { provide: NotificationsService, useValue: notificationsService },
       ],
     }).compile();
 
@@ -617,6 +628,90 @@ describe('DocumentsService', () => {
 
       await expect(service.submitForApproval(301, 10)).rejects.toThrow(
         'Bắt buộc phải đính kèm file hợp đồng trước khi gửi duyệt',
+      );
+    });
+  });
+
+  describe('Real-time Notifications for Document Transitions (Phase 4 scope)', () => {
+    it('submitForApproval should trigger immediate notification to step 1 approver', async () => {
+      prisma.document.findUnique.mockResolvedValue({
+        id: 1,
+        code: 'DX-2026-001',
+        title: 'Mua thiết bị',
+        type: 'proposal',
+        status: 'Nháp',
+        createdById: 10,
+        version: 1,
+        dataJson: { content: 'Đề xuất mua màn hình' },
+        createdBy: { departmentId: 2, name: 'Nhân viên A' },
+      });
+      prisma.workflowTemplate.findUnique.mockResolvedValue({
+        steps: [{ stepOrder: 1, roleRequired: 'department_head' }],
+      });
+      prisma.document.update.mockResolvedValue({
+        id: 1,
+        code: 'DX-2026-001',
+        title: 'Mua thiết bị',
+        status: 'Chờ duyệt',
+        createdBy: { departmentId: 2, name: 'Nhân viên A' },
+      });
+
+      await service.submitForApproval(1, 10);
+      expect(notificationsService.dispatchNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventType: 'document_pending_approval',
+          title: expect.stringContaining('DX-2026-001'),
+        }),
+      );
+    });
+
+    it('returnStep should trigger immediate notification to document creator', async () => {
+      prisma.document.findUnique.mockResolvedValue({
+        id: 1,
+        code: 'DX-2026-001',
+        title: 'Mua thiết bị',
+        status: 'Chờ duyệt',
+        createdById: 10,
+        version: 1,
+        steps: [{ id: 5, stepOrder: 1, roleRequired: 'department_head', status: 'pending' }],
+        createdBy: { departmentId: 2 },
+      });
+      prisma.document.update.mockResolvedValue({ id: 1, status: 'Nháp' });
+
+      const user = { id: 2, roles: [{ name: 'department_head' }], departmentId: 2 };
+      await service.returnStep(1, 5, user, { comment: 'Bổ sung báo giá' }, 1);
+
+      expect(notificationsService.dispatchNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 10,
+          eventType: 'document_returned',
+          content: expect.stringContaining('Bổ sung báo giá'),
+        }),
+      );
+    });
+
+    it('rejectStep should trigger immediate notification to document creator', async () => {
+      prisma.document.findUnique.mockResolvedValue({
+        id: 1,
+        code: 'DX-2026-001',
+        title: 'Mua thiết bị',
+        status: 'Chờ duyệt',
+        createdById: 10,
+        version: 1,
+        steps: [{ id: 5, stepOrder: 1, roleRequired: 'department_head', status: 'pending' }],
+        createdBy: { departmentId: 2 },
+      });
+      prisma.document.update.mockResolvedValue({ id: 1, status: 'Từ chối' });
+
+      const user = { id: 2, roles: [{ name: 'department_head' }], departmentId: 2 };
+      await service.rejectStep(1, 5, user, { comment: 'Không phù hợp ngân sách' }, 1);
+
+      expect(notificationsService.dispatchNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 10,
+          eventType: 'document_rejected',
+          content: expect.stringContaining('Không phù hợp ngân sách'),
+        }),
       );
     });
   });

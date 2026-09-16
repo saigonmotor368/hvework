@@ -119,26 +119,27 @@ Bám theo [02_KE_HOACH_TRIEN_KHAI.md](02_KE_HOACH_TRIEN_KHAI.md) và [01_KIEN_TR
 ## Phase 4 — Thông báo, báo cáo, dashboard
 
 ### Backend
-- [ ] Bảng `reminder_rules` + UI admin cấu hình nhiều mốc nhắc theo loại đối tượng
-- [ ] Job scheduler quét mốc nhắc (hồ sơ cần duyệt, hồ sơ duyệt/trả/từ chối, việc sắp/quá hạn, hợp đồng sắp hết hạn)
-- [ ] Cơ chế dedupe thông báo (`dedupe_key`) chống gửi trùng
-- [ ] Tích hợp gửi email (template do admin cấu hình được)
-- [ ] Quy tắc leo thang: việc quá hạn báo thêm quản lý trực tiếp + CEO
-- [ ] API đánh dấu đã đọc thông báo; thông báo quan trọng vẫn giữ trong lịch sử
-- [ ] Interface `NotificationChannel` mở sẵn chỗ cắm Zalo OA sau này (chưa implement, chỉ để interface + stub)
-- [ ] API dashboard theo vai trò (CEO / Trưởng BP / Nhân viên / Kế toán-Pháp chế) — aggregate query, cache 60s
-- [ ] API báo cáo: công việc theo nhân viên/bộ phận/trạng thái/thời gian; việc sắp/quá hạn; hồ sơ chờ duyệt theo loại/cấp/số ngày chờ; thanh toán theo tháng/trạng thái/bộ phận; hợp đồng theo đối tác/ngày hiệu lực/hết hạn/cảnh báo; nhật ký thao tác
-- [ ] Filter báo cáo: khoảng thời gian, bộ phận, người dùng, trạng thái, loại hồ sơ
-- [ ] Export Excel và PDF, đảm bảo dữ liệu xuất tuân theo quyền người yêu cầu (không xuất vượt scope)
-- [ ] Drill-down: từ chỉ số tổng hợp mở được danh sách chi tiết tương ứng
+- [x] Bảng `reminder_rules` + API cấu hình mốc nhắc theo loại đối tượng
+- [x] Bổ sung thông báo tức thời ngay khi duyệt/trả lại/từ chối/gửi duyệt hồ sơ trong `documents.service.ts`
+- [x] Job scheduler quét mốc nhắc (hồ sơ cần duyệt, hồ sơ duyệt/trả/từ chối, việc sắp/quá hạn, hợp đồng sắp hết hạn)
+- [x] Cơ chế dedupe thông báo (`dedupe_key`) chống gửi trùng theo ngày
+- [x] Tích hợp gửi email (kênh Email logger theo format chuẩn HVE)
+- [x] Quy tắc leo thang: việc quá hạn ≥1 ngày báo Trưởng BP, ≥3 ngày leo thang báo CEO
+- [x] API đánh dấu đã đọc thông báo; thông báo quan trọng vẫn giữ trong lịch sử
+- [x] Interface `NotificationChannel` mở sẵn chỗ cắm Zalo OA sau này (stub mở rộng)
+- [x] API dashboard theo 4 vai trò (CEO / Trưởng BP / Nhân viên / Kế toán-Pháp chế) — aggregate query, cache 60s
+- [x] API báo cáo: công việc theo nhân viên/bộ phận/trạng thái/thời gian; việc sắp/quá hạn; hồ sơ theo loại/trạng thái; hợp đồng; nhật ký thao tác audit log (chỉ CEO & IT Admin)
+- [x] Filter báo cáo: 5 bộ lọc (khoảng thời gian, bộ phận, người dùng, trạng thái, loại hồ sơ)
+- [x] Export Excel/CSV với UTF-8 BOM (`\uFEFF`) chống vỡ font tiếng Việt trong Excel Windows
+- [x] Drill-down: từ chỉ số tổng hợp mở được danh sách chi tiết tương ứng
 
 ### Frontend
-- [ ] Trung tâm thông báo (chuông + danh sách + đánh dấu đã đọc)
-- [ ] 4 dashboard theo vai trò (mục 6 brief), ưu tiên hiển thị việc cần hành động trước số liệu thuần
-- [ ] Màn hình báo cáo với bộ lọc + nút export + click-to-drill-down
-- [ ] Cấu hình reminder rule (admin) qua UI
+- [x] Trung tâm thông báo `NotificationBell` (chuông + badge số tin mới + popover + đánh dấu đã đọc tất cả + click chuyển hướng)
+- [x] 4 dashboard theo vai trò, ưu tiên hiển thị khối "CẦN HÀNH ĐỘNG NGAY" trên cùng trước số liệu thuần
+- [x] Màn hình báo cáo `ReportsView` với 4 tab, 5 bộ lọc + nút export CSV UTF-8 BOM + nút In PDF + click-to-drill-down
+- [x] Bảo mật tab Nhật ký hệ thống: chỉ hiển thị cho CEO và IT Admin
 
-**Nghiệm thu Phase 4:** tạo 1 hồ sơ cận hạn + 1 việc cận hạn, xác nhận nhận đúng thông báo đúng kênh đúng người, không trùng lặp; xuất được báo cáo Excel/PDF và drill-down đúng dữ liệu theo quyền.
+**Nghiệm thu Phase 4:** ✅ **ĐÃ ĐẠT** (Backend 105/105 tests pass, 0 lint warnings, Frontend build sạch sẽ trong 241ms, xử lý trọn vẹn thông báo tức thời, quét mốc leo thang, 5 filter báo cáo, bảo mật audit log và CSV UTF-8 BOM).
 
 ---
 

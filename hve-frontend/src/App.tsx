@@ -14,6 +14,8 @@ import { AdminUserView } from './components/AdminUserView';
 import { TaskListView } from './components/TaskListView';
 import { CreateTaskModal } from './components/CreateTaskModal';
 import { TaskDetailModal } from './components/TaskDetailModal';
+import { NotificationBell } from './components/NotificationBell';
+import { ReportsView } from './components/ReportsView';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -30,7 +32,7 @@ export default function App() {
 
   // Main navigation & document state
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'documents' | 'create' | 'tasks' | 'admin_workflows' | 'admin_users'
+    'overview' | 'documents' | 'create' | 'tasks' | 'reports' | 'admin_workflows' | 'admin_users'
   >('overview');
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
   const [selectedDoc, setSelectedDoc] = useState<DocumentItem | null>(null);
@@ -152,6 +154,44 @@ export default function App() {
       }
     } catch {
       // offline
+    }
+  };
+
+  const handleNotificationNavigate = async (link?: string) => {
+    if (!link) return;
+    try {
+      if (link.startsWith('/documents')) {
+        const url = new URL(link, 'http://localhost');
+        const idStr = url.searchParams.get('id');
+        if (idStr) {
+          const docId = parseInt(idStr, 10);
+          const found = documents.find((d) => d.id === docId);
+          if (found) {
+            setSelectedDoc(found);
+          } else {
+            const token = localStorage.getItem('access_token');
+            const res = await fetch(`${API_BASE_URL}/documents/${docId}`, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            if (res.ok) {
+              const d = await res.json();
+              setSelectedDoc(d);
+            }
+          }
+          setActiveTab('documents');
+        } else {
+          setActiveTab('documents');
+        }
+      } else if (link.startsWith('/tasks')) {
+        const url = new URL(link, 'http://localhost');
+        const idStr = url.searchParams.get('id');
+        if (idStr) {
+          setSelectedTaskId(parseInt(idStr, 10));
+        }
+        setActiveTab('tasks');
+      }
+    } catch {
+      // ignore
     }
   };
 
@@ -645,6 +685,7 @@ export default function App() {
               {activeTab === 'overview' && 'Tổng quan điều hành'}
               {activeTab === 'documents' && 'Danh sách hồ sơ phê duyệt'}
               {activeTab === 'tasks' && 'Quản lý công việc & Giao nhiệm vụ'}
+              {activeTab === 'reports' && 'Báo cáo & Thống kê điều hành'}
               {activeTab === 'create' && 'Khởi tạo hồ sơ phê duyệt mới'}
               {activeTab === 'admin_workflows' && 'Cấu hình quy trình phê duyệt (IT Admin)'}
               {activeTab === 'admin_users' && 'Quản lý người dùng & phân quyền (IT Admin)'}
@@ -654,7 +695,12 @@ export default function App() {
             )}
           </div>
 
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-4">
+            <NotificationBell
+              apiBaseUrl={API_BASE_URL}
+              onNavigate={handleNotificationNavigate}
+            />
+            <div className="h-5 w-px bg-slate-200" />
             <span className="text-xs text-gray-500">
               Đang đăng nhập: <strong className="text-gray-800">{user?.name}</strong> (
               {user?.roles?.map((r: string) => ROLE_LABELS[r] || r).join(', ')})
@@ -667,6 +713,8 @@ export default function App() {
           {/* TAB 1: OVERVIEW */}
           {activeTab === 'overview' && (
             <OverviewDashboard
+              apiBaseUrl={API_BASE_URL}
+              user={user}
               pendingCount={pendingCount}
               approvedCount={approvedCount}
               draftCount={draftCount}
@@ -675,6 +723,10 @@ export default function App() {
               onSelectDoc={(doc) => {
                 setSelectedDoc(doc);
                 setActiveTab('documents');
+              }}
+              onSelectTask={(taskId) => {
+                setSelectedTaskId(taskId);
+                setActiveTab('tasks');
               }}
               onViewAll={() => setActiveTab('documents')}
             />
@@ -734,6 +786,26 @@ export default function App() {
                 setIsCreateTaskOpen(true);
               }}
               onSelectTask={(task) => setSelectedTaskId(task.id)}
+            />
+          )}
+
+          {/* TAB: REPORTS */}
+          {activeTab === 'reports' && (
+            <ReportsView
+              apiBaseUrl={API_BASE_URL}
+              currentUser={user}
+              showToast={showToast}
+              onSelectDoc={(id) => {
+                const found = documents.find((d) => d.id === id);
+                if (found) {
+                  setSelectedDoc(found);
+                  setActiveTab('documents');
+                }
+              }}
+              onSelectTask={(taskId) => {
+                setSelectedTaskId(taskId);
+                setActiveTab('tasks');
+              }}
             />
           )}
 

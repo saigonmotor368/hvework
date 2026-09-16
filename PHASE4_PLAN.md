@@ -6,25 +6,27 @@ Tài liệu thiết kế kỹ thuật và kế hoạch thi công Phase 4 cho h�
 
 ## 📌 1. Mục tiêu & Phạm vi Phase 4
 
-Phase 4 hoàn thiện năng lực giám sát và điều hành toàn diện của ban lãnh đạo và các phòng ban tại HVE:
-1. **Hệ thống Thông báo & Nhắc hạn thông minh (Reminders & Notifications)**:
-   - Cấu hình mốc nhắc đa dạng (`ReminderRule`: trước 3 ngày, trước 1 ngày, đúng hạn, quá hạn 1 ngày...).
-   - Cơ chế chống gửi trùng thông báo (`dedupeKey` chuẩn hóa theo ngày và mốc).
-   - Quy tắc leo thang (Escalation): Công việc quá hạn tự động thông báo thêm cho Trưởng bộ phận và CEO.
-   - Trung tâm thông báo (Notification Center): Icon chuông trên header, popover thông báo, đếm số chưa đọc, đánh dấu đã đọc.
-   - Interface `NotificationChannel` mở sẵn cho kênh Zalo OA trong tương lai, hiện tại kích hoạt In-app & Email.
-2. **Dashboard Điều hành chuyên biệt theo 4 Vai trò**:
-   - **CEO Dashboard**: Tổng quan sức khỏe doanh nghiệp, dòng tiền thanh toán duyệt, số việc chậm tiến độ, hợp đồng sắp hết hạn.
-   - **Trưởng bộ phận Dashboard**: Tiến độ công việc trong phòng, hồ sơ chờ duyệt của phòng mình, hiệu suất nhân viên.
-   - **Kế toán & Pháp chế Dashboard**: Hồ sơ thanh toán cần chi, hợp đồng cần thẩm định pháp lý, hợp đồng sắp đáo hạn.
-   - **Nhân viên Dashboard**: Các việc cần làm ngay trong ngày, việc sắp tới hạn, tiến độ các hồ sơ tự tạo.
-   - *Nguyên tắc thiết kế*: Ưu tiên khối **"Cần hành động ngay"** lên trước các biểu đồ số liệu thuần; áp dụng in-memory cache 60s cho aggregate query.
-3. **Báo cáo Động & Xuất dữ liệu (Reports & Export)**:
-   - Báo cáo đa chiều: Công việc (theo nhân sự, phòng ban, trạng thái, thời gian), Hồ sơ & Thanh toán, Hợp đồng & Đối tác, Nhật ký thao tác (Audit Log).
-   - Bộ lọc linh hoạt: Khoảng thời gian (tháng này, quý này, tùy chọn), bộ phận, người dùng, trạng thái.
-   - Xuất file Excel (.xlsx / CSV) và PDF (HTML-print) chuẩn đẹp, có chữ ký và watermark.
-   - **Bảo mật xuất báo cáo**: Dữ liệu xuất phải tuân thủ nghiêm ngặt theo phân quyền vai trò (nhân viên không thể xuất vượt scope phòng ban mình).
-   - **Click-to-Drill-down**: Từ các chỉ số tổng hợp trong báo cáo, click để mở xem danh sách chi tiết tương ứng.
+Phase 4 hoàn thiện năng lực giám sát, thông báo và điều hành toàn diện theo đúng mục 6-7 HVE Brief và chỉ đạo từ Trưởng phòng IT ([10_REVIEW_PHASE4_PLAN.md](10_REVIEW_PHASE4_PLAN.md)):
+
+### 1.1. Đủ 5/5 Loại Thông báo theo Brief (Tức thời & Theo mốc lịch)
+1. **Có hồ sơ cần duyệt (TỨC THỜI)**: Gửi ngay cho người/vai trò giữ bước duyệt khi hồ sơ được gửi duyệt (`submitForApproval`) hoặc khi bước trước vừa duyệt xong (`approveStep`).
+2. **Hồ sơ được duyệt / trả lại / từ chối (TỨC THỜI)**: Gửi ngay cho người tạo hồ sơ (`createdById`) kèm lý do khi hồ sơ hoàn tất phê duyệt, bị trả lại hoặc bị từ chối.
+3. **Công việc sắp đến hạn (CRON / LỊCH)**: Quét tự động gửi cho người thực hiện (`assigneeId`) theo mốc nhắc nhở cấu hình (VD: trước 1 ngày, trước 3 ngày).
+4. **Công việc quá hạn & Leo thang (CRON / LỊCH)**: Quét tự động gửi cho người thực hiện khi quá hạn; nếu quá hạn $\ge 1$ ngày gửi thêm cho Trưởng bộ phận, nếu quá hạn $\ge 3$ ngày (ngưỡng leo thang mặc định) gửi thêm cho CEO.
+5. **Hợp đồng sắp hết hạn (CRON / LỊCH)**: Quét tự động gửi cho người phụ trách (`manager`) và bộ phận Pháp chế khi còn $\le 30$ ngày.
+
+### 1.2. Dashboard Điều hành chuyên biệt theo 4 Vai trò
+- **CEO Dashboard**: Tổng quan sức khỏe doanh nghiệp, dòng tiền thanh toán duyệt, số việc chậm tiến độ, hợp đồng sắp hết hạn.
+- **Trưởng bộ phận Dashboard**: Tiến độ công việc trong phòng, hồ sơ chờ duyệt của phòng mình, hiệu suất nhân viên.
+- **Kế toán & Pháp chế Dashboard**: Hồ sơ thanh toán cần chi, hợp đồng cần thẩm định pháp lý, hợp đồng sắp đáo hạn.
+- **Nhân viên Dashboard**: Các việc cần làm ngay trong ngày, việc sắp tới hạn, tiến độ các hồ sơ tự tạo.
+- *Nguyên tắc thiết kế*: Khối **"Cần hành động ngay"** luôn nằm ở vị trí trên cùng; in-memory cache 60s cho aggregate query (được chọn cho MVP, kiến trúc mở sẵn sàng switch sang Redis khi chạy multi-instance).
+
+### 1.3. Báo cáo Đa chiều, Xuất dữ liệu & Phân quyền bảo mật
+- **Đủ 5 bộ lọc nghiệp vụ theo brief**: Khoảng thời gian, Bộ phận, **Người dùng**, Trạng thái và **Loại hồ sơ**.
+- **Phân quyền Tab "Nhật ký hệ thống" (Audit Log)**: Giới hạn **chỉ CEO và IT Admin** được xem và xuất dữ liệu audit log (tránh lộ `beforeJson`/`afterJson` của người khác).
+- **Xuất file Excel/CSV chuẩn**: Định dạng CSV có gắn **BOM UTF-8** (`\uFEFF`) chống vỡ font tiếng Việt tuyệt đối khi mở bằng Microsoft Excel trên Windows.
+- **Click-to-Drill-down**: Từ các chỉ số tổng hợp click chuyển ngay sang danh sách chi tiết có filter tương ứng.
 
 ---
 

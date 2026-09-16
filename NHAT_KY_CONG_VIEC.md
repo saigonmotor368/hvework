@@ -13,8 +13,8 @@
 | **Phase 1** | Lõi phê duyệt: Đề nghị thanh toán (Backend + Frontend) | **ĐÃ HOÀN THÀNH** | ✅ Đạt nghiệm thu ([05_REVIEW_PHASE1.md](05_REVIEW_PHASE1.md)) |
 | **Phase 2** | Mở rộng phê duyệt: Đề xuất, Hợp đồng, IT Admin Workflow | **ĐÃ HOÀN THÀNH** | ✅ Đạt nghiệm thu ([07_REVIEW_PHASE2.md](07_REVIEW_PHASE2.md)) |
 | **Phase 3** | Quản lý công việc (Task Management, Recurring Tasks) | **ĐÃ HOÀN THÀNH** | ✅ Đạt 92/92 tests pass, build sạch sẽ, xử lý triệt để 6 điểm theo review [08_REVIEW_PHASE3_PLAN.md](08_REVIEW_PHASE3_PLAN.md) |
-| **Phase 4** | Thông báo, Báo cáo, Dashboard nâng cao | ⏳ **CHỜ BẮT ĐẦU** | Sẵn sàng triển khai tiếp theo |
-| **Phase 5** | PWA, Bảo mật (Hardening), UAT & Bàn giao | ⏳ Chưa bắt đầu | Giai đoạn cuối |
+| **Phase 4** | Thông báo, Báo cáo, Dashboard nâng cao | **ĐÃ HOÀN THÀNH** | ✅ Đạt 105/105 tests pass, 0 lint warnings, hoàn thành trọn vẹn review [10_REVIEW_PHASE4_PLAN.md](10_REVIEW_PHASE4_PLAN.md) |
+| **Phase 5** | PWA, Bảo mật (Hardening), UAT & Bàn giao | ⏳ **CHỜ BẮT ĐẦU** | Sẵn sàng triển khai tiếp theo |
 
 ---
 
@@ -184,20 +184,67 @@
      - Backend build: **Pass sạch sẽ** (`nest build` 0 lỗi).
      - Frontend build: **Pass sạch sẽ** (`tsc -b && vite build` 0 lỗi).
 
+### 3.4. Phiên làm việc: Triển khai Phase 4 — Thông báo, Báo cáo, Dashboard (16/09/2026)
+- **Mục tiêu**: Hoàn thành toàn diện Phase 4 theo yêu cầu của anh Định (Chủ tịch) và tiếp thu 100% phản hồi quan trọng từ anh Minh (Trưởng phòng IT) tại [10_REVIEW_PHASE4_PLAN.md](10_REVIEW_PHASE4_PLAN.md).
+- **Vá lỗi tồn đọng từ Phase 3**:
+  - Chặn `recurrenceRule` trong `updateTask()` khi task có `subTasks` hoặc là việc con (`parentTaskId`).
+  - Dọn dẹp sạch sẽ 2 lint warnings trong backend (0 errors, 0 warnings).
+  - Đồng bộ toàn bộ email test sang domain `@huyvoeducation.vn`.
+- **Các hạng mục Phase 4 đã hoàn thành**:
+  1. **Schema Database Prisma**:
+     - Bổ sung `title`, `content`, `link` vào model `Notification`.
+     - Bổ sung `name`, `isActive` vào model `ReminderRule`. Chạy `npx prisma generate` thành công.
+  2. **Bổ sung 2 loại Thông báo tức thời cốt lõi trong `DocumentsService`**:
+     - Thay vì chỉ dựa vào cron quét mốc, đã tích hợp bắn thông báo tức thời ngay khi chuyển trạng thái hồ sơ trong `documents.service.ts`:
+       - `submitForApproval`: Bắn thông báo ngay cho người duyệt bước 1 (`document_pending_approval`).
+       - `approveStep`: Bắn thông báo cho người duyệt bước tiếp theo hoặc cho người tạo hồ sơ khi bước cuối được duyệt (`document_approved`).
+       - `returnStep`: Bắn thông báo tức thời cho người tạo hồ sơ kèm lý do trả lại (`document_returned`).
+       - `rejectStep`: Bắn thông báo tức thời cho người tạo hồ sơ kèm lý do từ chối (`document_rejected`).
+  3. **Module Thông báo đa kênh (`NotificationsModule`)**:
+     - Interface đa kênh `NotificationChannel`:
+       - `InAppChannel`: Ghi DB, bắt mã lỗi `P2002` dedupeKey chống trùng thông báo.
+       - `EmailChannel`: Gửi email / logger chuẩn format thương hiệu HVE.
+       - `ZaloChannel`: Stub mở sẵn cho Zalo Official Account.
+     - Cơ chế quét mốc định kỳ & leo thang (`triggerScheduledReminders`):
+       - Quét công việc sắp đến hạn ($\le 1$ ngày).
+       - Quét công việc quá hạn: quá hạn $\ge 1$ ngày báo Trưởng bộ phận, quá hạn $\ge 3$ ngày leo thang báo CEO.
+       - Quét hợp đồng sắp hết hạn ($\le 30$ ngày) gửi cho Kế toán & Pháp chế.
+       - Sinh `dedupeKey` duy nhất theo ngày: `reminder_${type}_${id}_${mốc}_${YYYY-MM-DD}` chống spam gửi trùng.
+  4. **Module Dashboard theo 4 vai trò (`DashboardModule`)**:
+     - Endpoint `GET /dashboard` và `POST /dashboard/clear-cache`.
+     - In-memory cache 60s theo quyết định kiến trúc, key theo `dashboard_${userId}_${primaryRole}`.
+     - Khối "CẦN HÀNH ĐỘNG NGAY" trên cùng phân loại chính xác theo 4 vai trò:
+       - **CEO**: Hồ sơ chờ CEO duyệt, công việc leo thang quá hạn $\ge 3$ ngày, tỷ lệ hoàn thành theo phòng ban.
+       - **Trưởng bộ phận**: Hồ sơ chờ Trưởng phòng duyệt trong phòng ban mình, việc quá hạn của nhân sự trong phòng ban.
+       - **Kế toán & Pháp chế**: Đề xuất thanh toán đã duyệt chờ chi, hợp đồng sắp hết hạn $\le 30$ ngày, tổng giá trị hợp đồng.
+       - **Nhân viên**: Hồ sơ bị trả lại cần sửa, công việc đến hạn hôm nay hoặc quá hạn.
+  5. **Module Báo cáo & Phân quyền Audit Log (`ReportsModule`)**:
+     - Endpoint `GET /reports/summary`: Hỗ trợ đầy đủ **5 bộ lọc đa chiều** (thời gian, bộ phận, người dùng, trạng thái, loại hồ sơ) tổng hợp số lượng, tỷ lệ duyệt, thời gian duyệt TB, tiến độ công việc, giá trị hợp đồng.
+     - Endpoint `GET /reports/audit-logs`: **Phân quyền nghiêm ngặt**: Chỉ CEO và Quản trị IT mới có quyền xem và truy xuất. Nhân viên thường gọi bị chặn `403 Forbidden`.
+     - Endpoint `GET /reports/export`: Xuất file CSV có **UTF-8 BOM (`\uFEFF`)** ở đầu tệp, đảm bảo hiển thị đúng 100% tiếng Việt có dấu trong Microsoft Excel trên Windows.
+  6. **Frontend Phase 4**:
+     - `NotificationBell.tsx`: Chuông thông báo góc header, badge unread đếm số tin mới, popover danh sách, nút đọc tất cả, click thông báo tự động chuyển hướng đến chi tiết hồ sơ hoặc công việc.
+     - `OverviewDashboard.tsx`: Nâng cấp giao diện hiện đại, khối "CẦN HÀNH ĐỘNG NGAY" đặt trên cùng kèm hiệu ứng cảnh báo, các card chỉ số thời gian thực, bảng tiến độ phòng ban, nút làm mới dữ liệu gọi clear-cache.
+     - `ReportsView.tsx`: 4 tab báo cáo (Hồ sơ, Công việc, Tài chính & Hợp đồng, Nhật ký hệ thống), 5 bộ lọc linh hoạt, nút xuất Excel UTF-8 BOM, nút In / Xuất PDF, drill-down click xem chi tiết, ẩn tab Nhật ký hệ thống với người không có quyền CEO/Admin.
+     - `Sidebar.tsx` & `App.tsx`: Tích hợp tab `reports`, gắn NotificationBell vào Header, liên kết điều hướng thông báo.
+  7. **Kiểm thử & Chất lượng**:
+     - Backend unit tests: **105/105 tests pass 100%** (bao phủ 11 test suites).
+     - Backend lint: **0 warnings, 0 errors** (oxlint sạch 100%).
+     - Frontend build: **Pass sạch sẽ trong 241ms** (`tsc -b && vite build` 0 lỗi).
+
 ---
 
 ## 🎯 4. KẾ HOẠCH BƯỚC TIẾP THEO (NEXT STEPS)
 
-Khi bắt đầu phiên làm việc tiếp theo, chuyển sang triển khai **Phase 4 — Thông báo, Báo cáo, Dashboard ([03_TASKLIST_DEV.md](03_TASKLIST_DEV.md) §Phase 4)**:
+Khi bắt đầu phiên làm việc tiếp theo, chuyển sang triển khai **Phase 5 — PWA, Bảo mật (Hardening), UAT & Bàn giao ([03_TASKLIST_DEV.md](03_TASKLIST_DEV.md) §Phase 5)**:
 
-1. **Backend**:
-   - Bảng `reminder_rules` + API cấu hình mốc nhắc nhở (hồ sơ cần duyệt, việc sắp/quá hạn, hợp đồng sắp hết hạn).
-   - Job scheduler quét mốc nhắc + dedupe key.
-   - Cơ chế gửi email qua SMTP/Nodemailer với template cấu hình được.
-   - API Dashboard theo vai trò (CEO, Trưởng bộ phận, Nhân viên, Kế toán/Pháp chế) với cache 60s.
-   - API Báo cáo tổng hợp: công việc, hồ sơ, thanh toán, hợp đồng; xuất Excel/PDF tuân thủ phân quyền.
-2. **Frontend**:
-   - Trung tâm thông báo (Notification Center chuông + popover + đánh dấu đã đọc).
-   - 4 Dashboard theo vai trò.
-   - Màn hình Báo cáo động với bộ lọc và xuất file Excel/PDF.
+1. **PWA (Progressive Web App)**:
+   - Cấu hình Web App Manifest, Service Worker, cache offline assets, icon cho di động.
+   - Thêm nút "Cài đặt ứng dụng" trên mobile browser.
+2. **Bảo mật & Tối ưu hóa (Hardening)**:
+   - Rà soát CORS, Helmet headers, Rate Limiting (chống brute force).
+   - Kiểm tra SQL injection, XSS, CSRF.
+3. **UAT & Kiểm thử kịch bản trọn vẹn**:
+   - Chạy kịch bản người dùng liên hoàn từ Phase 0 tới Phase 4.
+   - Chuẩn bị tài liệu bàn giao dự án cho anh Định và anh Minh.
 

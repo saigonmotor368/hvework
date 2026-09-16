@@ -176,6 +176,9 @@ model Notification {
   userId      Int
   eventType   String
   entityRef   String
+  title       String?
+  content     String?
+  link        String?
   channel     String   // in_app, email
   dedupeKey   String   @unique
   readAt      DateTime?
@@ -185,10 +188,12 @@ model Notification {
 
 model ReminderRule {
   id             Int      @id @default(autoincrement())
-  entityType     String
+  name           String?
+  entityType     String   // document, task, contract
   offsetDays     Json     // array of days
   recipientsRule String
-  channel        String
+  channel        String   // in_app, email
+  isActive       Boolean  @default(true)
   
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt

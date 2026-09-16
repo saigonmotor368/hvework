@@ -12,12 +12,14 @@ import { CreateProposalDto } from './dto/create-proposal.dto.js';
 import { CreateContractDto } from './dto/create-contract.dto.js';
 import { UpdatePaymentRequestDto } from './dto/update-payment-request.dto.js';
 import { ActionStepDto, RejectOrReturnStepDto } from './dto/action-step.dto.js';
+import { NotificationsService } from '../notifications/notifications.service.js';
 
 @Injectable()
 export class DocumentsService {
   constructor(
     private prisma: PrismaService,
     private auditService: AuditService,
+    private notificationsService: NotificationsService,
   ) {}
 
   async generateDocumentCode(prefix: string): Promise<string> {
@@ -47,6 +49,57 @@ export class DocumentsService {
     }
 
     return `${codePrefix}${String(nextSeq).padStart(3, '0')}`;
+  }
+
+  /**
+   * Bắn thông báo tức thời cho người/vai trò duyệt của bước hiện tại
+   */
+  async notifyStepApprovers(
+    doc: { id: number; code: string; title: string; createdBy?: { name?: string; departmentId?: number | null } },
+    stepOrder: number,
+    roleRequired: string,
+  ) {
+    try {
+      let approverIds: number[] = [];
+
+      if (roleRequired === 'department_head') {
+        const deptId = doc.createdBy?.departmentId;
+        if (deptId) {
+          const deptHeads = await this.prisma.user.findMany({
+            where: {
+              departmentId: deptId,
+              roles: { some: { name: 'department_head' } },
+              status: 'active',
+            },
+            select: { id: true },
+          });
+          approverIds = deptHeads.map((u) => u.id);
+        }
+      } else {
+        const roleUsers = await this.prisma.user.findMany({
+          where: {
+            roles: { some: { name: roleRequired } },
+            status: 'active',
+          },
+          select: { id: true },
+        });
+        approverIds = roleUsers.map((u) => u.id);
+      }
+
+      for (const approverId of approverIds) {
+        await this.notificationsService.dispatchNotification({
+          userId: approverId,
+          eventType: 'document_pending_approval',
+          entityRef: `document:${doc.id}`,
+          title: `Hồ sơ cần duyệt: ${doc.code}`,
+          content: `Hồ sơ "${doc.title}" (Người tạo: ${doc.createdBy?.name || '---'}) đang chờ bạn phê duyệt (Bước ${stepOrder}).`,
+          link: `/documents?id=${doc.id}`,
+          dedupeKey: `doc_pending_${doc.id}_step${stepOrder}_user${approverId}_${Date.now()}`,
+        });
+      }
+    } catch {
+      // Notification dispatch should not block main transaction
+    }
   }
 
   async createPaymentRequest(userId: number, dto: CreatePaymentRequestDto, ip?: string) {
@@ -470,7 +523,7 @@ export class DocumentsService {
       );
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       // Clear any prior steps (e.g. if resubmitted after return)
       await tx.documentApprovalStep.deleteMany({ where: { documentId } });
 
@@ -510,6 +563,13 @@ export class DocumentsService {
 
       return updated;
     });
+
+    // Bắn thông báo tức thời cho người duyệt bước 1
+    if (workflowTemplate.steps.length > 0) {
+      await this.notifyStepApprovers(result, 1, workflowTemplate.steps[0].roleRequired);
+    }
+
+    return result;
   }
 
   async approveStep(
@@ -578,7 +638,7 @@ export class DocumentsService {
       }
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       // Approve current step
       await tx.documentApprovalStep.update({
         where: { id: step.id },
@@ -633,6 +693,25 @@ export class DocumentsService {
 
       return updatedDoc;
     });
+
+    // Bắn thông báo tức thời cho bước tiếp theo hoặc người tạo hồ sơ (nếu đã duyệt xong toàn bộ)
+    const nextStep = doc.steps.find((s) => s.stepOrder === step.stepOrder + 1);
+    if (nextStep) {
+      await this.notifyStepApprovers(result, nextStep.stepOrder, nextStep.roleRequired);
+    } else {
+      // Đã duyệt xong bước cuối
+      await this.notificationsService.dispatchNotification({
+        userId: doc.createdById,
+        eventType: 'document_approved',
+        entityRef: `document:${doc.id}`,
+        title: `Hồ sơ đã được phê duyệt: ${doc.code}`,
+        content: `Hồ sơ "${doc.title}" của bạn đã hoàn tất phê duyệt bởi Ban Giám đốc.`,
+        link: `/documents?id=${doc.id}`,
+        dedupeKey: `doc_approved_${doc.id}_${Date.now()}`,
+      });
+    }
+
+    return result;
   }
 
   async returnStep(
@@ -696,7 +775,7 @@ export class DocumentsService {
       }
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       // Mark step as returned
       await tx.documentApprovalStep.update({
         where: { id: step.id },
@@ -733,6 +812,19 @@ export class DocumentsService {
 
       return updatedDoc;
     });
+
+    // Bắn thông báo tức thời cho người tạo hồ sơ
+    await this.notificationsService.dispatchNotification({
+      userId: doc.createdById,
+      eventType: 'document_returned',
+      entityRef: `document:${doc.id}`,
+      title: `Hồ sơ bị trả lại: ${doc.code}`,
+      content: `Hồ sơ "${doc.title}" của bạn đã bị trả lại. Lý do: ${dto.comment}`,
+      link: `/documents?id=${doc.id}`,
+      dedupeKey: `doc_returned_${doc.id}_${Date.now()}`,
+    });
+
+    return result;
   }
 
   async rejectStep(
@@ -796,7 +888,7 @@ export class DocumentsService {
       }
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       // Mark step as rejected
       await tx.documentApprovalStep.update({
         where: { id: step.id },
@@ -833,6 +925,19 @@ export class DocumentsService {
 
       return updatedDoc;
     });
+
+    // Bắn thông báo tức thời cho người tạo hồ sơ
+    await this.notificationsService.dispatchNotification({
+      userId: doc.createdById,
+      eventType: 'document_rejected',
+      entityRef: `document:${doc.id}`,
+      title: `Hồ sơ bị từ chối: ${doc.code}`,
+      content: `Hồ sơ "${doc.title}" của bạn đã bị từ chối. Lý do: ${dto.comment}`,
+      link: `/documents?id=${doc.id}`,
+      dedupeKey: `doc_rejected_${doc.id}_${Date.now()}`,
+    });
+
+    return result;
   }
 
   async findAll(user: any, query: { status?: string; type?: string; tab?: string }) {

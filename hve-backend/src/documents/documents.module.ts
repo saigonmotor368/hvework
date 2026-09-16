@@ -3,9 +3,10 @@ import { DocumentsService } from './documents.service.js';
 import { DocumentsController } from './documents.controller.js';
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { AuditModule } from '../audit/audit.module.js';
+import { NotificationsModule } from '../notifications/notifications.module.js';
 
 @Module({
-  imports: [PrismaModule, AuditModule],
+  imports: [PrismaModule, AuditModule, NotificationsModule],
   controllers: [DocumentsController],
   providers: [DocumentsService],
   exports: [DocumentsService],

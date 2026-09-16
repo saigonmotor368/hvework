@@ -2,11 +2,11 @@ import React from 'react';
 import { ROLE_LABELS } from '../types';
 
 interface SidebarProps {
-  activeTab: 'overview' | 'documents' | 'create' | 'tasks' | 'admin_workflows' | 'admin_users';
+  activeTab: 'overview' | 'documents' | 'create' | 'tasks' | 'reports' | 'admin_workflows' | 'admin_users';
   pendingCount: number;
   taskCount?: number;
   user: any;
-  onSelectTab: (tab: 'overview' | 'documents' | 'create' | 'tasks' | 'admin_workflows' | 'admin_users') => void;
+  onSelectTab: (tab: 'overview' | 'documents' | 'create' | 'tasks' | 'reports' | 'admin_workflows' | 'admin_users') => void;
   onLogout: () => void;
   onSwitchAccount: (email: string) => void;
 }
@@ -84,6 +84,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {taskCount}
               </span>
             )}
+          </button>
+
+          <button
+            onClick={() => onSelectTab('reports')}
+            className={`w-full flex items-center px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
+              activeTab === 'reports'
+                ? 'bg-blue-50 text-[#0A66C2] font-semibold'
+                : 'text-gray-600 hover:bg-slate-50'
+            }`}
+          >
+            <span className="mr-3">📈</span> Báo cáo & Thống kê
           </button>
 
           <button
