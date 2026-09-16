@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Use Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '22.x'
+        cache: 'npm'
+
+    - name: Install dependencies (Backend)
+      working-directory: ./hve-backend
+      run: npm ci
+
+    - name: Generate Prisma Client
+      working-directory: ./hve-backend
+      run: npx prisma generate
+
+    - name: Build (Backend)
+      working-directory: ./hve-backend
+      run: npm run build
+
+    - name: Test (Backend)
+      working-directory: ./hve-backend
+      run: npm run test
+
+    - name: Install dependencies (Frontend)
+      working-directory: ./hve-frontend
+      run: npm ci
+
+    - name: Build (Frontend)
+      working-directory: ./hve-frontend
+      run: npm run build
+
+  deploy-staging:
+    name: Deploy to Staging
+    needs: build-and-test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Deploy Staging Services
+      run: |
+        echo "Triggering staging deployment for HVE Work..."
+        # Staging server trigger / container registry build & deploy step
+

@@ -1,0 +1,680 @@
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+  ConflictException,
+} from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { AuditService } from '../audit/audit.service.js';
+import { CreatePaymentRequestDto } from './dto/create-payment-request.dto.js';
+import { UpdatePaymentRequestDto } from './dto/update-payment-request.dto.js';
+import { ActionStepDto, RejectOrReturnStepDto } from './dto/action-step.dto.js';
+
+@Injectable()
+export class DocumentsService {
+  constructor(
+    private prisma: PrismaService,
+    private auditService: AuditService,
+  ) {}
+
+  async generateDocumentCode(prefix: string): Promise<string> {
+    const year = new Date().getFullYear();
+    const codePrefix = `${prefix}-${year}-`;
+
+    const latestDoc = await this.prisma.document.findFirst({
+      where: {
+        code: {
+          startsWith: codePrefix,
+        },
+      },
+      orderBy: {
+        code: 'desc',
+      },
+    });
+
+    let nextSeq = 1;
+    if (latestDoc && latestDoc.code) {
+      const parts = latestDoc.code.split('-');
+      if (parts.length === 3) {
+        const lastSeq = parseInt(parts[2], 10);
+        if (!isNaN(lastSeq)) {
+          nextSeq = lastSeq + 1;
+        }
+      }
+    }
+
+    return `${codePrefix}${String(nextSeq).padStart(3, '0')}`;
+  }
+
+  async createPaymentRequest(userId: number, dto: CreatePaymentRequestDto, ip?: string) {
+    const code = await this.generateDocumentCode('DNTT');
+
+    const dataJson = {
+      amount: dto.amount,
+      receiver: dto.receiver,
+      bankName: dto.bankName,
+      bankAccount: dto.bankAccount,
+      content: dto.content,
+      deadline: dto.deadline,
+      attachmentIds: dto.attachmentIds || [],
+    };
+
+    const document = await this.prisma.document.create({
+      data: {
+        code,
+        title: dto.title,
+        type: 'payment_request',
+        status: 'Nháp',
+        dataJson,
+        createdById: userId,
+        version: 1,
+      },
+      include: {
+        createdBy: {
+          select: { id: true, name: true, email: true, department: true },
+        },
+      },
+    });
+
+    // Update attachments if provided
+    if (dto.attachmentIds && dto.attachmentIds.length > 0) {
+      await this.prisma.attachment.updateMany({
+        where: { id: { in: dto.attachmentIds } },
+        data: { entityId: document.id, entityType: 'document' },
+      });
+    }
+
+    await this.auditService.logEvent({
+      entityType: 'Document',
+      entityId: document.id,
+      action: 'create_document',
+      actorId: userId,
+      afterJson: { code, title: dto.title, type: 'payment_request', status: 'Nháp' },
+      ip,
+    });
+
+    return document;
+  }
+
+  async updatePaymentRequest(
+    documentId: number,
+    userId: number,
+    dto: UpdatePaymentRequestDto,
+    currentVersion?: number,
+    ip?: string,
+  ) {
+    const doc = await this.prisma.document.findUnique({ where: { id: documentId } });
+    if (!doc) {
+      throw new NotFoundException('Không tìm thấy hồ sơ');
+    }
+
+    if (doc.status !== 'Nháp') {
+      throw new BadRequestException('Chỉ có thể chỉnh sửa hồ sơ khi ở trạng thái Nháp');
+    }
+
+    if (doc.createdById !== userId) {
+      throw new ForbiddenException('Bạn không có quyền chỉnh sửa hồ sơ của người khác');
+    }
+
+    if (currentVersion !== undefined && doc.version !== currentVersion) {
+      throw new ConflictException(
+        'Hồ sơ đã được chỉnh sửa từ phiên làm việc khác. Vui lòng tải lại trang.',
+      );
+    }
+
+    const prevData: any = doc.dataJson || {};
+    const updatedDataJson = {
+      ...prevData,
+      ...(dto.amount !== undefined ? { amount: dto.amount } : {}),
+      ...(dto.receiver !== undefined ? { receiver: dto.receiver } : {}),
+      ...(dto.bankName !== undefined ? { bankName: dto.bankName } : {}),
+      ...(dto.bankAccount !== undefined ? { bankAccount: dto.bankAccount } : {}),
+      ...(dto.content !== undefined ? { content: dto.content } : {}),
+      ...(dto.deadline !== undefined ? { deadline: dto.deadline } : {}),
+      ...(dto.attachmentIds !== undefined ? { attachmentIds: dto.attachmentIds } : {}),
+    };
+
+    const updatedDoc = await this.prisma.document.update({
+      where: { id: documentId },
+      data: {
+        title: dto.title || doc.title,
+        dataJson: updatedDataJson,
+        version: doc.version + 1,
+      },
+      include: {
+        createdBy: {
+          select: { id: true, name: true, email: true, department: true },
+        },
+      },
+    });
+
+    await this.auditService.logEvent({
+      entityType: 'Document',
+      entityId: doc.id,
+      action: 'update_document',
+      actorId: userId,
+      beforeJson: { title: doc.title, dataJson: doc.dataJson },
+      afterJson: { title: updatedDoc.title, dataJson: updatedDataJson },
+      ip,
+    });
+
+    return updatedDoc;
+  }
+
+  async deletePaymentRequest(documentId: number, userId: number, ip?: string) {
+    const doc = await this.prisma.document.findUnique({ where: { id: documentId } });
+    if (!doc) {
+      throw new NotFoundException('Không tìm thấy hồ sơ');
+    }
+
+    if (doc.status !== 'Nháp') {
+      throw new BadRequestException('Chỉ có thể xóa hồ sơ khi ở trạng thái Nháp');
+    }
+
+    if (doc.createdById !== userId) {
+      throw new ForbiddenException('Bạn không có quyền xóa hồ sơ của người khác');
+    }
+
+    await this.prisma.documentApprovalStep.deleteMany({ where: { documentId } });
+    await this.prisma.document.delete({ where: { id: documentId } });
+
+    await this.auditService.logEvent({
+      entityType: 'Document',
+      entityId: doc.id,
+      action: 'delete_document',
+      actorId: userId,
+      beforeJson: { code: doc.code, title: doc.title },
+      ip,
+    });
+
+    return { message: 'Đã xóa bản nháp thành công' };
+  }
+
+  async createNewVersion(documentId: number, userId: number, ip?: string) {
+    const doc = await this.prisma.document.findUnique({ where: { id: documentId } });
+    if (!doc) {
+      throw new NotFoundException('Không tìm thấy hồ sơ');
+    }
+
+    if (doc.status !== 'Đã duyệt') {
+      throw new BadRequestException('Chỉ có thể tạo phiên bản mới cho hồ sơ đã được phê duyệt');
+    }
+
+    if (doc.createdById !== userId) {
+      throw new ForbiddenException('Chỉ người tạo hồ sơ mới có quyền tạo phiên bản sửa đổi');
+    }
+
+    const nextVersion = doc.version + 1;
+    const baseCode = doc.code.split('-v')[0];
+    const newCode = `${baseCode}-v${nextVersion}`;
+
+    const newDoc = await this.prisma.document.create({
+      data: {
+        code: newCode,
+        title: `${doc.title} (Bản sửa đổi v${nextVersion})`,
+        type: doc.type,
+        status: 'Nháp',
+        dataJson: doc.dataJson || {},
+        createdById: userId,
+        version: nextVersion,
+      },
+      include: {
+        createdBy: {
+          select: { id: true, name: true, email: true, department: true },
+        },
+      },
+    });
+
+    await this.auditService.logEvent({
+      entityType: 'Document',
+      entityId: newDoc.id,
+      action: 'create_new_version',
+      actorId: userId,
+      beforeJson: { originalDocumentId: doc.id, originalCode: doc.code, version: doc.version },
+      afterJson: { newDocumentId: newDoc.id, newCode: newDoc.code, version: nextVersion },
+      ip,
+    });
+
+    return newDoc;
+  }
+
+  async submitForApproval(documentId: number, userId: number, ip?: string) {
+    const doc = await this.prisma.document.findUnique({ where: { id: documentId } });
+    if (!doc) {
+      throw new NotFoundException('Không tìm thấy hồ sơ');
+    }
+
+    if (doc.status !== 'Nháp') {
+      throw new BadRequestException('Hồ sơ không ở trạng thái Nháp để có thể gửi duyệt');
+    }
+
+    if (doc.createdById !== userId) {
+      throw new ForbiddenException('Chỉ người tạo hồ sơ mới có quyền gửi duyệt');
+    }
+
+    // Validate mandatory data in dataJson
+    const data: any = doc.dataJson || {};
+    if (!data.amount || !data.receiver || !data.bankName || !data.bankAccount || !data.content) {
+      throw new BadRequestException('Hồ sơ thiếu các thông tin thanh toán bắt buộc');
+    }
+
+    // Validate mandatory attachments per brief section 5
+    const attachmentCount = await this.prisma.attachment.count({
+      where: { entityType: 'document', entityId: documentId },
+    });
+    const hasAttachmentInJson = Array.isArray(data.attachmentIds) && data.attachmentIds.length > 0;
+
+    if (attachmentCount === 0 && !hasAttachmentInJson) {
+      throw new BadRequestException(
+        'Quy định nghiệp vụ: Bắt buộc phải đính kèm ít nhất 1 chứng từ / hóa đơn trước khi gửi duyệt.',
+      );
+    }
+
+    const workflowTemplate = await this.prisma.workflowTemplate.findUnique({
+      where: { type: doc.type },
+      include: {
+        steps: {
+          orderBy: { stepOrder: 'asc' },
+        },
+      },
+    });
+
+    if (!workflowTemplate || workflowTemplate.steps.length === 0) {
+      throw new BadRequestException(
+        'Chưa cấu hình quy trình duyệt cho loại hồ sơ này. Vui lòng liên hệ quản trị IT.',
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      // Clear any prior steps (e.g. if resubmitted after return)
+      await tx.documentApprovalStep.deleteMany({ where: { documentId } });
+
+      // Create snapshot of steps
+      for (const stepTpl of workflowTemplate.steps) {
+        await tx.documentApprovalStep.create({
+          data: {
+            documentId,
+            stepOrder: stepTpl.stepOrder,
+            roleRequired: stepTpl.roleRequired,
+            status: stepTpl.stepOrder === 1 ? 'pending' : 'not_started',
+          },
+        });
+      }
+
+      const updated = await tx.document.update({
+        where: { id: documentId },
+        data: {
+          status: 'Chờ duyệt',
+          version: doc.version + 1,
+        },
+        include: {
+          steps: { orderBy: { stepOrder: 'asc' } },
+          createdBy: { select: { id: true, name: true, email: true } },
+        },
+      });
+
+      await this.auditService.logEvent({
+        entityType: 'Document',
+        entityId: doc.id,
+        action: 'submit_approval',
+        actorId: userId,
+        beforeJson: { status: 'Nháp' },
+        afterJson: { status: 'Chờ duyệt', stepsCount: workflowTemplate.steps.length },
+        ip,
+      });
+
+      return updated;
+    });
+  }
+
+  async approveStep(
+    documentId: number,
+    stepId: number,
+    user: any,
+    dto?: ActionStepDto,
+    currentVersion?: number,
+    ip?: string,
+  ) {
+    const doc = await this.prisma.document.findUnique({
+      where: { id: documentId },
+      include: { steps: { orderBy: { stepOrder: 'asc' } } },
+    });
+
+    if (!doc) {
+      throw new NotFoundException('Không tìm thấy hồ sơ');
+    }
+
+    if (doc.status !== 'Chờ duyệt') {
+      throw new BadRequestException('Hồ sơ không ở trạng thái Chờ duyệt');
+    }
+
+    // Optimistic locking check
+    if (currentVersion !== undefined && doc.version !== currentVersion) {
+      throw new ConflictException(
+        'Hồ sơ đã được phê duyệt hoặc cập nhật bởi người khác. Vui lòng tải lại.',
+      );
+    }
+
+    const step = doc.steps.find((s) => s.id === stepId);
+    if (!step) {
+      throw new NotFoundException('Không tìm thấy bước duyệt trong hồ sơ');
+    }
+
+    if (step.status !== 'pending') {
+      throw new BadRequestException('Bước này hiện không ở trạng thái chờ duyệt');
+    }
+
+    // Anti self-approval rule
+    if (doc.createdById === user.id) {
+      throw new ForbiddenException(
+        'Quy định kiểm soát nội bộ: Người tạo hồ sơ không được phép tự phê duyệt hồ sơ của chính mình',
+      );
+    }
+
+    // Check user role
+    const userRoleNames: string[] = user.roles ? user.roles.map((r: any) => r.name) : [];
+    if (!userRoleNames.includes(step.roleRequired)) {
+      throw new ForbiddenException(
+        `Bạn không có vai trò '${step.roleRequired}' để phê duyệt bước này`,
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      // Approve current step
+      await tx.documentApprovalStep.update({
+        where: { id: step.id },
+        data: {
+          status: 'approved',
+          actedById: user.id,
+          actedAt: new Date(),
+          comment: dto?.comment || null,
+        },
+      });
+
+      // Look for next step
+      const nextStep = doc.steps.find((s) => s.stepOrder === step.stepOrder + 1);
+      let newDocumentStatus = doc.status;
+
+      if (nextStep) {
+        // Activate next step
+        await tx.documentApprovalStep.update({
+          where: { id: nextStep.id },
+          data: { status: 'pending' },
+        });
+      } else {
+        // All steps completed -> Approved
+        newDocumentStatus = 'Đã duyệt';
+      }
+
+      const updatedDoc = await tx.document.update({
+        where: { id: documentId },
+        data: {
+          status: newDocumentStatus,
+          version: doc.version + 1,
+        },
+        include: {
+          steps: { orderBy: { stepOrder: 'asc' } },
+          createdBy: { select: { id: true, name: true, email: true } },
+        },
+      });
+
+      await this.auditService.logEvent({
+        entityType: 'Document',
+        entityId: doc.id,
+        action: newDocumentStatus === 'Đã duyệt' ? 'approve_document_final' : 'approve_step',
+        actorId: user.id,
+        beforeJson: { stepOrder: step.stepOrder, roleRequired: step.roleRequired },
+        afterJson: {
+          status: newDocumentStatus,
+          approvedStep: step.stepOrder,
+          comment: dto?.comment || null,
+        },
+        ip,
+      });
+
+      return updatedDoc;
+    });
+  }
+
+  async returnStep(
+    documentId: number,
+    stepId: number,
+    user: any,
+    dto: RejectOrReturnStepDto,
+    currentVersion?: number,
+    ip?: string,
+  ) {
+    if (!dto.comment || !dto.comment.trim()) {
+      throw new BadRequestException('Bắt buộc phải nhập lý do khi trả lại hồ sơ');
+    }
+
+    const doc = await this.prisma.document.findUnique({
+      where: { id: documentId },
+      include: { steps: { orderBy: { stepOrder: 'asc' } } },
+    });
+
+    if (!doc) {
+      throw new NotFoundException('Không tìm thấy hồ sơ');
+    }
+
+    if (doc.status !== 'Chờ duyệt') {
+      throw new BadRequestException('Hồ sơ không ở trạng thái Chờ duyệt');
+    }
+
+    if (currentVersion !== undefined && doc.version !== currentVersion) {
+      throw new ConflictException(
+        'Hồ sơ đã được cập nhật từ phiên khác. Vui lòng tải lại trang.',
+      );
+    }
+
+    const step = doc.steps.find((s) => s.id === stepId);
+    if (!step || step.status !== 'pending') {
+      throw new BadRequestException('Bước này không hợp lệ hoặc không ở trạng thái chờ duyệt');
+    }
+
+    if (doc.createdById === user.id) {
+      throw new ForbiddenException('Người tạo không được thao tác trên bước phê duyệt của mình');
+    }
+
+    const userRoleNames: string[] = user.roles ? user.roles.map((r: any) => r.name) : [];
+    if (!userRoleNames.includes(step.roleRequired)) {
+      throw new ForbiddenException(
+        `Bạn không có vai trò '${step.roleRequired}' để thực hiện trả lại hồ sơ`,
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      // Mark step as returned
+      await tx.documentApprovalStep.update({
+        where: { id: step.id },
+        data: {
+          status: 'returned',
+          actedById: user.id,
+          actedAt: new Date(),
+          comment: dto.comment,
+        },
+      });
+
+      // Per architecture specs: Return resets document back to 'Nháp' for creator to modify and restart
+      const updatedDoc = await tx.document.update({
+        where: { id: documentId },
+        data: {
+          status: 'Nháp',
+          version: doc.version + 1,
+        },
+        include: {
+          steps: { orderBy: { stepOrder: 'asc' } },
+          createdBy: { select: { id: true, name: true, email: true } },
+        },
+      });
+
+      await this.auditService.logEvent({
+        entityType: 'Document',
+        entityId: doc.id,
+        action: 'return_document',
+        actorId: user.id,
+        beforeJson: { status: 'Chờ duyệt', stepOrder: step.stepOrder },
+        afterJson: { status: 'Nháp', reason: dto.comment },
+        ip,
+      });
+
+      return updatedDoc;
+    });
+  }
+
+  async rejectStep(
+    documentId: number,
+    stepId: number,
+    user: any,
+    dto: RejectOrReturnStepDto,
+    currentVersion?: number,
+    ip?: string,
+  ) {
+    if (!dto.comment || !dto.comment.trim()) {
+      throw new BadRequestException('Bắt buộc phải nhập lý do khi từ chối hồ sơ');
+    }
+
+    const doc = await this.prisma.document.findUnique({
+      where: { id: documentId },
+      include: { steps: { orderBy: { stepOrder: 'asc' } } },
+    });
+
+    if (!doc) {
+      throw new NotFoundException('Không tìm thấy hồ sơ');
+    }
+
+    if (doc.status !== 'Chờ duyệt') {
+      throw new BadRequestException('Hồ sơ không ở trạng thái Chờ duyệt');
+    }
+
+    if (currentVersion !== undefined && doc.version !== currentVersion) {
+      throw new ConflictException(
+        'Hồ sơ đã được cập nhật từ phiên khác. Vui lòng tải lại trang.',
+      );
+    }
+
+    const step = doc.steps.find((s) => s.id === stepId);
+    if (!step || step.status !== 'pending') {
+      throw new BadRequestException('Bước này không hợp lệ hoặc không ở trạng thái chờ duyệt');
+    }
+
+    if (doc.createdById === user.id) {
+      throw new ForbiddenException('Người tạo không được thao tác trên bước phê duyệt của mình');
+    }
+
+    const userRoleNames: string[] = user.roles ? user.roles.map((r: any) => r.name) : [];
+    if (!userRoleNames.includes(step.roleRequired)) {
+      throw new ForbiddenException(
+        `Bạn không có vai trò '${step.roleRequired}' để từ chối hồ sơ`,
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      // Mark step as rejected
+      await tx.documentApprovalStep.update({
+        where: { id: step.id },
+        data: {
+          status: 'rejected',
+          actedById: user.id,
+          actedAt: new Date(),
+          comment: dto.comment,
+        },
+      });
+
+      // Terminal status: 'Từ chối'
+      const updatedDoc = await tx.document.update({
+        where: { id: documentId },
+        data: {
+          status: 'Từ chối',
+          version: doc.version + 1,
+        },
+        include: {
+          steps: { orderBy: { stepOrder: 'asc' } },
+          createdBy: { select: { id: true, name: true, email: true } },
+        },
+      });
+
+      await this.auditService.logEvent({
+        entityType: 'Document',
+        entityId: doc.id,
+        action: 'reject_document',
+        actorId: user.id,
+        beforeJson: { status: 'Chờ duyệt', stepOrder: step.stepOrder },
+        afterJson: { status: 'Từ chối', reason: dto.comment },
+        ip,
+      });
+
+      return updatedDoc;
+    });
+  }
+
+  async findAll(user: any, query: { status?: string; type?: string; tab?: string }) {
+    const userRoleNames: string[] = user.roles ? user.roles.map((r: any) => r.name) : [];
+    const where: any = {};
+
+    if (query.type) {
+      where.type = query.type;
+    }
+
+    if (query.status && query.status !== 'all') {
+      where.status = query.status;
+    }
+
+    if (query.tab === 'my') {
+      where.createdById = user.id;
+    } else if (query.tab === 'to_review') {
+      // Only documents in 'Chờ duyệt' where current pending step matches one of user's roles
+      // AND user is NOT the creator (Anti self-approval)
+      where.status = 'Chờ duyệt';
+      where.createdById = { not: user.id };
+      where.steps = {
+        some: {
+          status: 'pending',
+          roleRequired: { in: userRoleNames },
+        },
+      };
+    }
+
+    return this.prisma.document.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        createdBy: {
+          select: { id: true, name: true, email: true, department: true },
+        },
+        steps: {
+          orderBy: { stepOrder: 'asc' },
+        },
+      },
+    });
+  }
+
+  async findById(id: number) {
+    const doc = await this.prisma.document.findUnique({
+      where: { id },
+      include: {
+        createdBy: {
+          select: { id: true, name: true, email: true, department: true },
+        },
+        steps: {
+          orderBy: { stepOrder: 'asc' },
+        },
+      },
+    });
+
+    if (!doc) {
+      throw new NotFoundException('Không tìm thấy hồ sơ');
+    }
+
+    const attachments = await this.prisma.attachment.findMany({
+      where: { entityId: id, entityType: 'document' },
+      orderBy: { uploadedAt: 'desc' },
+    });
+
+    return {
+      ...doc,
+      attachments,
+    };
+  }
+}

@@ -1,0 +1,75 @@
+import {
+  Controller,
+  Post,
+  Get,
+  Body,
+  Req,
+  UseGuards,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
+import { AuthService } from './auth.service.js';
+import { LoginDto } from './dto/login.dto.js';
+import { RefreshTokenDto } from './dto/refresh-token.dto.js';
+import { ForgotPasswordDto } from './dto/forgot-password.dto.js';
+import { ResetPasswordDto } from './dto/reset-password.dto.js';
+import { JwtAuthGuard } from './jwt-auth.guard.js';
+import { RolesGuard } from './roles.guard.js';
+import { Roles } from './roles.decorator.js';
+
+@Controller('auth')
+export class AuthController {
+  constructor(private authService: AuthService) {}
+
+  @Post('login')
+  @HttpCode(HttpStatus.OK)
+  async login(@Body() body: LoginDto, @Req() request: any) {
+    const ip = request.ip;
+    const device = request.headers['user-agent'];
+    return this.authService.login(body, ip, device);
+  }
+
+  @Post('refresh')
+  @HttpCode(HttpStatus.OK)
+  async refresh(@Body() body: RefreshTokenDto) {
+    return this.authService.refreshToken(body.refreshToken);
+  }
+
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  async forgotPassword(@Body() body: ForgotPasswordDto, @Req() request: any) {
+    const ip = request.ip;
+    return this.authService.forgotPassword(body.email, ip);
+  }
+
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  async resetPassword(@Body() body: ResetPasswordDto, @Req() request: any) {
+    const ip = request.ip;
+    return this.authService.resetPassword(body, ip);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('me')
+  getProfile(@Req() req: any) {
+    const user = req.user;
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      departmentId: user.departmentId,
+      roles: user.roles ? user.roles.map((r: { name: string }) => r.name) : [],
+    };
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ceo', 'it_admin')
+  @Get('admin-check')
+  adminCheck(@Req() req: any) {
+    return {
+      message: 'Truy cập thành công - bạn có quyền Quản trị (CEO / IT Admin)',
+      userId: req.user.id,
+      email: req.user.email,
+    };
+  }
+}

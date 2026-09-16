@@ -1,0 +1,37 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Production builds
+dist/
+**/dist/
+dist-ssr/
+**/dist-ssr/
+
+# Uploads & Temp files
+uploads/
+**/uploads/
+*.log
+npm-debug.log*
+*.db
+*.sqlite
+*.sqlite3
+
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Environments & secrets
+.env
+.env.*
+!.env.example
+
+# IDE & AI
+.vscode/
+.idea/
+.gemini/
+
+# Docker
+docker-compose.override.yml
+
