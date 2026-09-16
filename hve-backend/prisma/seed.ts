@@ -82,7 +82,7 @@ async function main() {
       email: 'tp_it@huyvoeducation.vn',
       name: 'Trưởng Phòng IT',
       departmentId: deptIT.id,
-      roleNames: ['department_head', 'employee'],
+      roleNames: ['department_head', 'employee', 'it_admin'],
     },
     {
       email: 'ketoan@huyvoeducation.vn',
