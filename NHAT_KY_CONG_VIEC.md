@@ -338,18 +338,18 @@ Dự án đã hoàn thành toàn bộ các giai đoạn (Phase 0 ➔ Phase 5) v�
 - **Người thực hiện/review:** Long — Phó phòng IT
 - **Kiến trúc sau cutover:** Vercel frontend → Railway backend Singapore → Supabase PostgreSQL Tokyo + Google Drive.
 - **Mốc rollback frontend:** `dpl_36x5j4XrgiqE5J4xAVyNCbNFJzL7` (đã trỏ Railway).
+- **Deployment phát hành:** Railway `db114d02-4592-46bf-84fb-265a4fdf7ff9`; Vercel `dpl_cpHdpBQqEfXBavtcNZkqTpQXFXeq`.
 - **Kết quả cutover:**
   - Cập nhật `VITE_API_URL` production bằng `vercel env add --force`, redeploy đúng source deployment cũ và xác nhận alias `work.huyvoeducation.vn`.
   - Bundle production chứa URL Railway; CORS từ custom domain trả đúng origin.
-  - API Railway warm 5 lần đều HTTP 200, median khoảng 0,21 giây, đạt mục tiêu dưới 500 ms.
+  - Sau phát hành, API Railway warm 5 lần đều HTTP 200, median 0,155 giây, đạt mục tiêu dưới 500 ms.
   - Smoke test đạt: login UAT, `/auth/me`, dashboard, danh sách hồ sơ/công việc, kết nối Supabase, upload/download Google Drive.
 - **Sửa tích hợp và bảo mật:**
   - Notification đọc tất cả dùng đúng `PATCH /notifications/read-all`.
   - Dùng một helper upload chung, lấy `fileUrl/fileKey` thật từ Google Drive rồi đăng ký attachment; download công việc kèm JWT.
   - Mock chỉ được bật rõ ràng trong development; production hiển thị lỗi/empty state thay vì dữ liệu giả.
-  - Thêm contract test cho notification, upload/register/download và lỗi 401/413; bỏ HMAC fallback hardcode.
+  - Thêm contract test cho notification, upload/register/download và lỗi 401/404/413; bỏ HMAC fallback hardcode.
 - **Tối ưu frontend:** main chunk giảm từ 434,02 KB xuống 337,54 KB (gzip 110,47 KB xuống 94,61 KB); các trang lớn được lazy-load và có error boundary.
-- **Baseline kiểm thử:** backend build/lint pass, 146/146 test pass; frontend build pass, 5/5 contract test pass, lint không có error.
+- **Baseline kiểm thử:** backend build/lint pass, 146/146 test pass; frontend build pass, 6/6 contract test pass, lint không có error.
 - **Triển khai:** Dockerfile Node.js 22 và `--ignore-scripts`; Railway một replica Singapore, không dùng volume; không có migration database.
 - **Lưu ý dọn UAT:** một tệp upload kiểm tra có tên chứa `TEST-railway-cutover-icon` có thể còn trên Google Drive vì service account không có quyền liệt kê/xóa tệp qua API. Cần tài khoản quản trị Drive xóa thủ công nếu nhìn thấy tệp này.
-
