@@ -18,7 +18,7 @@ export async function fetchWithSession(
   init?: RequestInit,
   fetcher: Fetcher = fetch,
 ): Promise<Response> {
-  const response = await fetcher(input, init);
+  const response = await fetcher(input, withCurrentAccessToken(init));
   if (response.status !== 401) return response;
 
   const refreshToken = localStorage.getItem('refresh_token');
@@ -37,9 +37,7 @@ export async function fetchWithSession(
     }
 
     if (await refreshSessionPromise) {
-      const headers = new Headers(init?.headers);
-      headers.set('Authorization', `Bearer ${localStorage.getItem('access_token')}`);
-      const retriedResponse = await fetcher(input, { ...init, headers });
+      const retriedResponse = await fetcher(input, withCurrentAccessToken(init));
       if (retriedResponse.status !== 401) return retriedResponse;
     }
   }
@@ -54,6 +52,17 @@ export async function fetchWithSession(
   window.location.assign('/');
 
   throw new Error(SESSION_EXPIRED_MESSAGE);
+}
+
+function withCurrentAccessToken(init?: RequestInit): RequestInit | undefined {
+  if (!init?.headers) return init;
+
+  const headers = new Headers(init.headers);
+  const accessToken = localStorage.getItem('access_token');
+  if (headers.has('Authorization') && accessToken) {
+    headers.set('Authorization', `Bearer ${accessToken}`);
+  }
+  return { ...init, headers };
 }
 
 async function refreshSession(

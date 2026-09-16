@@ -59,12 +59,28 @@ describe('API contracts', () => {
 
     expect(response.status).toBe(201);
     expect(fetcher.mock.calls[1][0]).toBe('https://api.example.com/auth/refresh');
-    expect((fetcher.mock.calls[2][1]?.headers as Headers).get('Authorization')).toBe(
-      'Bearer new-jwt',
-    );
+    const retryHeaders = fetcher.mock.calls[2][1]?.headers;
+    expect(retryHeaders).toBeInstanceOf(Headers);
+    expect((retryHeaders as Headers).get('Authorization')).toBe('Bearer new-jwt');
     expect(localStorage.getItem('refresh_token')).toBe('new-refresh');
     expect(dispatchEvent).not.toHaveBeenCalled();
     expect(assign).not.toHaveBeenCalled();
+  });
+
+  it('uses the newest access token before sending an authenticated request', async () => {
+    vi.stubGlobal('localStorage', memoryStorage());
+    localStorage.setItem('access_token', 'current-jwt');
+    const fetcher = vi.fn<Fetcher>().mockResolvedValue(jsonResponse({ ok: true }));
+
+    await fetchWithSession(
+      'https://api.example.com/dashboard',
+      { headers: { Authorization: 'Bearer stale-jwt' } },
+      fetcher,
+    );
+
+    const requestHeaders = fetcher.mock.calls[0][1]?.headers;
+    expect(requestHeaders).toBeInstanceOf(Headers);
+    expect((requestHeaders as Headers).get('Authorization')).toBe('Bearer current-jwt');
   });
 
   it('clears an expired login session and exposes a friendly message on 401', async () => {

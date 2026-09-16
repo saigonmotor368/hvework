@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import type { DocumentItem } from '../types';
 import { MOCK_DASHBOARD_DATA } from '../mockData';
 import { ENABLE_MOCK_DATA } from '../config';
+import { fetchWithSession } from '../api/client';
 
 interface OverviewDashboardProps {
   apiBaseUrl: string;
@@ -46,13 +47,13 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
       setLoadError(null);
       if (clearCache) {
         setIsRefreshing(true);
-        await fetch(`${apiBaseUrl}/dashboard/clear-cache`, {
+        await fetchWithSession(`${apiBaseUrl}/dashboard/clear-cache`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}` },
         });
       }
 
-      const res = await fetch(`${apiBaseUrl}/dashboard`, {
+      const res = await fetchWithSession(`${apiBaseUrl}/dashboard`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
