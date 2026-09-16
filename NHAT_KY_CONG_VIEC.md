@@ -370,7 +370,8 @@ Dự án đã hoàn thành toàn bộ các giai đoạn (Phase 0 ➔ Phase 5) v�
   - Thiết bị tin cậy lưu bằng hash của ID ngẫu nhiên trên trình duyệt; không dùng IP làm định danh.
   - Chưa cấp JWT trước khi OTP đúng; đổi email hoặc reset mật khẩu thu hồi thiết bị và phiên cũ.
   - UI đăng nhập có màn hình nhập OTP và hiển thị email đã che bớt.
-- **Trạng thái kích hoạt:** code/migration sẵn sàng; Railway giữ `LOGIN_EMAIL_OTP_ENABLED=false` vì chưa có SMTP production. Cần cấu hình SMTP HVE, gửi thử thành công rồi mới bật để tránh khóa toàn bộ người dùng.
+- **Trạng thái kích hoạt:** đã cấu hình SMTP Mắt Bão `pro210.emailserver.vn:587` bằng STARTTLS cho mailbox `no-reply@huyvoeducation.vn`; xác thực SMTP và gửi thư thử tới `admin@huyvoeducation.vn` thành công, không có địa chỉ bị từ chối. Đã bật `LOGIN_EMAIL_OTP_ENABLED=true` trên Railway.
 - **Kiểm thử:** backend lint/build pass, 148/148 test pass; frontend build pass, 6/6 contract test pass, lint không có error.
 - **Phát hành:** migration `20260916145000_add_login_email_verification` đã áp dụng thành công; Railway deployment `b1094520-2775-46e2-8ae7-2dd01b68a447` đạt `SUCCESS`; Vercel deployment `dpl_GtcFPHHoGgLPYf7J3adjkwXNRjg8` đạt `Ready` và giữ alias production.
 - **Smoke test sau deploy:** backend/frontend HTTP 200; `/auth/verify-login` tồn tại và trả validation 400 với body rỗng; bundle production có UI OTP và tiếp tục dùng Railway.
+- **Kích hoạt OTP production:** Railway deployment `358c814a-b2bb-4c1e-9664-21831d3ad358` đạt `SUCCESS`; backend health HTTP 200 và log xác nhận Nest khởi động thành công sau khi bật OTP.

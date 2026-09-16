@@ -188,4 +188,4 @@ Bám theo [02_KE_HOACH_TRIEN_KHAI.md](02_KE_HOACH_TRIEN_KHAI.md) và [01_KIEN_TR
 - [x] Cập nhật tài liệu theo kiến trúc Vercel → Railway → Supabase + Google Drive
 - [x] Dọn sạch dữ liệu UAT/seed production, giữ IT Admin và dữ liệu cấu hình nền
 - [x] Thêm OTP email cho lần đăng nhập đầu tiên và thiết bị chưa tin cậy
-- [ ] Cấu hình SMTP Google Workspace trên Railway, gửi mail thử và bật `LOGIN_EMAIL_OTP_ENABLED=true`
+- [x] Cấu hình SMTP Mắt Bão trên Railway, gửi mail thử và bật `LOGIN_EMAIL_OTP_ENABLED=true`
