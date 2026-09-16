@@ -17,7 +17,11 @@ jobs:
       uses: actions/setup-node@v3
       with:
         node-version: '22.x'
+        # cache từng sub-package đúng với cấu trúc monorepo
         cache: 'npm'
+        cache-dependency-path: |
+          hve-backend/package-lock.json
+          hve-frontend/package-lock.json
 
     - name: Install dependencies (Backend)
       working-directory: ./hve-backend
@@ -31,8 +35,16 @@ jobs:
       working-directory: ./hve-backend
       run: npm run build
 
+    - name: Type-check (Backend)
+      working-directory: ./hve-backend
+      run: npx tsc --noEmit
+
     - name: Test (Backend)
       working-directory: ./hve-backend
+      # DATABASE_URL dùng file SQLite tạm để Prisma không cần Postgres thật
+      env:
+        DATABASE_URL: "file:./test.db"
+        JWT_SECRET: "ci-test-secret-do-not-use-in-prod"
       run: npm run test
 
     - name: Install dependencies (Frontend)
