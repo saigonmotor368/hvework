@@ -298,6 +298,35 @@
 
 ---
 
+## 🚀 6. PHIÊN RÀ SOÁT & KHẮC PHỤC SỰ CỐ SAU GO-LIVE (TỐI 16/09/2026)
+
+- **Người thực hiện:** Trợ lý AI (rà soát công việc buổi chiều của An, xử lý phản ánh trực tiếp từ Chủ tịch/Trưởng phòng IT)
+- **Nội dung công việc chi tiết:**
+  1. **Rà soát code buổi chiều của An — phát hiện & vá 2 lỗi bảo mật nghiêm trọng**:
+     - Gỡ "cửa hậu" mật khẩu trong `auth.service.ts` (fallback so khớp cứng với `"Hve@2026"`/`"123456"` bất kể mật khẩu thật) — cho phép đăng nhập trái phép vào bất kỳ tài khoản nào dùng 1 trong 2 mật khẩu này.
+     - Thu hồi nhầm quyền `it_admin` đã cấp cho `tp_it@huyvoeducation.vn` (cả trong `seed.ts` lẫn DB Production) — theo đúng chỉ đạo: quản lý tài khoản/dữ liệu là việc của IT Admin (`admin@huyvoeducation.vn`), không phải Trưởng phòng IT.
+  2. **Sửa lỗi domain `work.huyvoeducation.vn` không đăng nhập được**: thêm domain vào `ALLOWED_ORIGINS`, đồng thời sửa lỗi CORS callback throw `Error` gây 500 thay vì từ chối gọn gàng (`bootstrap.ts`).
+  3. **Sửa lỗi giao diện di động**: hộp thông báo (🔔) và Toast tràn ra ngoài màn hình điện thoại (`NotificationBell.tsx`, `Toast.tsx`) — ảnh hưởng trực tiếp khả năng sếp đọc thông báo để xử lý công việc.
+  4. **Thêm thumbnail chia sẻ link (Open Graph)**: `og-image.png` 1200×630 + đầy đủ thẻ `og:*`/`twitter:*` trong `index.html`.
+  5. **Sửa icon PWA không hiển thị khi cài trên điện thoại**: toàn bộ icon manifest trước là SVG — iOS Safari không hỗ trợ SVG cho `apple-touch-icon`. Đã tạo icon PNG thật (192/512/apple-touch-icon 180px), đổi `short_name`/`apple-mobile-web-app-title` về lại **"HVE Work"** cho dễ tìm trên điện thoại.
+  6. **Thêm nút "Cài đặt ứng dụng" ngay ở màn hình đăng nhập** (`LoginPage.tsx`) — trước đó component `PwaInstallPrompt` chỉ có trong Sidebar (sau khi đăng nhập), không có ở màn hình login.
+  7. **Khắc phục tốc độ tải chậm**: đo trực tiếp header `X-Vercel-Id` phát hiện backend serverless chạy tại `iad1` (Washington D.C., Mỹ) dù người dùng ở VN và DB Supabase ở Tokyo — mỗi request vòng qua Mỹ không cần thiết. Đã ghim `"regions": ["hkg1"]` (Hồng Kông) trong `hve-backend/vercel.json` để chạy gần người dùng và DB hơn.
+
+### 📋 GIAO VIỆC CHO AN — TỐI ƯU HIỆU NĂNG FRONTEND (code-splitting)
+
+**Vấn đề:** Bundle JS hiện tại là **1 file duy nhất ~434KB (gzip ~110KB)**, gộp chung toàn bộ các trang (Tổng quan, Danh sách hồ sơ, Quản lý công việc, Báo cáo, Cấu hình quy trình, Quản lý người dùng...) dù người dùng chỉ cần trang họ đang xem. Người dùng luôn phải tải toàn bộ code kể cả các trang họ không bao giờ vào (VD: nhân viên thường không cần code của trang "Quản lý người dùng" chỉ IT Admin dùng).
+
+**Đề xuất cách làm — tách bundle theo route (`React.lazy` + `Suspense`)**:
+1. Trong `App.tsx`, các component trang lớn hiện đang `import` trực tiếp (ví dụ `OverviewDashboard`, `DocumentList`, `TaskListView`, `ReportsView`, `AdminWorkflowView`, `AdminUserView`) — đổi sang `React.lazy(() => import('./components/XxxView.js'))`.
+2. Bọc phần render các tab bằng `<Suspense fallback={...}>` (dùng lại style loading-spinner sẵn có trong app cho nhất quán).
+3. Ưu tiên tách trước 2 trang admin (`AdminWorkflowView`, `AdminUserView`) vì chỉ IT Admin/CEO dùng tới — tách ra sẽ giảm tải cho phần lớn người dùng (nhân viên) ngay lập tức.
+4. Sau khi tách xong, chạy lại `npm run build` và so sánh kích thước chunk trước/sau (Vite tự in ra bảng kích thước từng file `dist/assets/*.js` khi build) để xác nhận có cải thiện thật.
+5. Test kỹ: chuyển tab qua lại phải mượt, không bị lỗi trắng trang khi chunk đang tải, kiểm tra trên cả mạng chậm (Chrome DevTools > Network > Slow 3G) lẫn mạng thường.
+
+**Không phải sửa gấp** — đây là tối ưu thêm, hệ thống đang chạy tốt sau khi đổi vùng backend. An làm khi rảnh, xong thì báo cáo.
+
+---
+
 ## 🏆 KẾT LUẬN TOÀN BỘ DỰ ÁN HVE APP
 
 Dự án đã hoàn thành toàn bộ các giai đoạn (Phase 0 ➔ Phase 5) và các phiên tinh chỉnh, khắc phục phát sinh sau UAT. Hệ thống đã triển khai thực tế trên môi trường Production Vercel + Supabase, hoạt động ổn định và sẵn sàng bàn giao chính thức cho toàn bộ công ty!
