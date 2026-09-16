@@ -38,8 +38,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             className="w-9 h-9 rounded-xl shadow-sm object-contain"
           />
           <div>
-            <h1 className="text-base font-black text-gray-900 tracking-tight">HVE Work</h1>
-            <span className="text-[11px] text-gray-400 font-medium tracking-tight">Điều hành & Phê duyệt</span>
+            <h1 className="text-sm font-black text-gray-900 tracking-tight leading-tight">Hệ Thống Quản Lý Công Việc</h1>
           </div>
         </div>
 

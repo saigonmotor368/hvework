@@ -43,7 +43,7 @@ export const CreateDocumentForm: React.FC<CreateDocumentFormProps> = ({
       <div className="mb-6 pb-6 border-b border-slate-100">
         <h3 className="text-xl font-bold text-gray-900">Tạo Hồ Sơ Phê Duyệt Mới</h3>
         <p className="text-xs text-gray-500 mt-1">
-          Chọn loại hồ sơ nghiệp vụ tương ứng và điền các thông tin theo chuẩn quy trình HVE Work
+          Chọn loại hồ sơ nghiệp vụ tương ứng và điền các thông tin theo chuẩn quy trình của Hệ Thống Quản Lý Công Việc
         </p>
       </div>
 

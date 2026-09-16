@@ -24,7 +24,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             <path d="M68 150 Q100 170 132 150" fill="none" stroke="#1D1D1F" strokeWidth="11" strokeLinecap="round" />
           </svg>
         </div>
-        <h2 className="mt-4 text-3xl font-extrabold text-[#1D1D1F] tracking-tight">HVE Work</h2>
+        <h2 className="mt-4 text-2xl font-extrabold text-[#1D1D1F] tracking-tight">Hệ Thống Quản Lý Công Việc</h2>
         <p className="mt-1 text-sm text-gray-500">Hệ thống điều hành & Phê duyệt nội bộ chuyên nghiệp</p>
       </div>
 

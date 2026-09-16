@@ -69,7 +69,7 @@ export const PwaInstallPrompt: React.FC = () => {
       <button
         onClick={handleInstallClick}
         className="w-full mt-2 flex items-center justify-center space-x-2 px-3 py-2 text-xs font-bold text-[#0A66C2] bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-xl transition-all shadow-sm active:scale-95"
-        title="Cài đặt HVE Work lên màn hình chính điện thoại hoặc máy tính"
+        title="Cài đặt Hệ Thống Quản Lý Công Việc lên màn hình chính điện thoại hoặc máy tính"
       >
         <span>📲</span>
         <span>Cài đặt ứng dụng HVE</span>
@@ -82,7 +82,7 @@ export const PwaInstallPrompt: React.FC = () => {
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <div className="flex items-center space-x-2">
                 <img src="/icons/icon-192.svg" alt="HVE" className="w-7 h-7 rounded-lg" />
-                <h3 className="font-black text-gray-900 text-sm">Cài đặt HVE Work</h3>
+                <h3 className="font-black text-gray-900 text-sm">Cài đặt Hệ Thống Quản Lý Công Việc</h3>
               </div>
               <button
                 onClick={() => setShowIosGuide(false)}
@@ -93,7 +93,7 @@ export const PwaInstallPrompt: React.FC = () => {
             </div>
 
             <p className="text-xs text-gray-600 leading-relaxed">
-              Để cài đặt HVE Work chạy độc lập toàn màn hình như ứng dụng native:
+              Để cài đặt Hệ Thống Quản Lý Công Việc chạy độc lập toàn màn hình như ứng dụng native:
             </p>
 
             <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 text-xs space-y-2.5 text-gray-700">
