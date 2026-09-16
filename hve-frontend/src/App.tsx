@@ -325,10 +325,11 @@ export default function App() {
         body: JSON.stringify({ email, password }),
       });
 
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        throw new Error(data.message || 'Đăng nhập thất bại');
+        showToast(data.message || 'Email hoặc mật khẩu không chính xác', 'error');
+        return;
       }
 
       localStorage.setItem('access_token', data.access_token);
@@ -338,16 +339,8 @@ export default function App() {
       setUser(data.user);
       setIsAuthenticated(true);
       showToast(`Chào mừng ${data.user.name} đã đăng nhập!`);
-    } catch {
-      // Fallback demo login
-      const matchedUser = MOCK_USERS.employee;
-      localStorage.setItem('access_token', 'mock_token_demo');
-      localStorage.setItem('refresh_token', 'mock_refresh_demo');
-      localStorage.setItem('user', JSON.stringify(matchedUser));
-      setUser(matchedUser);
-      setIsAuthenticated(true);
-      setDocuments(MOCK_DOCUMENTS);
-      showToast(`Chào mừng ${matchedUser.name} đã đăng nhập!`);
+    } catch (err: any) {
+      showToast(err.message || 'Không thể kết nối đến máy chủ', 'error');
     } finally {
       setIsProcessing(false);
     }

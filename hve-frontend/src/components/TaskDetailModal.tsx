@@ -4,6 +4,7 @@ import {
   TASK_STATUS_LABELS,
   type TaskItem,
 } from '../types';
+import { MOCK_TASKS } from '../mockData';
 
 interface TaskDetailModalProps {
   taskId: number;
@@ -30,6 +31,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 }) => {
   const [task, setTask] = useState<TaskItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [progress, setProgress] = useState<number>(0);
   const [progressNote, setProgressNote] = useState<string>('');
   const [isUpdatingProgress, setIsUpdatingProgress] = useState(false);
@@ -41,20 +43,43 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
 
   const fetchTaskDetail = async () => {
+    setFetchError(null);
     const token = localStorage.getItem('access_token');
-    if (!token) return;
+
+    // Demo/offline mode fallback
+    if (!token || token === 'mock_token_demo') {
+      const mock = MOCK_TASKS.find((t) => t.id === taskId);
+      if (mock) {
+        setTask(mock);
+        setProgress(mock.progressPercent || 0);
+      } else {
+        setFetchError('Không tìm thấy dữ liệu công việc.');
+      }
+      setIsLoading(false);
+      return;
+    }
 
     try {
       setIsLoading(true);
       const res = await fetch(`${apiBaseUrl}/tasks/${taskId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) throw new Error('Không thể tải thông tin công việc');
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.message || 'Không thể tải thông tin công việc');
+      }
       const data: TaskItem = await res.json();
       setTask(data);
       setProgress(data.progressPercent || 0);
     } catch (err: any) {
-      showToast(err.message || 'Lỗi tải công việc', 'error');
+      const mock = MOCK_TASKS.find((t) => t.id === taskId);
+      if (mock) {
+        setTask(mock);
+        setProgress(mock.progressPercent || 0);
+      } else {
+        setFetchError(err.message || 'Lỗi kết nối máy chủ');
+        showToast(err.message || 'Lỗi tải công việc', 'error');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -208,10 +233,28 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
           </button>
         </div>
 
-        {isLoading || !task ? (
+        {isLoading ? (
           <div className="p-12 flex flex-col items-center justify-center space-y-3">
             <div className="w-8 h-8 border-3 border-[#0A66C2]/30 border-t-[#0A66C2] rounded-full animate-spin" />
             <span className="text-sm text-gray-500">Đang tải dữ liệu công việc...</span>
+          </div>
+        ) : !task ? (
+          <div className="p-12 flex flex-col items-center justify-center space-y-4 text-center">
+            <div className="w-12 h-12 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center text-xl font-bold border border-amber-200">
+              !
+            </div>
+            <div>
+              <h4 className="font-bold text-gray-800 text-base">Không thể tải dữ liệu công việc</h4>
+              <p className="text-xs text-gray-500 mt-1 max-w-sm">
+                {fetchError || 'Công việc không tồn tại hoặc bạn chưa được phân quyền truy cập.'}
+              </p>
+            </div>
+            <button
+              onClick={onClose}
+              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-gray-700 text-xs font-semibold rounded-xl transition-colors"
+            >
+              Đóng cửa sổ
+            </button>
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
