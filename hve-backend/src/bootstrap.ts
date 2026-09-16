@@ -1,7 +1,16 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
-import helmet from 'helmet';
+import type { RequestHandler } from 'express';
+import * as helmetImport from 'helmet';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+
+// helmet khai báo export dạng dual-package (ESM .mjs / CJS .cjs) — tuỳ môi
+// trường build (Windows local vs Linux trên Vercel) mà TypeScript đôi khi
+// resolve nhầm sang bản không có call signature dù lúc chạy thực tế luôn
+// đúng. Ép kiểu tường minh 1 lần ở đây để tránh phụ thuộc vào resolution
+// không ổn định giữa các môi trường.
+const helmet = (helmetImport as unknown as { default: (options?: Record<string, unknown>) => RequestHandler })
+  .default;
 
 /**
  * Cấu hình app dùng chung cho cả 2 chế độ chạy: server truyền thống
