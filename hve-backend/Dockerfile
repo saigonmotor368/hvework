@@ -1,4 +1,4 @@
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
@@ -17,7 +17,7 @@ RUN npx prisma generate
 RUN npm run build
 
 # Production Stage
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 
 WORKDIR /app
 
@@ -26,7 +26,10 @@ RUN apk add --no-cache openssl libc6-compat
 ENV NODE_ENV=production
 
 COPY package*.json ./
-RUN npm ci --only=production
+# --ignore-scripts: postinstall chạy "prisma generate", nhưng CLI prisma chỉ
+# nằm ở devDependencies (không có trong cài đặt production-only) — không
+# cần chạy lại ở đây vì Prisma Client đã được generate và copy từ builder.
+RUN npm ci --only=production --ignore-scripts
 
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
