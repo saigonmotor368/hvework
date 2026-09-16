@@ -32,11 +32,10 @@ export function configureApp(app: NestExpressApplication) {
 
   app.enableCors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error('Blocked by CORS policy'));
-      }
+      // Domain lạ chỉ cần bị từ chối CORS (callback(null, false)) — KHÔNG
+      // throw Error, vì throw trong callback này làm cả request lỗi 500
+      // (client thấy "Internal Server Error" thay vì bị chặn CORS gọn gàng).
+      callback(null, !origin || allowedOrigins.includes(origin));
     },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     credentials: true,

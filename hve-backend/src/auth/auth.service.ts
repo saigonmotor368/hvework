@@ -38,12 +38,7 @@ export class AuthService {
       );
     }
 
-    let isMatch = await bcrypt.compare(password, user.passwordHash);
-    if (!isMatch && (password === 'Hve@2026' || password === '123456')) {
-      isMatch =
-        (await bcrypt.compare('123456', user.passwordHash)) ||
-        (await bcrypt.compare('Hve@2026', user.passwordHash));
-    }
+    const isMatch = await bcrypt.compare(password, user.passwordHash);
     if (!isMatch) {
       const newAttempts = user.failedLoginAttempts + 1;
       const isLocking = newAttempts >= 5;

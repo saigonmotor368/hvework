@@ -26,10 +26,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenSetPin,
 }) => {
   const userRoleNames: string[] = user?.roles || [];
-  const isAdmin =
-    userRoleNames.includes('it_admin') ||
-    userRoleNames.includes('ceo') ||
-    user?.email === 'tp_it@huyvoeducation.vn';
+  const isAdmin = userRoleNames.includes('it_admin') || userRoleNames.includes('ceo');
   const isCeo = userRoleNames.includes('ceo');
 
   const handleTabSelect = (tab: any) => {
