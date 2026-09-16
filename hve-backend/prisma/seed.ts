@@ -60,37 +60,37 @@ async function main() {
   // Users to seed
   const usersToSeed = [
     {
-      email: 'ceo@hve.com',
+      email: 'ceo@huyvoeducation.vn',
       name: 'CEO',
       departmentId: deptIT.id,
       roleNames: ['ceo', 'employee'],
     },
     {
-      email: 'admin@hve.com',
+      email: 'admin@huyvoeducation.vn',
       name: 'IT Admin',
       departmentId: deptIT.id,
       roleNames: ['it_admin'],
     },
     {
-      email: 'tp_it@hve.com',
+      email: 'tp_it@huyvoeducation.vn',
       name: 'Trưởng Phòng IT',
       departmentId: deptIT.id,
       roleNames: ['department_head', 'employee'],
     },
     {
-      email: 'ketoan@hve.com',
+      email: 'ketoan@huyvoeducation.vn',
       name: 'Kế Toán Trưởng',
       departmentId: deptFin.id,
       roleNames: ['accountant', 'department_head'],
     },
     {
-      email: 'phapche@hve.com',
+      email: 'phapche@huyvoeducation.vn',
       name: 'Nhân viên Pháp Chế',
       departmentId: deptLegal.id,
       roleNames: ['legal', 'employee'],
     },
     {
-      email: 'nv1@hve.com',
+      email: 'nv1@huyvoeducation.vn',
       name: 'Nhân viên 1',
       departmentId: deptIT.id,
       roleNames: ['employee'],

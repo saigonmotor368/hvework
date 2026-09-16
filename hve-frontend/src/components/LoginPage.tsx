@@ -37,7 +37,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
               <input
                 name="email"
                 type="email"
-                defaultValue="nv1@hve.com"
+                defaultValue="nv1@huyvoeducation.vn"
                 required
                 className="mt-1 block w-full px-3.5 py-2.5 bg-slate-50 border border-gray-200 rounded-lg text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#0A66C2] focus:bg-white"
               />
@@ -70,21 +70,21 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             <div className="grid grid-cols-3 gap-2">
               <button
                 type="button"
-                onClick={() => onSwitchAccount('nv1@hve.com')}
+                onClick={() => onSwitchAccount('nv1@huyvoeducation.vn')}
                 className="p-2 text-xs font-medium text-center rounded-lg bg-blue-50 text-[#0A66C2] hover:bg-blue-100"
               >
                 Nhân viên
               </button>
               <button
                 type="button"
-                onClick={() => onSwitchAccount('ketoan@hve.com')}
+                onClick={() => onSwitchAccount('ketoan@huyvoeducation.vn')}
                 className="p-2 text-xs font-medium text-center rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
               >
                 Trưởng BP/Kế toán
               </button>
               <button
                 type="button"
-                onClick={() => onSwitchAccount('ceo@hve.com')}
+                onClick={() => onSwitchAccount('ceo@huyvoeducation.vn')}
                 className="p-2 text-xs font-medium text-center rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100"
               >
                 CEO

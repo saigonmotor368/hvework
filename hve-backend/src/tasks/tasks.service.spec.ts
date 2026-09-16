@@ -6,7 +6,7 @@ import {
 } from './tasks.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AuditService } from '../audit/audit.service.js';
-import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 
 describe('TasksService', () => {
   let service: TasksService;
@@ -213,6 +213,36 @@ describe('TasksService', () => {
       await expect(
         service.updateTask(user, 1, { assigneeId: 3 }),
       ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should reject setting recurrenceRule on a task that already has subtasks', async () => {
+      prisma.task.findUnique.mockResolvedValue({
+        id: 1,
+        parentTaskId: null,
+        subTasks: [{ id: 2 }],
+        createdById: 1,
+        createdBy: { departmentId: 10 },
+      });
+
+      const user = { id: 1, roles: ['employee'], departmentId: 10 };
+      await expect(
+        service.updateTask(user, 1, { recurrenceRule: 'weekly' }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should reject setting recurrenceRule on a subtask in updateTask', async () => {
+      prisma.task.findUnique.mockResolvedValue({
+        id: 2,
+        parentTaskId: 1,
+        subTasks: [],
+        createdById: 1,
+        createdBy: { departmentId: 10 },
+      });
+
+      const user = { id: 1, roles: ['employee'], departmentId: 10 };
+      await expect(
+        service.updateTask(user, 2, { recurrenceRule: 'weekly' }),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 

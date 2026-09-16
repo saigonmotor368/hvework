@@ -230,11 +230,26 @@ export class TasksService {
       where: { id: taskId },
       include: {
         createdBy: true,
+        subTasks: true,
       },
     });
 
     if (!task) {
       throw new NotFoundException('Không tìm thấy công việc');
+    }
+
+    // Chặn gán recurrenceRule cho việc con hoặc việc cha đã có việc con
+    if (dto.recurrenceRule) {
+      if (task.parentTaskId) {
+        throw new BadRequestException(
+          'Chỉ công việc độc lập mới được đặt chu kỳ lặp lại, không áp dụng cho việc con',
+        );
+      }
+      if (task.subTasks && task.subTasks.length > 0) {
+        throw new BadRequestException(
+          'Không thể đặt chu kỳ lặp lại cho công việc đã có việc con',
+        );
+      }
     }
 
     // Phân quyền đổi assigneeId hoặc dueDate:
@@ -395,6 +410,17 @@ export class TasksService {
     // Tự động tính lại tiến độ của việc cha (nếu có parentTaskId)
     if (task.parentTaskId) {
       await this.recalculateParentProgress(task.parentTaskId);
+    }
+
+    if (ip) {
+      await this.auditService.logEvent({
+        entityType: 'task',
+        entityId: taskId,
+        action: 'update_progress',
+        actorId: user.id,
+        afterJson: { progressPercent: dto.progressPercent, status: newStatus },
+        ip,
+      });
     }
 
     return updatedTask;

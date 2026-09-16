@@ -161,42 +161,42 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </span>
           <div className="grid grid-cols-2 gap-1 text-[11px]">
             <button
-              onClick={() => onSwitchAccount('admin@hve.com')}
+              onClick={() => onSwitchAccount('admin@huyvoeducation.vn')}
               className="p-1 rounded bg-white hover:bg-slate-100 text-gray-700 font-medium border border-slate-200 text-left truncate"
               title="IT Admin (Cấu hình luồng, Quản lý user)"
             >
               🛠 IT Admin
             </button>
             <button
-              onClick={() => onSwitchAccount('ceo@hve.com')}
+              onClick={() => onSwitchAccount('ceo@huyvoeducation.vn')}
               className="p-1 rounded bg-white hover:bg-slate-100 text-gray-700 font-medium border border-slate-200 text-left truncate"
               title="CEO (Phê duyệt cao nhất)"
             >
               👑 CEO
             </button>
             <button
-              onClick={() => onSwitchAccount('tp_it@hve.com')}
+              onClick={() => onSwitchAccount('tp_it@huyvoeducation.vn')}
               className="p-1 rounded bg-white hover:bg-slate-100 text-gray-700 font-medium border border-slate-200 text-left truncate"
               title="Trưởng phòng IT (Duyệt cấp bộ phận IT)"
             >
               👔 Trưởng BP IT
             </button>
             <button
-              onClick={() => onSwitchAccount('ketoan@hve.com')}
+              onClick={() => onSwitchAccount('ketoan@huyvoeducation.vn')}
               className="p-1 rounded bg-white hover:bg-slate-100 text-gray-700 font-medium border border-slate-200 text-left truncate"
               title="Kế toán (Duyệt thanh toán, hợp đồng)"
             >
               💼 Kế toán
             </button>
             <button
-              onClick={() => onSwitchAccount('phapche@hve.com')}
+              onClick={() => onSwitchAccount('phapche@huyvoeducation.vn')}
               className="p-1 rounded bg-white hover:bg-slate-100 text-gray-700 font-medium border border-slate-200 text-left truncate"
               title="Pháp chế (Duyệt hợp đồng)"
             >
               ⚖️ Pháp chế
             </button>
             <button
-              onClick={() => onSwitchAccount('nv1@hve.com')}
+              onClick={() => onSwitchAccount('nv1@huyvoeducation.vn')}
               className="p-1 rounded bg-white hover:bg-slate-100 text-gray-700 font-medium border border-slate-200 text-left truncate"
               title="Nhân viên 1 (Lập đề nghị)"
             >

@@ -47,7 +47,7 @@ describe('AuthService', () => {
     it('should successfully log in and return access_token, refresh_token, and user info', async () => {
       prisma.user.findUnique.mockResolvedValue({
         id: 1,
-        email: 'ceo@hve.com',
+        email: 'ceo@huyvoeducation.vn',
         passwordHash: mockPasswordHash,
         name: 'CEO User',
         status: 'active',
@@ -59,11 +59,11 @@ describe('AuthService', () => {
 
       prisma.user.update.mockResolvedValue({});
 
-      const result = await service.login({ email: 'ceo@hve.com', password: '123456' });
+      const result = await service.login({ email: 'ceo@huyvoeducation.vn', password: '123456' });
 
       expect(result).toHaveProperty('access_token');
       expect(result).toHaveProperty('refresh_token');
-      expect(result.user.email).toBe('ceo@hve.com');
+      expect(result.user.email).toBe('ceo@huyvoeducation.vn');
       expect(result.user.roles).toContain('ceo');
       // Should reset failedLoginAttempts to 0
       expect(prisma.user.update).toHaveBeenCalledWith(
@@ -80,7 +80,7 @@ describe('AuthService', () => {
     it('should increment failedLoginAttempts when password does not match', async () => {
       prisma.user.findUnique.mockResolvedValue({
         id: 2,
-        email: 'user@hve.com',
+        email: 'user@huyvoeducation.vn',
         passwordHash: mockPasswordHash,
         status: 'active',
         failedLoginAttempts: 1,
@@ -90,7 +90,7 @@ describe('AuthService', () => {
       prisma.user.update.mockResolvedValue({});
 
       await expect(
-        service.login({ email: 'user@hve.com', password: 'wrong_password' }),
+        service.login({ email: 'user@huyvoeducation.vn', password: 'wrong_password' }),
       ).rejects.toThrow(UnauthorizedException);
 
       expect(prisma.user.update).toHaveBeenCalledWith(
@@ -104,7 +104,7 @@ describe('AuthService', () => {
     it('should lock account for 15 minutes when 5th failed attempt is reached', async () => {
       prisma.user.findUnique.mockResolvedValue({
         id: 3,
-        email: 'attacker@hve.com',
+        email: 'attacker@huyvoeducation.vn',
         passwordHash: mockPasswordHash,
         status: 'active',
         failedLoginAttempts: 4,
@@ -114,7 +114,7 @@ describe('AuthService', () => {
       prisma.user.update.mockResolvedValue({});
 
       await expect(
-        service.login({ email: 'attacker@hve.com', password: 'wrong_password' }),
+        service.login({ email: 'attacker@huyvoeducation.vn', password: 'wrong_password' }),
       ).rejects.toThrow('Tài khoản đã bị tạm khoá 15 phút');
 
       expect(prisma.user.update).toHaveBeenCalledWith(
@@ -135,7 +135,7 @@ describe('AuthService', () => {
       const lockFuture = new Date(Date.now() + 10 * 60 * 1000);
       prisma.user.findUnique.mockResolvedValue({
         id: 4,
-        email: 'locked@hve.com',
+        email: 'locked@huyvoeducation.vn',
         passwordHash: mockPasswordHash,
         status: 'active',
         failedLoginAttempts: 5,
@@ -144,7 +144,7 @@ describe('AuthService', () => {
       });
 
       await expect(
-        service.login({ email: 'locked@hve.com', password: '123456' }),
+        service.login({ email: 'locked@huyvoeducation.vn', password: '123456' }),
       ).rejects.toThrow('Tài khoản tạm thời bị khoá');
     });
   });
@@ -154,10 +154,10 @@ describe('AuthService', () => {
       const rawRefreshToken = 'valid_refresh_token';
       const tokenHash = bcrypt.hashSync(rawRefreshToken, 10);
 
-      jwtService.verify.mockReturnValue({ sub: 1, email: 'user@hve.com' });
+      jwtService.verify.mockReturnValue({ sub: 1, email: 'user@huyvoeducation.vn' });
       prisma.user.findUnique.mockResolvedValue({
         id: 1,
-        email: 'user@hve.com',
+        email: 'user@huyvoeducation.vn',
         status: 'active',
         refreshTokenHash: tokenHash,
         roles: [{ name: 'employee' }],
@@ -184,11 +184,11 @@ describe('AuthService', () => {
     it('should generate OTP and expiry on forgotPassword', async () => {
       prisma.user.findUnique.mockResolvedValue({
         id: 1,
-        email: 'user@hve.com',
+        email: 'user@huyvoeducation.vn',
       });
       prisma.user.update.mockResolvedValue({});
 
-      const result = await service.forgotPassword('user@hve.com');
+      const result = await service.forgotPassword('user@huyvoeducation.vn');
       expect(result).toHaveProperty('message');
       expect(prisma.user.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -203,14 +203,14 @@ describe('AuthService', () => {
     it('should reset password when valid token is provided', async () => {
       prisma.user.findUnique.mockResolvedValue({
         id: 1,
-        email: 'user@hve.com',
+        email: 'user@huyvoeducation.vn',
         passwordResetToken: '123456',
         passwordResetExpires: new Date(Date.now() + 10 * 60 * 1000),
       });
       prisma.user.update.mockResolvedValue({});
 
       const result = await service.resetPassword({
-        email: 'user@hve.com',
+        email: 'user@huyvoeducation.vn',
         token: '123456',
         newPassword: 'newPassword123',
       });
@@ -230,14 +230,14 @@ describe('AuthService', () => {
     it('should reject reset password with wrong token', async () => {
       prisma.user.findUnique.mockResolvedValue({
         id: 1,
-        email: 'user@hve.com',
+        email: 'user@huyvoeducation.vn',
         passwordResetToken: '123456',
         passwordResetExpires: new Date(Date.now() + 10 * 60 * 1000),
       });
 
       await expect(
         service.resetPassword({
-          email: 'user@hve.com',
+          email: 'user@huyvoeducation.vn',
           token: '999999',
           newPassword: 'newPassword123',
         }),

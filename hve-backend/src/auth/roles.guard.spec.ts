@@ -42,7 +42,7 @@ describe('RolesGuard', () => {
       vi.spyOn(reflector, 'get').mockReturnValue([roleName]);
       const context = createMockContext({
         id: 1,
-        email: `${roleName}@hve.com`,
+        email: `${roleName}@huyvoeducation.vn`,
         roles: [{ name: roleName }],
       });
 
@@ -65,7 +65,7 @@ describe('RolesGuard', () => {
       vi.spyOn(reflector, 'get').mockReturnValue(['ceo']);
       const context = createMockContext({
         id: 2,
-        email: 'employee@hve.com',
+        email: 'employee@huyvoeducation.vn',
         roles: [{ name: 'employee' }],
       });
 

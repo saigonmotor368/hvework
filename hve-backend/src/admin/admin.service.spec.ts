@@ -43,12 +43,12 @@ describe('AdminService', () => {
   describe('User Listing and Lookups', () => {
     it('should return list of all users without exposing passwords', async () => {
       prisma.user.findMany.mockResolvedValue([
-        { id: 1, email: 'admin@hve.com', name: 'IT Admin', status: 'active', roles: [] },
+        { id: 1, email: 'admin@huyvoeducation.vn', name: 'IT Admin', status: 'active', roles: [] },
       ]);
 
       const users = await service.findAllUsers();
       expect(users).toHaveLength(1);
-      expect(users[0].email).toBe('admin@hve.com');
+      expect(users[0].email).toBe('admin@huyvoeducation.vn');
     });
 
     it('should return list of roles and departments', async () => {
@@ -80,12 +80,12 @@ describe('AdminService', () => {
     it('should successfully lock another user and write audit log', async () => {
       prisma.user.findUnique.mockResolvedValue({
         id: 5,
-        email: 'nv1@hve.com',
+        email: 'nv1@huyvoeducation.vn',
         status: 'active',
       });
       prisma.user.update.mockResolvedValue({
         id: 5,
-        email: 'nv1@hve.com',
+        email: 'nv1@huyvoeducation.vn',
         status: 'locked',
       });
 
