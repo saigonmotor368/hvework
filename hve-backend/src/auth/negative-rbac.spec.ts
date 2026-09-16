@@ -48,7 +48,7 @@ describe('Negative RBAC & Security Hardening Tests (Phase 5)', () => {
   });
 
   const createMockExecutionContext = (user: any, requiredRoles: string[]): ExecutionContext => {
-    vi.spyOn(reflector, 'get').mockReturnValue(requiredRoles);
+    vi.spyOn(reflector, 'getAllAndOverride').mockReturnValue(requiredRoles);
     return {
       getHandler: () => ({}),
       getClass: () => ({}),

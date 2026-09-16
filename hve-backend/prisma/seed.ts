@@ -36,6 +36,13 @@ async function main() {
     });
   }
 
+  let deptKD = await prisma.department.findUnique({ where: { code: 'KD' } });
+  if (!deptKD) {
+    deptKD = await prisma.department.create({
+      data: { name: 'Kinh doanh & Tuyển sinh', code: 'KD' },
+    });
+  }
+
   // Create Roles if not exists
   const roleNames = [
     { name: 'employee', description: 'Nhân viên' },
@@ -93,6 +100,30 @@ async function main() {
       email: 'nv1@huyvoeducation.vn',
       name: 'Nhân viên 1',
       departmentId: deptIT.id,
+      roleNames: ['employee'],
+    },
+    {
+      email: 'tp_kd@huyvoeducation.vn',
+      name: 'Trưởng Phòng Kinh Doanh',
+      departmentId: deptKD.id,
+      roleNames: ['department_head', 'employee'],
+    },
+    {
+      email: 'nv_kd1@huyvoeducation.vn',
+      name: 'Nhân viên Kinh Doanh 1',
+      departmentId: deptKD.id,
+      roleNames: ['employee'],
+    },
+    {
+      email: 'nv_kd2@huyvoeducation.vn',
+      name: 'Nhân viên Kinh Doanh 2',
+      departmentId: deptKD.id,
+      roleNames: ['employee'],
+    },
+    {
+      email: 'nv_tc@huyvoeducation.vn',
+      name: 'Nhân viên Tài Chính',
+      departmentId: deptFin.id,
       roleNames: ['employee'],
     },
   ];

@@ -7,9 +7,11 @@ import { EmailChannel } from './channels/email.channel.js';
 import { ZaloChannel } from './channels/zalo.channel.js';
 
 import { WebPushService } from './web-push.service.js';
+import { ReminderSchedulerService } from './reminder-scheduler.service.js';
+import { AuthModule } from '../auth/auth.module.js';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, AuthModule],
   controllers: [NotificationsController],
   providers: [
     NotificationsService,
@@ -17,6 +19,7 @@ import { WebPushService } from './web-push.service.js';
     InAppChannel,
     EmailChannel,
     ZaloChannel,
+    ReminderSchedulerService,
   ],
   exports: [NotificationsService, WebPushService],
 })

@@ -6,7 +6,14 @@ export class RolesGuard implements CanActivate {
   constructor(private reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
-    const requiredRoles = this.reflector.get<string[]>('roles', context.getHandler());
+    // Đọc metadata @Roles() ở cả cấp method VÀ cấp class — method-level ghi đè
+    // nếu có, ngược lại lấy class-level. Chỉ đọc context.getHandler() sẽ bỏ sót
+    // toàn bộ @Roles() khai báo trên class (ví dụ AdminController, WorkflowsController),
+    // khiến guard luôn cho qua vì tưởng không có yêu cầu vai trò nào.
+    const requiredRoles = this.reflector.getAllAndOverride<string[]>('roles', [
+      context.getHandler(),
+      context.getClass(),
+    ]);
     if (!requiredRoles) {
       return true;
     }

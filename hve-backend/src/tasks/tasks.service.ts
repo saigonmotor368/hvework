@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AuditService } from '../audit/audit.service.js';
+import { NotificationsService } from '../notifications/notifications.service.js';
 import { CreateTaskDto } from './dto/create-task.dto.js';
 import { UpdateTaskDto } from './dto/update-task.dto.js';
 import { UpdateProgressDto } from './dto/update-progress.dto.js';
@@ -68,6 +69,7 @@ export class TasksService {
   constructor(
     private prisma: PrismaService,
     private auditService: AuditService,
+    private notificationsService: NotificationsService,
   ) {}
 
   /**
@@ -203,14 +205,14 @@ export class TasksService {
 
     // Bắn notification cho người được giao
     if (dto.assigneeId && dto.assigneeId !== user.id) {
-      await this.prisma.notification.create({
-        data: {
-          userId: dto.assigneeId,
-          eventType: 'task_assigned',
-          entityRef: `task:${task.id}`,
-          channel: 'in_app',
-          dedupeKey: `task_assign_${task.id}_${dto.assigneeId}_${Date.now()}`,
-        },
+      await this.notificationsService.dispatchNotification({
+        userId: dto.assigneeId,
+        eventType: 'task_assigned',
+        entityRef: `task:${task.id}`,
+        title: `Công việc mới: ${task.code}`,
+        content: `Bạn được giao việc "${task.title}" bởi ${user.name}. Hạn hoàn thành: ${task.dueDate ? new Date(task.dueDate).toLocaleDateString('vi-VN') : 'chưa xác định'}.`,
+        link: `/tasks?id=${task.id}`,
+        dedupeKey: `task_assign_${task.id}_${dto.assigneeId}_${Date.now()}`,
       });
     }
 
@@ -322,14 +324,14 @@ export class TasksService {
       dto.assigneeId &&
       dto.assigneeId !== user.id
     ) {
-      await this.prisma.notification.create({
-        data: {
-          userId: dto.assigneeId,
-          eventType: 'task_reassigned',
-          entityRef: `task:${taskId}`,
-          channel: 'in_app',
-          dedupeKey: `task_reassigned_${taskId}_${dto.assigneeId}_${Date.now()}`,
-        },
+      await this.notificationsService.dispatchNotification({
+        userId: dto.assigneeId,
+        eventType: 'task_reassigned',
+        entityRef: `task:${taskId}`,
+        title: `Bạn được giao việc: ${updatedTask.code}`,
+        content: `Công việc "${updatedTask.title}" vừa được chuyển giao cho bạn phụ trách.`,
+        link: `/tasks?id=${taskId}`,
+        dedupeKey: `task_reassigned_${taskId}_${dto.assigneeId}_${Date.now()}`,
       });
     }
 
@@ -396,14 +398,14 @@ export class TasksService {
 
     // Nếu đạt 100% (chuyển Chờ duyệt) -> thông báo cho người giao việc
     if (dto.progressPercent === 100 && task.createdById !== user.id) {
-      await this.prisma.notification.create({
-        data: {
-          userId: task.createdById,
-          eventType: 'task_pending_approval',
-          entityRef: `task:${taskId}`,
-          channel: 'in_app',
-          dedupeKey: `task_pending_${taskId}_${Date.now()}`,
-        },
+      await this.notificationsService.dispatchNotification({
+        userId: task.createdById,
+        eventType: 'task_pending_approval',
+        entityRef: `task:${taskId}`,
+        title: `Công việc chờ nghiệm thu: ${task.code}`,
+        content: `"${task.title}" đã đạt 100% tiến độ, đang chờ bạn xác nhận hoàn thành.`,
+        link: `/tasks?id=${taskId}`,
+        dedupeKey: `task_pending_${taskId}_${Date.now()}`,
       });
     }
 
@@ -553,20 +555,24 @@ export class TasksService {
           },
         });
 
-        if (task.assigneeId) {
-          await tx.notification.create({
-            data: {
-              userId: task.assigneeId,
-              eventType: 'task_recurring_created',
-              entityRef: `task:${nextTask.id}`,
-              channel: 'in_app',
-              dedupeKey: `task_recurring_${nextTask.id}_${task.assigneeId}_${Date.now()}`,
-            },
-          });
-        }
       }
 
       return { task: updated, nextTask };
+    }).then(async (result) => {
+      // Bắn notification NGOÀI transaction — dispatchNotification gọi cả email/web-push
+      // (network I/O), không nên giữ transaction DB mở trong lúc chờ mạng.
+      if (result.nextTask && task.assigneeId) {
+        await this.notificationsService.dispatchNotification({
+          userId: task.assigneeId,
+          eventType: 'task_recurring_created',
+          entityRef: `task:${result.nextTask.id}`,
+          title: `Kỳ việc mới: ${result.nextTask.code}`,
+          content: `Việc lặp lại "${result.nextTask.title}" đã tự động sinh kỳ tiếp theo, hạn hoàn thành ${result.nextTask.dueDate ? new Date(result.nextTask.dueDate).toLocaleDateString('vi-VN') : 'chưa xác định'}.`,
+          link: `/tasks?id=${result.nextTask.id}`,
+          dedupeKey: `task_recurring_${result.nextTask.id}_${task.assigneeId}_${Date.now()}`,
+        });
+      }
+      return result;
     });
   }
 
@@ -784,14 +790,14 @@ export class TasksService {
     if (dto.mentions && Array.isArray(dto.mentions) && dto.mentions.length > 0) {
       for (const mentionedId of dto.mentions) {
         if (mentionedId !== user.id) {
-          await this.prisma.notification.create({
-            data: {
-              userId: mentionedId,
-              eventType: 'task_comment_mention',
-              entityRef: `task:${taskId}`,
-              channel: 'in_app',
-              dedupeKey: `task_mention_${comment.id}_${mentionedId}_${Date.now()}`,
-            },
+          await this.notificationsService.dispatchNotification({
+            userId: mentionedId,
+            eventType: 'task_comment_mention',
+            entityRef: `task:${taskId}`,
+            title: `${user.name} đã nhắc đến bạn`,
+            content: `Trong công việc "${task.title}": ${dto.content}`,
+            link: `/tasks?id=${taskId}`,
+            dedupeKey: `task_mention_${comment.id}_${mentionedId}_${Date.now()}`,
           });
         }
       }

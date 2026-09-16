@@ -6,12 +6,14 @@ import {
 } from './tasks.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AuditService } from '../audit/audit.service.js';
+import { NotificationsService } from '../notifications/notifications.service.js';
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 
 describe('TasksService', () => {
   let service: TasksService;
   let prisma: any;
   let auditService: any;
+  let notificationsService: any;
 
   beforeEach(async () => {
     prisma = {
@@ -44,11 +46,16 @@ describe('TasksService', () => {
       logEvent: vi.fn().mockResolvedValue({ id: 1 }),
     };
 
+    notificationsService = {
+      dispatchNotification: vi.fn().mockResolvedValue({ in_app: true }),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         TasksService,
         { provide: PrismaService, useValue: prisma },
         { provide: AuditService, useValue: auditService },
+        { provide: NotificationsService, useValue: notificationsService },
       ],
     }).compile();
 
@@ -122,12 +129,10 @@ describe('TasksService', () => {
       const result = await service.createTask(user, dto);
       expect(result.id).toBe(1);
       expect(prisma.task.create).toHaveBeenCalled();
-      expect(prisma.notification.create).toHaveBeenCalledWith(
+      expect(notificationsService.dispatchNotification).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({
-            userId: 2,
-            eventType: 'task_assigned',
-          }),
+          userId: 2,
+          eventType: 'task_assigned',
         }),
       );
       expect(auditService.logEvent).toHaveBeenCalled();
@@ -296,12 +301,10 @@ describe('TasksService', () => {
 
       await service.updateProgress({ id: 5 }, 2, { progressPercent: 100 });
 
-      expect(prisma.notification.create).toHaveBeenCalledWith(
+      expect(notificationsService.dispatchNotification).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({
-            userId: 10,
-            eventType: 'task_pending_approval',
-          }),
+          userId: 10,
+          eventType: 'task_pending_approval',
         }),
       );
     });
@@ -368,12 +371,10 @@ describe('TasksService', () => {
       expect(result.task.status).toBe('Hoàn thành');
       expect(result.nextTask).toBeDefined();
       expect(prisma.task.create).toHaveBeenCalled();
-      expect(prisma.notification.create).toHaveBeenCalledWith(
+      expect(notificationsService.dispatchNotification).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({
-            userId: 20,
-            eventType: 'task_recurring_created',
-          }),
+          userId: 20,
+          eventType: 'task_recurring_created',
         }),
       );
     });
@@ -461,14 +462,12 @@ describe('TasksService', () => {
       });
 
       expect(prisma.comment.create).toHaveBeenCalled();
-      expect(prisma.notification.create).toHaveBeenCalledTimes(2);
-      expect(prisma.notification.create).toHaveBeenCalledWith(
+      expect(notificationsService.dispatchNotification).toHaveBeenCalledTimes(2);
+      expect(notificationsService.dispatchNotification).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({
-            userId: 2,
-            eventType: 'task_comment_mention',
-            dedupeKey: expect.stringContaining('task_mention_77_2_'),
-          }),
+          userId: 2,
+          eventType: 'task_comment_mention',
+          dedupeKey: expect.stringContaining('task_mention_77_2_'),
         }),
       );
     });
