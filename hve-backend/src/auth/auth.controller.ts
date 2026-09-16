@@ -18,13 +18,13 @@ import { JwtAuthGuard } from './jwt-auth.guard.js';
 import { RolesGuard } from './roles.guard.js';
 import { Roles } from './roles.decorator.js';
 
-import { Throttle } from '@nestjs/throttler';
+import { Throttle } from '../common/throttle.decorator.js';
 
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
 
-  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @Throttle(5, 60000)
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(@Body() body: LoginDto, @Req() request: any) {
@@ -39,7 +39,7 @@ export class AuthController {
     return this.authService.refreshToken(body.refreshToken);
   }
 
-  @Throttle({ default: { limit: 3, ttl: 60000 } })
+  @Throttle(3, 60000)
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
   async forgotPassword(@Body() body: ForgotPasswordDto, @Req() request: any) {

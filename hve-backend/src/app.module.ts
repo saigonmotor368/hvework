@@ -13,19 +13,13 @@ import { NotificationsModule } from './notifications/notifications.module.js';
 import { DashboardModule } from './dashboard/dashboard.module.js';
 import { ReportsModule } from './reports/reports.module.js';
 
-import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { ScheduleModule } from '@nestjs/schedule';
 import { APP_GUARD } from '@nestjs/core';
+import { SimpleThrottlerGuard } from './common/simple-throttler.guard.js';
 
 @Module({
   imports: [
     ScheduleModule.forRoot(),
-    ThrottlerModule.forRoot([
-      {
-        ttl: 60000,
-        limit: 1000, // Safe overall ceiling to prevent office NAT IP block
-      },
-    ]),
     PrismaModule,
     AuditModule,
     AuthModule,
@@ -43,7 +37,7 @@ import { APP_GUARD } from '@nestjs/core';
     AppService,
     {
       provide: APP_GUARD,
-      useClass: ThrottlerGuard,
+      useClass: SimpleThrottlerGuard,
     },
   ],
 })
