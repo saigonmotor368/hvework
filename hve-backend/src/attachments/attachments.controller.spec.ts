@@ -1,15 +1,16 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AttachmentsController } from './attachments.controller.js';
 import { AttachmentsService } from './attachments.service.js';
+import { GoogleDriveService } from './google-drive.service.js';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 import { HttpStatus } from '@nestjs/common';
-import * as fs from 'fs';
-import * as path from 'path';
+import { Readable } from 'stream';
 
 
 describe('AttachmentsController', () => {
   let controller: AttachmentsController;
   let service: any;
+  let googleDrive: any;
 
   beforeEach(async () => {
     service = {
@@ -19,10 +20,15 @@ describe('AttachmentsController', () => {
       getAttachmentsForEntity: vi.fn(),
     };
 
+    googleDrive = {
+      downloadFile: vi.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AttachmentsController],
       providers: [
         { provide: AttachmentsService, useValue: service },
+        { provide: GoogleDriveService, useValue: googleDrive },
       ],
     })
       .overrideGuard(JwtAuthGuard)
@@ -59,44 +65,35 @@ describe('AttachmentsController', () => {
   });
 
   describe('getFile', () => {
-    it('should return 404 if file does not exist on disk', async () => {
+    it('should return 404 if file does not exist on Google Drive', async () => {
+      googleDrive.downloadFile.mockRejectedValue(new Error('File not found'));
+
       const res: any = {
         status: vi.fn().mockReturnThis(),
         json: vi.fn(),
-        sendFile: vi.fn(),
+        setHeader: vi.fn(),
       };
 
-      await controller.getFile('definitely-non-existent-file-999.pdf', res);
+      await controller.getFile('definitely-non-existent-file-999', res);
       expect(res.status).toHaveBeenCalledWith(HttpStatus.NOT_FOUND);
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({ message: expect.stringContaining('Không tìm thấy') }),
       );
     });
 
-    it('should send file if exists on disk', async () => {
-      const uploadsDir = path.join(process.cwd(), 'uploads');
-      if (!fs.existsSync(uploadsDir)) {
-        fs.mkdirSync(uploadsDir, { recursive: true });
-      }
-      const dummyFile = path.join(uploadsDir, 'test-unit-real.pdf');
-      fs.writeFileSync(dummyFile, 'test');
+    it('should stream file and set Content-Type if exists on Google Drive', async () => {
+      const stream = Readable.from([Buffer.from('test')]);
+      googleDrive.downloadFile.mockResolvedValue({ stream, mimeType: 'application/pdf' });
 
-      const res: any = {
-        status: vi.fn().mockReturnThis(),
-        json: vi.fn(),
-        sendFile: vi.fn(),
-      };
+      // res cần tương thích Writable stream thật sự vì controller gọi stream.pipe(res)
+      const { PassThrough } = await import('stream');
+      const res: any = new PassThrough();
+      res.status = vi.fn().mockReturnThis();
+      res.json = vi.fn();
+      res.setHeader = vi.fn();
 
-      try {
-        await controller.getFile('test-unit-real.pdf', res);
-        expect(res.sendFile).toHaveBeenCalledWith(
-          expect.stringContaining('test-unit-real.pdf'),
-        );
-      } finally {
-        if (fs.existsSync(dummyFile)) {
-          fs.unlinkSync(dummyFile);
-        }
-      }
+      await controller.getFile('mock-drive-file-id', res);
+      expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'application/pdf');
     });
   });
 });

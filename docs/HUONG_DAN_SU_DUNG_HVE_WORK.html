@@ -1,0 +1,1258 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sổ Tay Hướng Dẫn Sử Dụng Hệ Thống HVE Work - Huy Võ Education</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap');
+
+    :root {
+      --hve-blue: #0B5CAB;
+      --hve-blue-dark: #073B6E;
+      --hve-blue-deep: #051F3B;
+      --hve-green: #00A651;
+      --hve-green-dark: #007A3B;
+      --hve-yellow: #FDC800;
+      --hve-slate: #1E293B;
+      --text-main: #0F172A;
+      --text-muted: #475569;
+      --border-color: #CBD5E1;
+      --bg-light: #F8FAFC;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      color: var(--text-main);
+      background-color: #FFFFFF;
+      line-height: 1.5;
+      font-size: 10pt;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    @page {
+      size: A4 portrait;
+      margin: 10mm 12mm 10mm 12mm;
+    }
+
+    .page-break {
+      page-break-before: always;
+      break-before: page;
+    }
+
+    .no-break {
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+
+    .container {
+      max-width: 860px;
+      margin: 0 auto;
+    }
+
+    /* TOP RUNNING BRAND STRIP FOR PAGES */
+    .page-header-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 6px;
+      margin-bottom: 12px;
+      border-bottom: 2px solid transparent;
+      border-image: linear-gradient(90deg, #0B5CAB 0%, #FDC800 50%, #00A651 100%) 1;
+      font-size: 7.8pt;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+
+    .page-header-bar .brand-inline {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--hve-blue);
+      font-weight: 700;
+    }
+
+    .page-header-bar .brand-inline img {
+      height: 15px;
+      width: 15px;
+      object-fit: contain;
+    }
+
+    /* COVER PAGE DESIGN */
+    .cover-wrapper {
+      height: 275mm;
+      max-height: 275mm;
+      padding: 38px 34px;
+      background: radial-gradient(circle at 85% 15%, rgba(0, 166, 81, 0.25) 0%, transparent 40%),
+                  radial-gradient(circle at 15% 85%, rgba(253, 200, 0, 0.18) 0%, transparent 45%),
+                  linear-gradient(145deg, #051F3B 0%, #0B4379 50%, #053321 100%);
+      color: #FFFFFF;
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+      overflow: hidden;
+      page-break-after: always;
+      break-after: page;
+      box-shadow: 0 15px 35px rgba(5, 31, 59, 0.35);
+    }
+
+    .cover-wrapper::before {
+      content: "";
+      position: absolute;
+      top: -60px;
+      right: -60px;
+      width: 320px;
+      height: 320px;
+      border-radius: 50%;
+      border: 2px dashed rgba(255, 255, 255, 0.12);
+      pointer-events: none;
+    }
+
+    .cover-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .cover-brand-box {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .cover-logo-frame {
+      width: 72px;
+      height: 72px;
+      background: #FFFFFF;
+      border-radius: 16px;
+      padding: 5px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .cover-logo-frame img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    .cover-company-title {
+      font-size: 14pt;
+      font-weight: 800;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      line-height: 1.2;
+    }
+
+    .cover-company-sub {
+      font-size: 8.5pt;
+      color: #93C5FD;
+      letter-spacing: 1.8px;
+      text-transform: uppercase;
+      margin-top: 3px;
+      font-weight: 600;
+    }
+
+    .cover-badge-doc {
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      backdrop-filter: blur(10px);
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 8pt;
+      font-weight: 700;
+      color: var(--hve-yellow);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .cover-middle {
+      margin: 25px 0;
+    }
+
+    .cover-tagline {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: linear-gradient(90deg, rgba(253, 200, 0, 0.2) 0%, rgba(0, 166, 81, 0.2) 100%);
+      border: 1px solid rgba(253, 200, 0, 0.4);
+      padding: 5px 14px;
+      border-radius: 30px;
+      color: #FDE047;
+      font-size: 9pt;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+
+    .cover-tagline span.dot {
+      width: 7px;
+      height: 7px;
+      background: var(--hve-yellow);
+      border-radius: 50%;
+      display: inline-block;
+      box-shadow: 0 0 8px var(--hve-yellow);
+    }
+
+    .cover-main-title {
+      font-size: 26pt;
+      font-weight: 800;
+      line-height: 1.2;
+      margin-bottom: 16px;
+      letter-spacing: -0.5px;
+      text-shadow: 0 4px 15px rgba(0, 0, 0, 0.35);
+    }
+
+    .cover-main-title span.highlight-green {
+      color: #4ADE80;
+    }
+
+    .cover-main-title span.highlight-yellow {
+      color: #FDE047;
+    }
+
+    .cover-summary {
+      font-size: 11pt;
+      line-height: 1.6;
+      color: #E2E8F0;
+      max-width: 680px;
+      margin-bottom: 20px;
+      font-weight: 400;
+    }
+
+    .cover-roles-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .cover-role-chip {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      padding: 7px 5px;
+      border-radius: 8px;
+      text-align: center;
+      font-size: 8pt;
+      font-weight: 600;
+      color: #F1F5F9;
+      backdrop-filter: blur(4px);
+    }
+
+    .cover-role-chip span {
+      display: block;
+      font-size: 7pt;
+      color: #94A3B8;
+      font-weight: 400;
+      margin-top: 2px;
+    }
+
+    .cover-bottom {
+      background: rgba(5, 31, 59, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 10px;
+      padding: 14px 18px;
+      display: grid;
+      grid-template-columns: 1.4fr 1fr;
+      gap: 14px;
+      backdrop-filter: blur(12px);
+    }
+
+    .cover-info-col h4 {
+      font-size: 7.5pt;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #93C5FD;
+      margin-bottom: 4px;
+      font-weight: 700;
+    }
+
+    .cover-info-col p {
+      font-size: 8.5pt;
+      margin-bottom: 2px;
+      color: #F8FAFC;
+      line-height: 1.35;
+    }
+
+    .cover-info-col p strong {
+      color: var(--hve-yellow);
+    }
+
+    /* SECTION TITLES */
+    .section-header-box {
+      margin-top: 6px;
+      margin-bottom: 10px;
+    }
+
+    .section-badge {
+      display: inline-block;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 7pt;
+      font-weight: 700;
+      background: var(--hve-blue);
+      color: #FFFFFF;
+      padding: 2px 7px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 3px;
+    }
+
+    h1.doc-section-title {
+      font-size: 13.5pt;
+      font-weight: 800;
+      color: var(--hve-blue-deep);
+      line-height: 1.25;
+      border-left: 4px solid var(--hve-blue);
+      padding-left: 8px;
+      letter-spacing: -0.2px;
+    }
+
+    h2.doc-sub-title {
+      font-size: 10.5pt;
+      font-weight: 700;
+      color: var(--hve-blue);
+      margin-top: 10px;
+      margin-bottom: 5px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    p {
+      margin-bottom: 6px;
+      text-align: justify;
+      color: #334155;
+      font-size: 9.3pt;
+    }
+
+    ul, ol {
+      margin-left: 18px;
+      margin-bottom: 8px;
+      color: #334155;
+      font-size: 9.3pt;
+    }
+
+    li {
+      margin-bottom: 2px;
+    }
+
+    /* TOC CARD */
+    .toc-container {
+      background: linear-gradient(180deg, #F8FAFC 0%, #F1F5F9 100%);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 12px 18px;
+      margin-bottom: 14px;
+    }
+
+    .toc-title {
+      font-size: 11pt;
+      font-weight: 800;
+      color: var(--hve-blue-dark);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .toc-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 5px 14px;
+    }
+
+    .toc-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 4px 8px;
+      background: #FFFFFF;
+      border: 1px solid #E2E8F0;
+      border-radius: 5px;
+      font-size: 8.5pt;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .toc-item span.num {
+      color: var(--hve-blue);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 7.5pt;
+    }
+
+    /* BROWSER MOCKUP CHO ẢNH */
+    .browser-mockup {
+      margin: 8px 0 10px 0;
+      border-radius: 7px;
+      border: 1px solid #CBD5E1;
+      background: #F1F5F9;
+      box-shadow: 0 8px 16px -4px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+
+    .browser-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 4px 10px;
+      background: #E2E8F0;
+      border-bottom: 1px solid #CBD5E1;
+    }
+
+    .browser-dots {
+      display: flex;
+      gap: 5px;
+    }
+
+    .browser-dots span {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .dot-red { background: #EF4444; }
+    .dot-yellow { background: #F59E0B; }
+    .dot-green { background: #10B981; }
+
+    .browser-address {
+      flex: 1;
+      max-width: 420px;
+      margin: 0 10px;
+      background: #FFFFFF;
+      border: 1px solid #CBD5E1;
+      border-radius: 4px;
+      padding: 2px 8px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 7pt;
+      color: #64748B;
+      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+    }
+
+    .browser-address span.ssl-lock {
+      color: var(--hve-green);
+      font-weight: bold;
+    }
+
+    .browser-content {
+      background: #FFFFFF;
+      text-align: center;
+    }
+
+    .browser-content img {
+      width: 100%;
+      max-height: 275px;
+      object-fit: contain;
+      display: block;
+      margin: 0 auto;
+    }
+
+    .mockup-caption {
+      padding: 4px 8px;
+      background: #F8FAFC;
+      border-top: 1px solid #E2E8F0;
+      font-size: 8pt;
+      font-style: italic;
+      color: var(--text-muted);
+      text-align: center;
+      font-weight: 500;
+    }
+
+    /* STEP CALLOUTS */
+    .step-box {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 5px;
+    }
+
+    .step-num {
+      width: 19px;
+      height: 19px;
+      min-width: 19px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--hve-blue) 0%, var(--hve-green) 100%);
+      color: #FFFFFF;
+      font-weight: 700;
+      font-size: 7.5pt;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .step-content {
+      font-size: 9.2pt;
+      color: #334155;
+    }
+
+    /* CALLOUT BOXES */
+    .callout {
+      padding: 8px 12px;
+      border-radius: 6px;
+      margin: 8px 0;
+      font-size: 8.8pt;
+      border-left: 3.5px solid;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+
+    .callout-info {
+      background-color: #EFF6FF;
+      border-color: var(--hve-blue);
+      color: #1E40AF;
+    }
+
+    .callout-warning {
+      background-color: #FEFCE8;
+      border-color: #EAB308;
+      color: #854D0E;
+    }
+
+    .callout-danger {
+      background-color: #FEF2F2;
+      border-color: #DC2626;
+      color: #991B1B;
+    }
+
+    /* MATRIX TABLE */
+    table.data-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0 12px 0;
+      font-size: 8.4pt;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+
+    table.data-table th {
+      background: linear-gradient(180deg, #E8F0FE 0%, #DBEAFE 100%);
+      color: var(--hve-blue-deep);
+      font-weight: 700;
+      text-align: left;
+      padding: 6px 8px;
+      border: 1px solid #CBD5E1;
+    }
+
+    table.data-table td {
+      padding: 5px 8px;
+      border: 1px solid #CBD5E1;
+      color: #334155;
+    }
+
+    table.data-table tr:nth-child(even) {
+      background-color: #F8FAFC;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 1px 5px;
+      border-radius: 6px;
+      font-size: 7.5pt;
+      font-weight: 600;
+    }
+
+    .badge-blue { background: #DBEAFE; color: #1E40AF; }
+    .badge-green { background: #DCFCE7; color: #166534; }
+    .badge-yellow { background: #FEF9C3; color: #854D0E; }
+    .badge-red { background: #FEE2E2; color: #991B1B; }
+
+    /* CONTACT CARD */
+    .contact-card-premium {
+      background: linear-gradient(135deg, #F0FDF4 0%, #EFF6FF 100%);
+      border: 1.5px solid #86EFAC;
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-top: 10px;
+      box-shadow: 0 4px 10px rgba(0, 166, 81, 0.08);
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+
+    .contact-card-premium h3 {
+      font-size: 9.8pt;
+      color: var(--hve-green-dark);
+      font-weight: 800;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .contact-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px 14px;
+      font-size: 8.6pt;
+    }
+
+    .contact-item-row {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .contact-item-row span.label {
+      font-size: 7.2pt;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #64748B;
+      font-weight: 600;
+    }
+
+    .contact-item-row span.val {
+      font-size: 9pt;
+      color: #0F172A;
+      font-weight: 700;
+    }
+
+    .doc-page-footer {
+      margin-top: 14px;
+      padding-top: 6px;
+      border-top: 1px dashed #CBD5E1;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 7.2pt;
+      color: #64748B;
+      page-break-inside: avoid;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- ==================== TRANG 1: BÌA TÀI LIỆU CHUẨN ĐẸP ==================== -->
+  <div class="cover-wrapper">
+    <div class="cover-top">
+      <div class="cover-brand-box">
+        <div class="cover-logo-frame">
+          <img src="logo.png" alt="Logo Huy Võ Education">
+        </div>
+        <div>
+          <div class="cover-company-title">HUY VÕ EDUCATION</div>
+          <div class="cover-company-sub">Joint Stock Company • Since 2026</div>
+        </div>
+      </div>
+      <div class="cover-badge-doc">BẢN CHUẨN PHÁT HÀNH</div>
+    </div>
+
+    <div class="cover-middle">
+      <div class="cover-tagline">
+        <span class="dot"></span>
+        CẨM NANG ĐIỀU HÀNH & VẬN HÀNH SỐ HÓA
+      </div>
+      <h1 class="cover-main-title">
+        HƯỚNG DẪN SỬ DỤNG<br>
+        HỆ THỐNG <span class="highlight-yellow">HVE</span> <span class="highlight-green">WORK</span>
+      </h1>
+      <p class="cover-summary">
+        Tài liệu đào tạo và chuyển giao quy trình số hóa toàn diện: Điều hành tác nghiệp, Khởi tạo & Ký duyệt hồ sơ đa cấp, Giám sát tiến độ công việc và Kiểm soát tài chính nội bộ.
+      </p>
+
+      <div class="cover-roles-grid">
+        <div class="cover-role-chip">
+          NHÂN VIÊN
+          <span>Employee</span>
+        </div>
+        <div class="cover-role-chip">
+          TRƯỞNG PHÒNG
+          <span>Dept Head</span>
+        </div>
+        <div class="cover-role-chip">
+          KẾ TOÁN
+          <span>Accountant</span>
+        </div>
+        <div class="cover-role-chip">
+          PHÁP CHẾ
+          <span>Legal Counsel</span>
+        </div>
+        <div class="cover-role-chip">
+          BAN GIÁM ĐỐC
+          <span>CEO / Board</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="cover-bottom">
+      <div class="cover-info-col">
+        <h4>ĐƠN VỊ HỖ TRỢ KỸ THUẬT & VẬN HÀNH</h4>
+        <p>Phòng Công nghệ Thông tin — <strong>Huy Võ Education</strong></p>
+        <p>Trưởng phòng IT: <strong>Anh Phạm Xuân Định</strong> (Zalo: <strong>0977.999.948</strong>)</p>
+        <p>IT Admin: <strong>Anh Lê Hoàng Ai</strong> (Email: <code>admin@huyvoeducation.vn</code>)</p>
+      </div>
+      <div class="cover-info-col">
+        <h4>THÔNG TIN TÀI LIỆU</h4>
+        <p>Cổng truy cập: <strong>https://work.huyvoeducation.vn</strong></p>
+        <p>Phiên bản: <strong>v1.0.0 (Phát hành chính thức 2026)</strong></p>
+        <p>Phạm vi: <strong>Toàn bộ cán bộ nhân viên HVE</strong></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== TRANG 2: MỤC LỤC & CHƯƠNG 1 ==================== -->
+  <div class="page-break">
+    <div class="page-header-bar">
+      <div class="brand-inline">
+        <img src="logo.png" alt="logo">
+        HUY VÕ EDUCATION • HVE WORK
+      </div>
+      <div>MỤC LỤC & TỔNG QUAN</div>
+    </div>
+
+    <div class="toc-container">
+      <div class="toc-title">
+        📋 MỤC LỤC TỔNG QUAN TÀI LIỆU
+      </div>
+      <div class="toc-grid">
+        <div class="toc-item"><span>Chương 1: Tổng Quan & Đăng Nhập</span> <span class="num">[P.02]</span></div>
+        <div class="toc-item"><span>Chương 2: Cài Đặt Ứng Dụng PWA</span> <span class="num">[P.03]</span></div>
+        <div class="toc-item"><span>Chương 3: Hướng Dẫn Nhân Viên</span> <span class="num">[P.03]</span></div>
+        <div class="toc-item"><span>Chương 4: Hướng Dẫn Trưởng Bộ Phận</span> <span class="num">[P.05]</span></div>
+        <div class="toc-item"><span>Chương 5: Hướng Dẫn Kế Toán & Pháp Chế</span> <span class="num">[P.06]</span></div>
+        <div class="toc-item"><span>Chương 6: Hướng Dành Ban Giám Đốc (CEO)</span> <span class="num">[P.07]</span></div>
+        <div class="toc-item"><span>Chương 7: Quản Trị Hệ Thống IT Admin</span> <span class="num">[P.09]</span></div>
+        <div class="toc-item"><span>Chương 8: Ma Trận Quyền & Đầu Mối IT</span> <span class="num">[P.10]</span></div>
+      </div>
+    </div>
+
+    <!-- CHƯƠNG 1 -->
+    <div class="section-header-box">
+      <span class="section-badge">SECTION 01</span>
+      <h1 class="doc-section-title">CHƯƠNG 1: TỔNG QUAN HỆ THỐNG & ĐĂNG NHẬP</h1>
+    </div>
+
+    <p>
+      Hệ thống <strong>HVE Work</strong> là nền tảng số hóa điều hành nội bộ của <strong>Công ty Cổ phần Giáo dục Huy Võ</strong>, tích hợp đồng bộ 3 phân hệ trụ cột:
+    </p>
+    <ul>
+      <li><strong>Số hóa quy trình ký duyệt:</strong> Đề nghị thanh toán (ĐNTT), Đề xuất/Kiến nghị và Hợp đồng kinh tế theo ma trận phân cấp động.</li>
+      <li><strong>Điều hành & Quản lý nhiệm vụ:</strong> Phân rã công việc đa cấp, tiến độ thời gian thực, lặp lại chu kỳ và tự động cảnh báo trễ hạn.</li>
+      <li><strong>Báo cáo điều hành & Kiểm soát nội bộ:</strong> Dashboard KPI, bảng kiểm soát chi phí, cảnh báo hợp đồng sắp hết hạn 30 ngày, xuất Excel tiếng Việt chuẩn và nhật ký Audit Log.</li>
+    </ul>
+
+    <h2 class="doc-sub-title">1.1. Thao tác Đăng nhập An toàn</h2>
+    <div class="step-box">
+      <div class="step-num">1</div>
+      <div class="step-content">Mở trình duyệt (Chrome, Edge, Safari) và truy cập cổng: <code>https://work.huyvoeducation.vn</code>.</div>
+    </div>
+    <div class="step-box">
+      <div class="step-num">2</div>
+      <div class="step-content">Nhập <strong>Email công việc</strong> được HVE cấp (ví dụ: <code>nv1@huyvoeducation.vn</code>, <code>ceo@huyvoeducation.vn</code>).</div>
+    </div>
+    <div class="step-box">
+      <div class="step-num">3</div>
+      <div class="step-content">Nhập <strong>Mật khẩu cá nhân</strong> và bấm <strong>"Đăng nhập vào hệ thống"</strong>.</div>
+    </div>
+
+    <div class="browser-mockup">
+      <div class="browser-bar">
+        <div class="browser-dots"><span class="dot-red"></span><span class="dot-yellow"></span><span class="dot-green"></span></div>
+        <div class="browser-address"><span class="ssl-lock">🔒</span> https://work.huyvoeducation.vn/login</div>
+        <div style="width: 25px;"></div>
+      </div>
+      <div class="browser-content">
+        <img src="screenshots/01_dang_nhap.png" alt="Màn hình Đăng nhập HVE Work">
+      </div>
+      <div class="mockup-caption">Hình 1.1: Giao diện Đăng nhập bảo mật đa người dùng của hệ thống HVE Work</div>
+    </div>
+
+    <div class="callout callout-info">
+      <strong>💡 Lưu ý an toàn tài khoản:</strong> Sau lần đăng nhập đầu tiên, nhân sự bắt buộc đổi mật khẩu để bảo vệ an toàn thông tin cá nhân và dữ liệu tài chính của phòng ban.
+    </div>
+
+    <div class="doc-page-footer">
+      <span>HVE WORK — HƯỚNG DẪN SỬ DỤNG</span>
+      <span>TRANG 2 / 10</span>
+    </div>
+  </div>
+
+  <!-- ==================== TRANG 3: CHƯƠNG 2 & CHƯƠNG 3 ==================== -->
+  <div class="page-break">
+    <div class="page-header-bar">
+      <div class="brand-inline"><img src="logo.png" alt="logo"> HUY VÕ EDUCATION • HVE WORK</div>
+      <div>PWA & HƯỚNG DẪN NHÂN VIÊN</div>
+    </div>
+
+    <div class="section-header-box">
+      <span class="section-badge">SECTION 02</span>
+      <h1 class="doc-section-title">CHƯƠNG 2: CÀI ĐẶT ỨNG DỤNG PWA LÊN THIẾT BỊ DI ĐỘNG</h1>
+    </div>
+    <p>
+      Hệ thống hỗ trợ công nghệ <strong>Progressive Web App (PWA)</strong>, cho phép cài đặt trực tiếp lên màn hình chính (Home Screen) của điện thoại Smartphone hoặc Laptop mà không cần tải từ kho ứng dụng.
+    </p>
+    <ul>
+      <li><strong>Trên Android (Chrome/Edge):</strong> Bấm nút <strong>"📲 Cài đặt ứng dụng HVE"</strong> ở chân menu ➔ Chọn <strong>"Cài đặt" (Install)</strong>.</li>
+      <li><strong>Trên iPhone/iPad (iOS Safari):</strong> Nhấn nút <strong>Chia sẻ (⎋)</strong> ở thanh Safari phía dưới ➔ Chọn <strong>"Thêm vào MH chính" (Add to Home Screen)</strong> ➔ Bấm <strong>"Thêm"</strong>.</li>
+    </ul>
+
+    <div class="section-header-box" style="margin-top: 14px;">
+      <span class="section-badge">SECTION 03</span>
+      <h1 class="doc-section-title">CHƯƠNG 3: HƯỚNG DẪN DÀNH CHO NHÂN VIÊN (EMPLOYEE)</h1>
+    </div>
+    <p>
+      Vai trò <strong>Nhân viên</strong> đảm nhiệm việc tạo lập các đề xuất chi tiêu, đề nghị thanh toán và cập nhật tiến độ công việc hàng ngày được phân công.
+    </p>
+
+    <h2 class="doc-sub-title">3.1. Khởi tạo Hồ sơ Phê duyệt Mới</h2>
+    <div class="step-box">
+      <div class="step-num">1</div>
+      <div class="step-content">Bấm nút <strong>"➕ Tạo hồ sơ mới"</strong> trên thanh menu bên trái.</div>
+    </div>
+    <div class="step-box">
+      <div class="step-num">2</div>
+      <div class="step-content">Chọn loại hồ sơ: <strong>Đề nghị thanh toán (ĐNTT)</strong>, <strong>Đề xuất / Kiến nghị</strong> hoặc <strong>Hợp đồng kinh tế</strong>.</div>
+    </div>
+    <div class="step-box">
+      <div class="step-num">3</div>
+      <div class="step-content">Điền thông tin: Tiêu đề, Số tiền (VND), Đơn vị thụ hưởng, Số tài khoản, Ngân hàng, Nội dung chi tiết và Hạn thanh toán.</div>
+    </div>
+    <div class="step-box">
+      <div class="step-num">4</div>
+      <div class="step-content"><strong>Bắt buộc đính kèm hóa đơn chứng từ:</strong> Tải lên hóa đơn VAT, biên lai, báo giá hoặc hợp đồng. <em>Hệ thống khóa nút Gửi duyệt nếu thiếu chứng từ hợp lệ.</em></div>
+    </div>
+
+    <div class="browser-mockup">
+      <div class="browser-bar">
+        <div class="browser-dots"><span class="dot-red"></span><span class="dot-yellow"></span><span class="dot-green"></span></div>
+        <div class="browser-address"><span class="ssl-lock">🔒</span> https://work.huyvoeducation.vn/documents/create</div>
+        <div style="width: 25px;"></div>
+      </div>
+      <div class="browser-content">
+        <img src="screenshots/03_nhan_vien_tao_dntt.png" alt="Nhân viên tạo ĐNTT">
+      </div>
+      <div class="mockup-caption">Hình 3.1: Giao diện Khởi tạo Đề nghị thanh toán (ĐNTT) với các trường dữ liệu kiểm soát</div>
+    </div>
+
+    <div class="doc-page-footer">
+      <span>HVE WORK — HƯỚNG DẪN SỬ DỤNG</span>
+      <span>TRANG 3 / 10</span>
+    </div>
+  </div>
+
+  <!-- ==================== TRANG 4: CHƯƠNG 3 (TIẾP THEO) ==================== -->
+  <div class="page-break">
+    <div class="page-header-bar">
+      <div class="brand-inline"><img src="logo.png" alt="logo"> HUY VÕ EDUCATION • HVE WORK</div>
+      <div>THEO DÕI LUỒNG DUYỆT & CÔNG VIỆC CÁ NHÂN</div>
+    </div>
+
+    <h2 class="doc-sub-title">3.2. Theo dõi Luồng duyệt & Xử lý khi Hồ sơ bị Trả lại</h2>
+    <p>
+      Nhân viên mở mục <strong>"Danh sách hồ sơ"</strong> ➔ chọn tab <strong>"Hồ sơ của tôi"</strong> và bấm vào từng mã hồ sơ để xem chi tiết tiến trình phê duyệt (Workflow Timeline).
+    </p>
+
+    <div class="browser-mockup">
+      <div class="browser-bar">
+        <div class="browser-dots"><span class="dot-red"></span><span class="dot-yellow"></span><span class="dot-green"></span></div>
+        <div class="browser-address"><span class="ssl-lock">🔒</span> https://work.huyvoeducation.vn/documents/DNTT-2026-001</div>
+        <div style="width: 25px;"></div>
+      </div>
+      <div class="browser-content">
+        <img src="screenshots/04_chi_tiet_ho_so_quy_trinh.png" alt="Chi tiết hồ sơ và luồng duyệt đa cấp">
+      </div>
+      <div class="mockup-caption">Hình 3.2: Chi tiết hồ sơ và Dòng thời gian phê duyệt đa cấp (Workflow Timeline)</div>
+    </div>
+
+    <div class="callout callout-warning">
+      <strong>⚠️ Xử lý khi hồ sơ bị Trả lại:</strong>
+      Đọc kỹ ý kiến phản hồi của cấp trên ghi chú rõ lý do ➔ Bấm <strong>"Chỉnh sửa hồ sơ"</strong> bổ sung chứng từ ➔ Bấm <strong>"Gửi duyệt lại"</strong> để hồ sơ tiếp tục chu trình phê duyệt.
+    </div>
+
+    <h2 class="doc-sub-title">3.3. Quản lý Tiến độ Công việc Cá nhân</h2>
+    <div class="step-box">
+      <div class="step-num">1</div>
+      <div class="step-content">Vào mục <strong>"📋 Quản lý công việc"</strong> ➔ Tab <strong>"Việc tôi làm"</strong> ➔ Chuyển trạng thái sang <strong>Đang làm</strong>.</div>
+    </div>
+    <div class="step-box">
+      <div class="step-num">2</div>
+      <div class="step-content">Kéo thanh trượt <strong>Tiến độ (%)</strong> tương ứng với khối lượng đã hoàn thành.</div>
+    </div>
+    <div class="step-box">
+      <div class="step-num">3</div>
+      <div class="step-content">Khi công việc hoàn tất 100%: Bấm <strong>"Báo cáo hoàn thành (Chờ duyệt)"</strong>.</div>
+    </div>
+
+    <div class="callout callout-danger">
+      <strong>⛔ Nguyên tắc cốt lõi:</strong> Nhân viên <strong>không tự ý đóng việc sang "Hoàn thành"</strong>. Chỉ có người giao việc (Trưởng phòng/CEO) sau khi nghiệm thu kết quả mới có quyền bấm <em>"Xác nhận hoàn thành"</em>.
+    </div>
+
+    <div class="doc-page-footer">
+      <span>HVE WORK — HƯỚNG DẪN SỬ DỤNG</span>
+      <span>TRANG 4 / 10</span>
+    </div>
+  </div>
+
+  <!-- ==================== TRANG 5: CHƯƠNG 4: TRƯỞNG BỘ PHẬN ==================== -->
+  <div class="page-break">
+    <div class="page-header-bar">
+      <div class="brand-inline"><img src="logo.png" alt="logo"> HUY VÕ EDUCATION • HVE WORK</div>
+      <div>HƯỚNG DẪN DÀNH CHO TRƯỞNG BỘ PHẬN</div>
+    </div>
+
+    <div class="section-header-box">
+      <span class="section-badge">SECTION 04</span>
+      <h1 class="doc-section-title">CHƯƠNG 4: HƯỚNG DẪN DÀNH CHO TRƯỞNG BỘ PHẬN</h1>
+    </div>
+    <p>
+      Trưởng bộ phận là chốt chặn quan trọng nhất chịu trách nhiệm về tính xác thực của đề xuất và điều phối công việc trong phòng ban.
+    </p>
+
+    <h2 class="doc-sub-title">4.1. Phê duyệt Hồ sơ Phòng ban</h2>
+    <p>Tại màn hình <strong>Tổng quan</strong> hoặc tab <strong>"Cần tôi duyệt"</strong> trong Danh sách hồ sơ:</p>
+
+    <div class="browser-mockup">
+      <div class="browser-bar">
+        <div class="browser-dots"><span class="dot-red"></span><span class="dot-yellow"></span><span class="dot-green"></span></div>
+        <div class="browser-address"><span class="ssl-lock">🔒</span> https://work.huyvoeducation.vn/documents?tab=pending</div>
+        <div style="width: 25px;"></div>
+      </div>
+      <div class="browser-content">
+        <img src="screenshots/05_truong_phong_duyet.png" alt="Màn hình phê duyệt của Trưởng bộ phận">
+      </div>
+      <div class="mockup-caption">Hình 4.1: Danh sách hồ sơ phòng ban chờ Trưởng bộ phận thẩm định và xử lý</div>
+    </div>
+
+    <p>Khi mở hồ sơ chi tiết, Trưởng phòng có 3 tùy chọn: <strong>"Phê duyệt"</strong> (Approve), <strong>"Trả lại"</strong> (Return - bắt buộc ghi lý do), hoặc <strong>"Từ chối"</strong> (Reject - bắt buộc ghi lý do).</p>
+
+    <h2 class="doc-sub-title">4.2. Giao việc & Điều phối Nhiệm vụ Phòng ban</h2>
+    <div class="step-box">
+      <div class="step-num">1</div>
+      <div class="step-content">Vào mục <strong>"📋 Quản lý công việc"</strong> ➔ Bấm nút <strong>"➕ Giao việc mới"</strong>.</div>
+    </div>
+    <div class="step-box">
+      <div class="step-num">2</div>
+      <div class="step-content">Chọn <strong>Người thực hiện</strong> trong phòng, mức ưu tiên (Khẩn cấp/Cao/Bình thường/Thấp) và Hạn hoàn thành.</div>
+    </div>
+    <div class="step-box">
+      <div class="step-num">3</div>
+      <div class="step-content"><strong>Nâng cao:</strong> Thêm <em>Việc con (Subtasks)</em> (tiến độ cha tự tính theo việc con) hoặc bật <em>Lặp lại định kỳ</em>.</div>
+    </div>
+    <div class="step-box">
+      <div class="step-num">4</div>
+      <div class="step-content"><strong>Nghiệm thu:</strong> Mở tab <em>"Việc tôi giao"</em>, kiểm tra việc <em>"Chờ duyệt"</em> và bấm <strong>"Xác nhận hoàn thành"</strong>.</div>
+    </div>
+
+    <div class="doc-page-footer">
+      <span>HVE WORK — HƯỚNG DẪN SỬ DỤNG</span>
+      <span>TRANG 5 / 10</span>
+    </div>
+  </div>
+
+  <!-- ==================== TRANG 6: CHƯƠNG 5: KẾ TOÁN & PHÁP CHẾ ==================== -->
+  <div class="page-break">
+    <div class="page-header-bar">
+      <div class="brand-inline"><img src="logo.png" alt="logo"> HUY VÕ EDUCATION • HVE WORK</div>
+      <div>BỘ PHẬN KẾ TOÁN & PHÁP CHẾ</div>
+    </div>
+
+    <div class="section-header-box">
+      <span class="section-badge">SECTION 05</span>
+      <h1 class="doc-section-title">CHƯƠNG 5: HƯỚNG DẪN CHO BỘ PHẬN KẾ TOÁN & PHÁP CHẾ</h1>
+    </div>
+    
+    <h2 class="doc-sub-title">5.1. Kế toán (`accountant`) — Kiểm soát Chi phí & Giải ngân</h2>
+    <ul>
+      <li><strong>Duyệt Đề nghị thanh toán (Cấp 2):</strong> Kiểm tra tính chính xác của hóa đơn VAT hợp pháp, đối chiếu số tài khoản và ngân hàng thụ hưởng trước khi phê duyệt trình CEO.</li>
+      <li><strong>Theo dõi Tài chính & Giải ngân:</strong> Mở mục <em>Báo cáo & Thống kê</em> ➔ Tab <em>"💰 Tài chính & Hợp đồng"</em> để nắm tổng ngân sách đã chi trả.</li>
+    </ul>
+
+    <div class="browser-mockup">
+      <div class="browser-bar">
+        <div class="browser-dots"><span class="dot-red"></span><span class="dot-yellow"></span><span class="dot-green"></span></div>
+        <div class="browser-address"><span class="ssl-lock">🔒</span> https://work.huyvoeducation.vn/documents?role=accountant</div>
+        <div style="width: 25px;"></div>
+      </div>
+      <div class="browser-content">
+        <img src="screenshots/07_ke_toan_phap_che.png" alt="Màn hình kiểm soát Kế toán và Pháp chế">
+      </div>
+      <div class="mockup-caption">Hình 5.1: Màn hình kiểm soát, đối chiếu chứng từ và quản lý hợp đồng kinh tế</div>
+    </div>
+
+    <h2 class="doc-sub-title">5.2. Pháp chế (`legal`) — Thẩm định Rủi ro Hợp đồng</h2>
+    <ul>
+      <li><strong>Thẩm định Điều khoản Hợp đồng:</strong> Rà soát điều khoản trách nhiệm, quyền hạn, chế tài vi phạm, điều khoản thanh lý và tính hợp lệ của hợp đồng kinh tế.</li>
+      <li><strong>Cảnh báo Hạn hợp đồng 30 ngày:</strong> Hệ thống tự động gắn cờ cảnh báo màu cam cho các hợp đồng sắp hết hạn trong 30 ngày để Pháp chế kịp thời làm việc với đối tác để gia hạn hoặc lập biên bản thanh lý.</li>
+    </ul>
+
+    <div class="doc-page-footer">
+      <span>HVE WORK — HƯỚNG DẪN SỬ DỤNG</span>
+      <span>TRANG 6 / 10</span>
+    </div>
+  </div>
+
+  <!-- ==================== TRANG 7: CHƯƠNG 6: BAN GIÁM ĐỐC (CEO) ==================== -->
+  <div class="page-break">
+    <div class="page-header-bar">
+      <div class="brand-inline"><img src="logo.png" alt="logo"> HUY VÕ EDUCATION • HVE WORK</div>
+      <div>ĐIỀU HÀNH DÀNH CHO BAN GIÁM ĐỐC (CEO)</div>
+    </div>
+
+    <div class="section-header-box">
+      <span class="section-badge">SECTION 06</span>
+      <h1 class="doc-section-title">CHƯƠNG 6: HƯỚNG DẪN DÀNH CHO BAN GIÁM ĐỐC (CEO)</h1>
+    </div>
+    <p>
+      Ban Giám Đốc sử dụng HVE Work để nắm bắt toàn diện bức tranh vận hành công ty, các điểm nghẽn và ra quyết định phê duyệt cấp cao nhất.
+    </p>
+
+    <h2 class="doc-sub-title">6.1. Trung tâm Điều hành Thời gian thực (Executive Dashboard)</h2>
+
+    <div class="browser-mockup">
+      <div class="browser-bar">
+        <div class="browser-dots"><span class="dot-red"></span><span class="dot-yellow"></span><span class="dot-green"></span></div>
+        <div class="browser-address"><span class="ssl-lock">🔒</span> https://work.huyvoeducation.vn/dashboard?role=ceo</div>
+        <div style="width: 25px;"></div>
+      </div>
+      <div class="browser-content">
+        <img src="screenshots/02_dashboard_ceo.png" alt="Dashboard Điều hành CEO">
+      </div>
+      <div class="mockup-caption">Hình 6.1: Dashboard điều hành thời gian thực dành cho Ban Giám Đốc (CEO)</div>
+    </div>
+
+    <p><strong>Các chỉ số điều hành trọng điểm:</strong></p>
+    <ul>
+      <li><strong>Khối CẦN HÀNH ĐỘNG NGAY:</strong> Gom các hồ sơ chờ CEO phê duyệt cuối cùng và các việc trọng tâm bị quá hạn $\ge 3$ ngày tự động leo thang lên CEO.</li>
+      <li><strong>Thước đo KPI:</strong> Tổng số hồ sơ chờ xử lý, đã thông qua, việc đang chạy và việc trễ hạn.</li>
+      <li><strong>Biểu đồ Hiệu suất Phòng ban:</strong> Tỷ lệ hoàn thành nhiệm vụ (%) theo thời gian thực của từng phòng ban.</li>
+    </ul>
+
+    <div class="doc-page-footer">
+      <span>HVE WORK — HƯỚNG DẪN SỬ DỤNG</span>
+      <span>TRANG 7 / 10</span>
+    </div>
+  </div>
+
+  <!-- ==================== TRANG 8: BÁO CÁO & ĐIỀU HÀNH VIỆC (CEO) ==================== -->
+  <div class="page-break">
+    <div class="page-header-bar">
+      <div class="brand-inline"><img src="logo.png" alt="logo"> HUY VÕ EDUCATION • HVE WORK</div>
+      <div>BÁO CÁO ĐA CHIỀU & QUẢN LÝ TIẾN ĐỘ CÔNG VIỆC</div>
+    </div>
+
+    <h2 class="doc-sub-title">6.2. Trung tâm Báo cáo, Thống kê & Phân tích Đa chiều</h2>
+    <p>Vào mục <strong>"📈 Báo cáo & Thống kê"</strong>: hỗ trợ bộ lọc đa chiều 5 tiêu chí, xuất Excel nhanh tiếng Việt UTF-8 không lỗi font và xem nhật ký hệ thống Audit Log.</p>
+
+    <div class="browser-mockup">
+      <div class="browser-bar">
+        <div class="browser-dots"><span class="dot-red"></span><span class="dot-yellow"></span><span class="dot-green"></span></div>
+        <div class="browser-address"><span class="ssl-lock">🔒</span> https://work.huyvoeducation.vn/reports</div>
+        <div style="width: 25px;"></div>
+      </div>
+      <div class="browser-content">
+        <img src="screenshots/08_bao_cao_thong_ke.png" alt="Trung tâm Báo cáo và Phân tích số liệu">
+      </div>
+      <div class="mockup-caption">Hình 6.2: Trung tâm Báo cáo & Thống kê điều hành với chức năng Xuất Excel chuẩn UTF-8</div>
+    </div>
+
+    <h2 class="doc-sub-title" style="margin-top: 10px;">6.3. Bảng Điều hành & Phân cấp Công việc</h2>
+
+    <div class="browser-mockup">
+      <div class="browser-bar">
+        <div class="browser-dots"><span class="dot-red"></span><span class="dot-yellow"></span><span class="dot-green"></span></div>
+        <div class="browser-address"><span class="ssl-lock">🔒</span> https://work.huyvoeducation.vn/tasks</div>
+        <div style="width: 25px;"></div>
+      </div>
+      <div class="browser-content">
+        <img src="screenshots/06_quan_ly_cong_viec.png" alt="Bảng điều hành công việc">
+      </div>
+      <div class="mockup-caption">Hình 6.3: Giao diện Quản lý công việc đa cấp, theo dõi tiến độ và kiểm soát việc quá hạn</div>
+    </div>
+
+    <div class="doc-page-footer">
+      <span>HVE WORK — HƯỚNG DẪN SỬ DỤNG</span>
+      <span>TRANG 8 / 10</span>
+    </div>
+  </div>
+
+  <!-- ==================== TRANG 9: CHƯƠNG 7: IT ADMIN ==================== -->
+  <div class="page-break">
+    <div class="page-header-bar">
+      <div class="brand-inline"><img src="logo.png" alt="logo"> HUY VÕ EDUCATION • HVE WORK</div>
+      <div>QUẢN TRỊ HỆ THỐNG (IT ADMIN)</div>
+    </div>
+
+    <div class="section-header-box">
+      <span class="section-badge">SECTION 07</span>
+      <h1 class="doc-section-title">CHƯƠNG 7: HƯỚNG DẪN QUẢN TRỊ HỆ THỐNG (IT ADMIN)</h1>
+    </div>
+
+    <h2 class="doc-sub-title">7.1. Cấu hình Ma trận Quy trình Phê duyệt Động (Approval Matrix)</h2>
+    <p>Vào mục <strong>"⚙️ Cấu hình quy trình"</strong> để thiết lập số cấp duyệt và phân công vai trò phụ trách cho từng loại hồ sơ:</p>
+
+    <div class="browser-mockup">
+      <div class="browser-bar">
+        <div class="browser-dots"><span class="dot-red"></span><span class="dot-yellow"></span><span class="dot-green"></span></div>
+        <div class="browser-address"><span class="ssl-lock">🔒</span> https://work.huyvoeducation.vn/admin/workflows</div>
+        <div style="width: 25px;"></div>
+      </div>
+      <div class="browser-content">
+        <img src="screenshots/09_it_admin_quy_trinh.png" alt="Cấu hình quy trình phê duyệt động">
+      </div>
+      <div class="mockup-caption">Hình 7.1: Giao diện Cấu hình ma trận quy trình phê duyệt động (Approval Matrix)</div>
+    </div>
+
+    <h2 class="doc-sub-title">7.2. Quản lý Người dùng & Phân quyền Vai trò</h2>
+    <p>Vào mục <strong>"👥 Quản lý người dùng"</strong> để quản lý danh sách nhân sự, phân phòng ban, gán vai trò kiêm nhiệm và thực hiện Khóa tài khoản tức thời khi nhân sự nghỉ việc:</p>
+
+    <div class="browser-mockup">
+      <div class="browser-bar">
+        <div class="browser-dots"><span class="dot-red"></span><span class="dot-yellow"></span><span class="dot-green"></span></div>
+        <div class="browser-address"><span class="ssl-lock">🔒</span> https://work.huyvoeducation.vn/admin/users</div>
+        <div style="width: 25px;"></div>
+      </div>
+      <div class="browser-content">
+        <img src="screenshots/10_it_admin_nguoi_dung.png" alt="Quản trị người dùng và phân quyền">
+      </div>
+      <div class="mockup-caption">Hình 7.2: Bảng quản trị người dùng và ma trận phân quyền vai trò chi tiết</div>
+    </div>
+
+    <div class="doc-page-footer">
+      <span>HVE WORK — HƯỚNG DẪN SỬ DỤNG</span>
+      <span>TRANG 9 / 10</span>
+    </div>
+  </div>
+
+  <!-- ==================== TRANG 10: CHƯƠNG 8: MA TRẬN QUYỀN & LIÊN HỆ IT ==================== -->
+  <div class="page-break">
+    <div class="page-header-bar">
+      <div class="brand-inline"><img src="logo.png" alt="logo"> HUY VÕ EDUCATION • HVE WORK</div>
+      <div>MA TRẬN QUYỀN & ĐẦU MỐI HỖ TRỢ IT</div>
+    </div>
+
+    <div class="section-header-box">
+      <span class="section-badge">SECTION 08</span>
+      <h1 class="doc-section-title">CHƯƠNG 8: QUY CHUẨN AN TOÀN BẢO MẬT & HỖ TRỢ KỸ THUẬT</h1>
+    </div>
+
+    <h2 class="doc-sub-title">8.1. Bảng Phân Quyền Chi Tiết Theo Vai Trò</h2>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Tính năng / Thao tác</th>
+          <th>Nhân viên</th>
+          <th>Trưởng phòng</th>
+          <th>Kế toán / Pháp chế</th>
+          <th>Ban Giám Đốc (CEO)</th>
+          <th>IT Admin</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Khởi tạo ĐNTT / Đề xuất / Hợp đồng</td>
+          <td><span class="badge badge-green">Cho phép</span></td>
+          <td><span class="badge badge-green">Cho phép</span></td>
+          <td><span class="badge badge-green">Cho phép</span></td>
+          <td><span class="badge badge-green">Toàn quyền</span></td>
+          <td><span class="badge badge-yellow">Hạn chế</span></td>
+        </tr>
+        <tr>
+          <td>Phê duyệt cấp 1 (Trưởng phòng)</td>
+          <td><span class="badge badge-red">Không</span></td>
+          <td><span class="badge badge-green">Phòng mình</span></td>
+          <td><span class="badge badge-red">Không</span></td>
+          <td><span class="badge badge-green">Toàn quyền</span></td>
+          <td><span class="badge badge-red">Không</span></td>
+        </tr>
+        <tr>
+          <td>Thẩm định Kế toán & Pháp chế</td>
+          <td><span class="badge badge-red">Không</span></td>
+          <td><span class="badge badge-red">Không</span></td>
+          <td><span class="badge badge-green">Theo chuyên môn</span></td>
+          <td><span class="badge badge-green">Toàn quyền</span></td>
+          <td><span class="badge badge-red">Không</span></td>
+        </tr>
+        <tr>
+          <td>Phê duyệt tối cao (CEO)</td>
+          <td><span class="badge badge-red">Không</span></td>
+          <td><span class="badge badge-red">Không</span></td>
+          <td><span class="badge badge-red">Không</span></td>
+          <td><span class="badge badge-green">Chính thức</span></td>
+          <td><span class="badge badge-red">Không</span></td>
+        </tr>
+        <tr>
+          <td>Giao việc & Nghiệm thu việc</td>
+          <td><span class="badge badge-yellow">Chỉ việc mình</span></td>
+          <td><span class="badge badge-green">Trong phòng</span></td>
+          <td><span class="badge badge-green">Trong phòng</span></td>
+          <td><span class="badge badge-green">Toàn công ty</span></td>
+          <td><span class="badge badge-yellow">Kỹ thuật</span></td>
+        </tr>
+        <tr>
+          <td>Xem Báo cáo & Xuất Excel</td>
+          <td><span class="badge badge-yellow">Cá nhân</span></td>
+          <td><span class="badge badge-blue">Phòng ban</span></td>
+          <td><span class="badge badge-blue">Tài chính/Hợp đồng</span></td>
+          <td><span class="badge badge-green">Toàn công ty</span></td>
+          <td><span class="badge badge-green">Toàn công ty</span></td>
+        </tr>
+        <tr>
+          <td>Cấu hình luồng duyệt & User</td>
+          <td><span class="badge badge-red">Không</span></td>
+          <td><span class="badge badge-red">Không</span></td>
+          <td><span class="badge badge-red">Không</span></td>
+          <td><span class="badge badge-yellow">Xem/Chỉ đạo</span></td>
+          <td><span class="badge badge-green">Toàn quyền</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2 class="doc-sub-title">8.2. Kênh Tiếp Nhận Hỗ Trợ Kỹ Thuật Nội Bộ</h2>
+    <p>Trong quá trình vận hành, nếu gặp bất kỳ khó khăn hoặc sự cố nào, cán bộ nhân viên liên hệ theo các kênh chính thức sau:</p>
+
+    <div class="contact-card-premium">
+      <h3>
+        <span style="font-size: 13pt;">🛡️</span> ĐẦU MỐI HỖ TRỢ KỸ THUẬT & CẤP QUYỀN HVE
+      </h3>
+      <div class="contact-grid">
+        <div class="contact-item-row">
+          <span class="label">Đơn vị phụ trách:</span>
+          <span class="val">Phòng Công nghệ Thông tin — Huy Võ Education</span>
+        </div>
+        <div class="contact-item-row">
+          <span class="label">Trưởng phòng IT:</span>
+          <span class="val">Anh Phạm Xuân Định (Điện thoại / Zalo: 0977.999.948)</span>
+        </div>
+        <div class="contact-item-row">
+          <span class="label">Quản trị hệ thống (IT Admin):</span>
+          <span class="val">Anh Lê Hoàng Ai (Email: admin@huyvoeducation.vn)</span>
+        </div>
+        <div class="contact-item-row">
+          <span class="label">Thời gian tiếp nhận hỗ trợ:</span>
+          <span class="val">08:00 – 18:00 từ Thứ 2 đến Thứ 7 hàng tuần</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="doc-page-footer" style="margin-top: 20px;">
+      <span>© 2026 CÔNG TY CỔ PHẦN GIÁO DỤC HUY VÕ (HVE). BẢN QUYỀN LƯU HÀNH NỘI BỘ.</span>
+      <span>TRANG 10 / 10</span>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

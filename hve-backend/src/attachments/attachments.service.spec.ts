@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AttachmentsService } from './attachments.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { GoogleDriveService } from './google-drive.service.js';
 import { BadRequestException } from '@nestjs/common';
 
 
@@ -8,6 +9,7 @@ import { BadRequestException } from '@nestjs/common';
 describe('AttachmentsService', () => {
   let service: AttachmentsService;
   let prisma: any;
+  let googleDrive: any;
 
   beforeEach(async () => {
     prisma = {
@@ -18,10 +20,15 @@ describe('AttachmentsService', () => {
       },
     };
 
+    googleDrive = {
+      uploadFile: vi.fn().mockResolvedValue('mock-drive-file-id-123'),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AttachmentsService,
         { provide: PrismaService, useValue: prisma },
+        { provide: GoogleDriveService, useValue: googleDrive },
       ],
     }).compile();
 
@@ -130,7 +137,13 @@ describe('AttachmentsService', () => {
 
       expect(result.success).toBe(true);
       expect(result.fileUrl).toContain('/attachments/file/');
+      expect(result.fileKey).toBe('mock-drive-file-id-123');
       expect(result.size).toBe(buffer.length);
+      expect(googleDrive.uploadFile).toHaveBeenCalledWith(
+        presign.fileKey,
+        buffer,
+        'application/pdf',
+      );
     });
 
     it('should throw ForbiddenException if token signature is invalid', async () => {

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { NotificationsService } from './notifications.service.js';
 import { NotificationsController } from './notifications.controller.js';
+import { CronController } from './cron.controller.js';
 import { InAppChannel } from './channels/in-app.channel.js';
 import { EmailChannel } from './channels/email.channel.js';
 import { ZaloChannel } from './channels/zalo.channel.js';
@@ -12,7 +13,7 @@ import { AuthModule } from '../auth/auth.module.js';
 
 @Module({
   imports: [PrismaModule, AuthModule],
-  controllers: [NotificationsController],
+  controllers: [NotificationsController, CronController],
   providers: [
     NotificationsService,
     WebPushService,

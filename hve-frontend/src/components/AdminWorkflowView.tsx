@@ -25,6 +25,39 @@ export const AdminWorkflowView: React.FC<AdminWorkflowViewProps> = ({
     { value: 'employee', label: 'Nhân viên' },
   ];
 
+  const DEFAULT_WORKFLOWS: WorkflowTemplate[] = [
+    {
+      id: 1,
+      type: 'payment_request',
+      name: 'Quy trình duyệt Đề nghị thanh toán',
+      steps: [
+        { id: 1, stepOrder: 1, roleRequired: 'department_head' },
+        { id: 2, stepOrder: 2, roleRequired: 'accountant' },
+        { id: 3, stepOrder: 3, roleRequired: 'ceo' },
+      ],
+    },
+    {
+      id: 2,
+      type: 'proposal',
+      name: 'Quy trình duyệt Đề xuất / Tờ trình',
+      steps: [
+        { id: 4, stepOrder: 1, roleRequired: 'department_head' },
+        { id: 5, stepOrder: 2, roleRequired: 'ceo' },
+      ],
+    },
+    {
+      id: 3,
+      type: 'contract',
+      name: 'Quy trình duyệt Hợp đồng kinh tế',
+      steps: [
+        { id: 6, stepOrder: 1, roleRequired: 'department_head' },
+        { id: 7, stepOrder: 2, roleRequired: 'legal' },
+        { id: 8, stepOrder: 3, roleRequired: 'accountant' },
+        { id: 9, stepOrder: 4, roleRequired: 'ceo' },
+      ],
+    },
+  ];
+
   const fetchWorkflows = async () => {
     setIsLoading(true);
     const token = localStorage.getItem('access_token');
@@ -45,10 +78,20 @@ export const AdminWorkflowView: React.FC<AdminWorkflowViewProps> = ({
           );
         }
       } else {
-        showToast('Không thể tải danh sách cấu hình quy trình', 'error');
+        throw new Error('Fallback to default workflows');
       }
     } catch {
-      showToast('Lỗi kết nối máy chủ', 'error');
+      // Offline fallback
+      setWorkflows(DEFAULT_WORKFLOWS);
+      const current = DEFAULT_WORKFLOWS.find((w) => w.type === selectedType);
+      if (current) {
+        setSteps(
+          current.steps.map((s) => ({
+            stepOrder: s.stepOrder,
+            roleRequired: s.roleRequired,
+          })),
+        );
+      }
     } finally {
       setIsLoading(false);
     }

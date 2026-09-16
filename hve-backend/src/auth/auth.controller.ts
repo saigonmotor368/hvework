@@ -13,6 +13,7 @@ import { LoginDto } from './dto/login.dto.js';
 import { RefreshTokenDto } from './dto/refresh-token.dto.js';
 import { ForgotPasswordDto } from './dto/forgot-password.dto.js';
 import { ResetPasswordDto } from './dto/reset-password.dto.js';
+import { SetApprovalPinDto, ToggleApprovalPinDto } from './dto/set-approval-pin.dto.js';
 import { JwtAuthGuard } from './jwt-auth.guard.js';
 import { RolesGuard } from './roles.guard.js';
 import { Roles } from './roles.decorator.js';
@@ -64,6 +65,26 @@ export class AuthController {
       departmentId: user.departmentId,
       roles: user.roles ? user.roles.map((r: { name: string }) => r.name) : [],
     };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('approval-pin-status')
+  async getApprovalPinStatus(@Req() req: any) {
+    return this.authService.getApprovalPinStatus(req.user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('approval-pin')
+  @HttpCode(HttpStatus.OK)
+  async setApprovalPin(@Body() body: SetApprovalPinDto, @Req() req: any) {
+    return this.authService.setApprovalPin(req.user.id, body, req.ip);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('approval-pin/enabled')
+  @HttpCode(HttpStatus.OK)
+  async setApprovalPinEnabled(@Body() body: ToggleApprovalPinDto, @Req() req: any) {
+    return this.authService.setApprovalPinEnabled(req.user.id, body, req.ip);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)

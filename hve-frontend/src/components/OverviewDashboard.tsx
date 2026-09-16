@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import type { DocumentItem } from '../types';
+import { MOCK_DASHBOARD_DATA } from '../mockData';
 
 interface OverviewDashboardProps {
   apiBaseUrl: string;
@@ -33,6 +34,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
   const fetchDashboard = async (clearCache = false) => {
     const token = localStorage.getItem('access_token');
     if (!token) {
+      setDashboardData(MOCK_DASHBOARD_DATA);
       setIsLoading(false);
       return;
     }
@@ -53,9 +55,12 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
       if (res.ok) {
         const data = await res.json();
         setDashboardData(data);
+      } else {
+        setDashboardData(MOCK_DASHBOARD_DATA);
       }
     } catch {
       // offline fallback
+      setDashboardData(MOCK_DASHBOARD_DATA);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);

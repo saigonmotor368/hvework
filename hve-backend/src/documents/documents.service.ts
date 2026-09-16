@@ -13,6 +13,7 @@ import { CreateContractDto } from './dto/create-contract.dto.js';
 import { UpdatePaymentRequestDto } from './dto/update-payment-request.dto.js';
 import { ActionStepDto, RejectOrReturnStepDto } from './dto/action-step.dto.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
+import { AuthService } from '../auth/auth.service.js';
 
 @Injectable()
 export class DocumentsService {
@@ -20,6 +21,7 @@ export class DocumentsService {
     private prisma: PrismaService,
     private auditService: AuditService,
     private notificationsService: NotificationsService,
+    private authService: AuthService,
   ) {}
 
   async generateDocumentCode(prefix: string): Promise<string> {
@@ -635,6 +637,24 @@ export class DocumentsService {
         throw new ForbiddenException(
           'Quy định kiểm soát nội bộ: Trưởng bộ phận chỉ được quyền phê duyệt hồ sơ của nhân sự thuộc bộ phận mình phụ trách',
         );
+      }
+    }
+
+    // Bắt buộc mã PIN xác nhận duyệt cho bước phê duyệt CUỐI CÙNG do CEO thực
+    // hiện — xác định động theo cấu hình luồng hiện tại (stepOrder lớn nhất),
+    // không hardcode, để đúng ngay cả khi IT admin đổi lại số cấp duyệt sau này.
+    const maxStepOrder = Math.max(...doc.steps.map((s) => s.stepOrder));
+    const isFinalCeoStep = step.roleRequired === 'ceo' && step.stepOrder === maxStepOrder;
+    if (isFinalCeoStep) {
+      // CEO có thể tự bật/tắt yêu cầu PIN — chỉ bắt buộc khi đang bật.
+      const pinRequired = await this.authService.isApprovalPinEnabled(user.id);
+      if (pinRequired) {
+        if (!dto?.pin) {
+          throw new BadRequestException(
+            'Đây là bước phê duyệt cuối cùng — bắt buộc nhập mã PIN xác nhận duyệt (6 số).',
+          );
+        }
+        await this.authService.verifyApprovalPin(user.id, dto.pin);
       }
     }
 

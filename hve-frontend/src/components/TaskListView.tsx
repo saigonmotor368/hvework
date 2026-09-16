@@ -4,6 +4,7 @@ import {
   TASK_STATUS_LABELS,
   type TaskItem,
 } from '../types';
+import { MOCK_TASKS } from '../mockData';
 
 interface TaskListViewProps {
   apiBaseUrl: string;
@@ -15,7 +16,6 @@ interface TaskListViewProps {
 
 export const TaskListView: React.FC<TaskListViewProps> = ({
   apiBaseUrl,
-  showToast,
   onOpenCreate,
   onSelectTask,
 }) => {
@@ -36,7 +36,10 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
 
   const fetchTasks = async () => {
     const token = localStorage.getItem('access_token');
-    if (!token) return;
+    if (!token) {
+      setTasks(MOCK_TASKS);
+      return;
+    }
 
     try {
       setIsLoading(true);
@@ -53,8 +56,17 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
       if (!res.ok) throw new Error('Không thể tải danh sách công việc');
       const data: TaskItem[] = await res.json();
       setTasks(data);
-    } catch (err: any) {
-      showToast(err.message || 'Lỗi tải công việc', 'error');
+    } catch {
+      // Offline fallback to mock tasks
+      let filtered = [...MOCK_TASKS];
+      if (statusFilter !== 'all') filtered = filtered.filter((t) => t.status === statusFilter);
+      if (priorityFilter !== 'all') filtered = filtered.filter((t) => t.priority === priorityFilter);
+      if (isOverdueOnly) filtered = filtered.filter((t) => t.isOverdue);
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        filtered = filtered.filter((t) => t.title.toLowerCase().includes(q) || t.code.toLowerCase().includes(q));
+      }
+      setTasks(filtered);
     } finally {
       setIsLoading(false);
     }

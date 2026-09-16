@@ -14,17 +14,18 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { AttachmentsService } from './attachments.service.js';
+import { GoogleDriveService } from './google-drive.service.js';
 import { GeneratePresignedUrlDto } from './dto/presigned-url.dto.js';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 import type { Response } from 'express';
-import * as path from 'path';
-
-import * as fs from 'fs';
 
 
 @Controller('attachments')
 export class AttachmentsController {
-  constructor(private attachmentsService: AttachmentsService) {}
+  constructor(
+    private attachmentsService: AttachmentsService,
+    private googleDrive: GoogleDriveService,
+  ) {}
 
   @UseGuards(JwtAuthGuard)
   @Post('presigned-url')
@@ -111,12 +112,13 @@ export class AttachmentsController {
     @Param('fileKey') fileKey: string,
     @Res() res: Response,
   ) {
-    const safeKey = path.basename(fileKey);
-    const filePath = path.join(process.cwd(), 'uploads', safeKey);
-    if (!fs.existsSync(filePath)) {
-      return res.status(HttpStatus.NOT_FOUND).json({ message: 'Không tìm thấy tệp tin trên hệ thống.' });
+    try {
+      const { stream, mimeType } = await this.googleDrive.downloadFile(fileKey);
+      res.setHeader('Content-Type', mimeType);
+      stream.pipe(res);
+    } catch {
+      return res.status(HttpStatus.NOT_FOUND).json({ message: 'Không tìm thấy tệp tin trên Google Drive.' });
     }
-    return res.sendFile(filePath);
   }
 
 

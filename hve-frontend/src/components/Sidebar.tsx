@@ -10,6 +10,7 @@ interface SidebarProps {
   onSelectTab: (tab: 'overview' | 'documents' | 'create' | 'tasks' | 'reports' | 'admin_workflows' | 'admin_users') => void;
   onLogout: () => void;
   onSwitchAccount: (email: string) => void;
+  onOpenSetPin?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -20,9 +21,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSelectTab,
   onLogout,
   onSwitchAccount,
+  onOpenSetPin,
 }) => {
   const userRoleNames: string[] = user?.roles || [];
   const isAdmin = userRoleNames.includes('it_admin') || userRoleNames.includes('ceo');
+  const isCeo = userRoleNames.includes('ceo');
 
   return (
     <aside className="w-64 bg-white border-r border-slate-200 flex flex-col justify-between">
@@ -170,6 +173,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </span>
           ))}
         </div>
+
+        {isCeo && onOpenSetPin && (
+          <button
+            onClick={onOpenSetPin}
+            className="w-full flex items-center px-2 py-1.5 mb-3 rounded-lg text-[11px] font-semibold text-gray-600 hover:bg-white border border-slate-200 transition-all"
+            title="Thiết lập / đổi mã PIN xác nhận duyệt"
+          >
+            🔑 Mã PIN xác nhận duyệt
+          </button>
+        )}
 
         {/* Demo fast-switch account */}
         <div className="pt-2 border-t border-slate-200/60">

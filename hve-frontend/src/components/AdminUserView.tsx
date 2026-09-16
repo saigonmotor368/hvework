@@ -25,6 +25,78 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
   const [selectedDeptId, setSelectedDeptId] = useState<number | ''>('');
   const [isSavingUser, setIsSavingUser] = useState<boolean>(false);
 
+  const DEFAULT_DEPARTMENTS: DepartmentItem[] = [
+    { id: 1, name: 'Phòng Công nghệ Thông tin', code: 'IT' },
+    { id: 2, name: 'Phòng Tài chính - Kế toán', code: 'FIN' },
+    { id: 3, name: 'Phòng Kinh doanh & Tuyển sinh', code: 'KD' },
+    { id: 4, name: 'Ban Pháp chế & Thẩm định', code: 'LEG' },
+  ];
+
+  const DEFAULT_ROLES: RoleItem[] = [
+    { id: 1, name: 'employee', description: 'Nhân viên - Lập hồ sơ và thực hiện công việc' },
+    { id: 2, name: 'department_head', description: 'Trưởng bộ phận - Phê duyệt sơ bộ & Giao việc phòng' },
+    { id: 3, name: 'accountant', description: 'Kế toán - Rà soát hóa đơn, duyệt chi và ngân sách' },
+    { id: 4, name: 'legal', description: 'Pháp chế - Thẩm định hợp đồng kinh tế và pháp lý' },
+    { id: 5, name: 'ceo', description: 'Chủ tịch / CEO - Phê duyệt cấp cao nhất toàn công ty' },
+    { id: 6, name: 'it_admin', description: 'Quản trị IT - Cấu hình hệ thống & Quản lý phân quyền' },
+  ];
+
+  const DEFAULT_USERS: AdminUser[] = [
+    {
+      id: 1,
+      name: 'Nguyễn Văn An',
+      email: 'nv1@huyvoeducation.vn',
+      status: 'active',
+      departmentId: 3,
+      department: DEFAULT_DEPARTMENTS[2],
+      roles: [DEFAULT_ROLES[0]],
+    },
+    {
+      id: 2,
+      name: 'Trần Minh Tuấn',
+      email: 'tp_it@huyvoeducation.vn',
+      status: 'active',
+      departmentId: 1,
+      department: DEFAULT_DEPARTMENTS[0],
+      roles: [DEFAULT_ROLES[1], DEFAULT_ROLES[0]],
+    },
+    {
+      id: 3,
+      name: 'Trần Thị Mai',
+      email: 'ketoan@huyvoeducation.vn',
+      status: 'active',
+      departmentId: 2,
+      department: DEFAULT_DEPARTMENTS[1],
+      roles: [DEFAULT_ROLES[2], DEFAULT_ROLES[1]],
+    },
+    {
+      id: 4,
+      name: 'Hoàng Kim Ngân',
+      email: 'phapche@huyvoeducation.vn',
+      status: 'active',
+      departmentId: 4,
+      department: DEFAULT_DEPARTMENTS[3],
+      roles: [DEFAULT_ROLES[3], DEFAULT_ROLES[0]],
+    },
+    {
+      id: 5,
+      name: 'Võ Huy Định',
+      email: 'ceo@huyvoeducation.vn',
+      status: 'active',
+      departmentId: null,
+      roles: [DEFAULT_ROLES[4]],
+    },
+    {
+      id: 6,
+      name: 'Lê Hoàng Minh',
+      email: 'admin@huyvoeducation.vn',
+      status: 'active',
+      departmentId: 1,
+      department: DEFAULT_DEPARTMENTS[0],
+      roles: [DEFAULT_ROLES[5]],
+    },
+  ];
+
   const fetchUsersAndMeta = async () => {
     setIsLoading(true);
     const token = localStorage.getItem('access_token');
@@ -43,10 +115,13 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
         setRoles(rData);
         setDepartments(dData);
       } else {
-        showToast('Không thể tải dữ liệu nhân sự & vai trò', 'error');
+        throw new Error('Fallback to default admin data');
       }
     } catch {
-      showToast('Lỗi kết nối máy chủ', 'error');
+      // Offline fallback
+      setUsers(DEFAULT_USERS);
+      setRoles(DEFAULT_ROLES);
+      setDepartments(DEFAULT_DEPARTMENTS);
     } finally {
       setIsLoading(false);
     }

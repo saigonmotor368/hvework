@@ -1,0 +1,15 @@
+{
+  "buildCommand": "npm run build",
+  "rewrites": [{ "source": "/(.*)", "destination": "/api/index" }],
+  "functions": {
+    "api/index.js": {
+      "maxDuration": 30
+    }
+  },
+  "crons": [
+    {
+      "path": "/internal/cron/reminders",
+      "schedule": "0 2 * * *"
+    }
+  ]
+}

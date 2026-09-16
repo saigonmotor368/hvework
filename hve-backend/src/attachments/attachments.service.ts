@@ -4,7 +4,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
-import * as fs from 'fs';
+import { GoogleDriveService } from './google-drive.service.js';
 import * as path from 'path';
 import * as crypto from 'crypto';
 
@@ -27,18 +27,25 @@ const ALLOWED_EXTENSIONS = [
   '.xlsx',
 ];
 
+const MIME_BY_EXTENSION: Record<string, string> = {
+  '.pdf': 'application/pdf',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png': 'image/png',
+  '.webp': 'image/webp',
+  '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+};
+
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB per file
 const STORAGE_SIGN_SECRET = process.env.JWT_SECRET || 'hve-upload-hmac-signature-secret-key';
 
 @Injectable()
 export class AttachmentsService {
-  private uploadDir = path.resolve(process.cwd(), 'uploads');
-
-  constructor(private prisma: PrismaService) {
-    if (!fs.existsSync(this.uploadDir)) {
-      fs.mkdirSync(this.uploadDir, { recursive: true });
-    }
-  }
+  constructor(
+    private prisma: PrismaService,
+    private googleDrive: GoogleDriveService,
+  ) {}
 
   createSignature(fileKey: string, userId: number, expiresAt: number): string {
     return crypto
@@ -134,13 +141,13 @@ export class AttachmentsService {
       throw new BadRequestException('Định dạng phần mở rộng tệp không được hỗ trợ.');
     }
 
-    const destPath = path.join(this.uploadDir, safeKey);
-    await fs.promises.writeFile(destPath, buffer);
+    const mimeType = MIME_BY_EXTENSION[ext] || 'application/octet-stream';
+    const driveFileId = await this.googleDrive.uploadFile(safeKey, buffer, mimeType);
 
     return {
       success: true,
-      fileKey: safeKey,
-      fileUrl: `/attachments/file/${safeKey}`,
+      fileKey: driveFileId,
+      fileUrl: `/attachments/file/${driveFileId}`,
       size: buffer.length,
     };
   }

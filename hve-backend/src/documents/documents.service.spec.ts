@@ -9,12 +9,14 @@ import {
 } from '@nestjs/common';
 
 import { NotificationsService } from '../notifications/notifications.service.js';
+import { AuthService } from '../auth/auth.service.js';
 
 describe('DocumentsService', () => {
   let service: DocumentsService;
   let prisma: any;
   let auditService: any;
   let notificationsService: any;
+  let authService: any;
 
   beforeEach(async () => {
     prisma = {
@@ -54,12 +56,18 @@ describe('DocumentsService', () => {
       dispatchNotification: vi.fn().mockResolvedValue({ in_app: true, email: true }),
     };
 
+    authService = {
+      verifyApprovalPin: vi.fn().mockResolvedValue(undefined),
+      isApprovalPinEnabled: vi.fn().mockResolvedValue(true),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         DocumentsService,
         { provide: PrismaService, useValue: prisma },
         { provide: AuditService, useValue: auditService },
         { provide: NotificationsService, useValue: notificationsService },
+        { provide: AuthService, useValue: authService },
       ],
     }).compile();
 
@@ -384,14 +392,86 @@ describe('DocumentsService', () => {
 
       const ceoUser = { id: 30, roles: [{ name: 'ceo' }] };
 
-      await service.approveStep(1, 103, ceoUser, { comment: 'CEO duyệt thanh toán' });
+      await service.approveStep(1, 103, ceoUser, { comment: 'CEO duyệt thanh toán', pin: '123456' });
 
+      expect(authService.verifyApprovalPin).toHaveBeenCalledWith(30, '123456');
       expect(prisma.document.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: 1 },
           data: expect.objectContaining({ status: 'Đã duyệt' }),
         }),
       );
+    });
+
+    it('should reject final CEO approval when PIN is missing', async () => {
+      prisma.document.findUnique.mockResolvedValue({
+        id: 1,
+        status: 'Chờ duyệt',
+        createdById: 10,
+        createdBy: { id: 10, departmentId: 1 },
+        version: 3,
+        steps: [
+          { id: 101, stepOrder: 1, roleRequired: 'department_head', status: 'approved' },
+          { id: 102, stepOrder: 2, roleRequired: 'accountant', status: 'approved' },
+          { id: 103, stepOrder: 3, roleRequired: 'ceo', status: 'pending' },
+        ],
+      });
+
+      const ceoUser = { id: 30, roles: [{ name: 'ceo' }] };
+
+      await expect(
+        service.approveStep(1, 103, ceoUser, { comment: 'CEO duyệt thanh toán' }),
+      ).rejects.toThrow(BadRequestException);
+      expect(authService.verifyApprovalPin).not.toHaveBeenCalled();
+    });
+
+    it('should NOT require PIN on final CEO step when CEO has disabled the PIN feature', async () => {
+      prisma.document.findUnique.mockResolvedValue({
+        id: 1,
+        status: 'Chờ duyệt',
+        createdById: 10,
+        createdBy: { id: 10, departmentId: 1 },
+        version: 3,
+        steps: [
+          { id: 101, stepOrder: 1, roleRequired: 'department_head', status: 'approved' },
+          { id: 102, stepOrder: 2, roleRequired: 'accountant', status: 'approved' },
+          { id: 103, stepOrder: 3, roleRequired: 'ceo', status: 'pending' },
+        ],
+      });
+      authService.isApprovalPinEnabled.mockResolvedValueOnce(false);
+
+      const ceoUser = { id: 30, roles: [{ name: 'ceo' }] };
+
+      await service.approveStep(1, 103, ceoUser, { comment: 'CEO duyệt thanh toán' });
+
+      expect(authService.isApprovalPinEnabled).toHaveBeenCalledWith(30);
+      expect(authService.verifyApprovalPin).not.toHaveBeenCalled();
+      expect(prisma.document.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 1 },
+          data: expect.objectContaining({ status: 'Đã duyệt' }),
+        }),
+      );
+    });
+
+    it('should NOT require PIN for non-final approval steps (e.g. department_head)', async () => {
+      prisma.document.findUnique.mockResolvedValue({
+        id: 1,
+        status: 'Chờ duyệt',
+        createdById: 10,
+        createdBy: { id: 10, departmentId: 1 },
+        version: 1,
+        steps: [
+          { id: 101, stepOrder: 1, roleRequired: 'department_head', status: 'pending' },
+          { id: 102, stepOrder: 2, roleRequired: 'ceo', status: 'not_started' },
+        ],
+      });
+
+      const deptHeadUser = { id: 20, departmentId: 1, roles: [{ name: 'department_head' }] };
+
+      await service.approveStep(1, 101, deptHeadUser, { comment: 'Đồng ý' });
+
+      expect(authService.verifyApprovalPin).not.toHaveBeenCalled();
     });
   });
 

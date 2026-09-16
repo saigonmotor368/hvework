@@ -244,4 +244,216 @@ describe('AuthService', () => {
       ).rejects.toThrow(BadRequestException);
     });
   });
+
+  describe('setApprovalPin', () => {
+    it('should set PIN when current password is correct', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: 1,
+        passwordHash: mockPasswordHash,
+        approvalPinHash: null,
+      });
+      prisma.user.update.mockResolvedValue({});
+
+      const result = await service.setApprovalPin(1, {
+        currentPassword: '123456',
+        newPin: '778899',
+      });
+
+      expect(result.message).toContain('Đã lưu mã PIN');
+      expect(prisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 1 },
+          data: expect.objectContaining({
+            approvalPinFailedAttempts: 0,
+            approvalPinLockedUntil: null,
+          }),
+        }),
+      );
+    });
+
+    it('should reject when current password is wrong', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: 1,
+        passwordHash: mockPasswordHash,
+        approvalPinHash: null,
+      });
+
+      await expect(
+        service.setApprovalPin(1, { currentPassword: 'wrong', newPin: '778899' }),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  describe('verifyApprovalPin', () => {
+    const mockPinHash = bcrypt.hashSync('778899', 10);
+
+    it('should pass and reset counters when PIN is correct', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: 1,
+        approvalPinHash: mockPinHash,
+        approvalPinFailedAttempts: 2,
+        approvalPinLockedUntil: null,
+      });
+      prisma.user.update.mockResolvedValue({});
+
+      await expect(service.verifyApprovalPin(1, '778899')).resolves.toBeUndefined();
+      expect(prisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: { approvalPinFailedAttempts: 0, approvalPinLockedUntil: null },
+        }),
+      );
+    });
+
+    it('should throw if user has not set a PIN yet', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: 1, approvalPinHash: null });
+
+      await expect(service.verifyApprovalPin(1, '778899')).rejects.toThrow(BadRequestException);
+    });
+
+    it('should lock PIN for 15 minutes after 5 wrong attempts', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: 1,
+        approvalPinHash: mockPinHash,
+        approvalPinFailedAttempts: 4,
+        approvalPinLockedUntil: null,
+      });
+      prisma.user.update.mockResolvedValue({});
+
+      await expect(service.verifyApprovalPin(1, '000000')).rejects.toThrow(
+        'Mã PIN đã bị tạm khoá 15 phút',
+      );
+      expect(prisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            approvalPinFailedAttempts: 5,
+            approvalPinLockedUntil: expect.any(Date),
+          }),
+        }),
+      );
+    });
+
+    it('should reject while PIN is currently locked', async () => {
+      const lockFuture = new Date(Date.now() + 10 * 60 * 1000);
+      prisma.user.findUnique.mockResolvedValue({
+        id: 1,
+        approvalPinHash: mockPinHash,
+        approvalPinFailedAttempts: 5,
+        approvalPinLockedUntil: lockFuture,
+      });
+
+      await expect(service.verifyApprovalPin(1, '778899')).rejects.toThrow(
+        'Mã PIN tạm thời bị khoá',
+      );
+    });
+  });
+
+  describe('isApprovalPinEnabled', () => {
+    it('should return true when approvalPinEnabled is true', async () => {
+      prisma.user.findUnique.mockResolvedValue({ approvalPinEnabled: true });
+      await expect(service.isApprovalPinEnabled(1)).resolves.toBe(true);
+    });
+
+    it('should return false when approvalPinEnabled is false or user not found', async () => {
+      prisma.user.findUnique.mockResolvedValue({ approvalPinEnabled: false });
+      await expect(service.isApprovalPinEnabled(1)).resolves.toBe(false);
+
+      prisma.user.findUnique.mockResolvedValue(null);
+      await expect(service.isApprovalPinEnabled(1)).resolves.toBe(false);
+    });
+  });
+
+  describe('setApprovalPinEnabled', () => {
+    const mockPinHash = bcrypt.hashSync('778899', 10);
+
+    it('should enable when a PIN is already set', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: 1,
+        approvalPinHash: mockPinHash,
+        approvalPinEnabled: false,
+      });
+      prisma.user.update.mockResolvedValue({});
+
+      const result = await service.setApprovalPinEnabled(1, { enabled: true });
+
+      expect(result.enabled).toBe(true);
+      expect(prisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 1 }, data: { approvalPinEnabled: true } }),
+      );
+    });
+
+    it('should reject enabling when no PIN has been set yet', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: 1,
+        approvalPinHash: null,
+        approvalPinEnabled: false,
+      });
+
+      await expect(service.setApprovalPinEnabled(1, { enabled: true })).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should disable directly when PIN feature is not currently enabled', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: 1,
+        approvalPinHash: mockPinHash,
+        approvalPinEnabled: false,
+      });
+      prisma.user.update.mockResolvedValue({});
+
+      const result = await service.setApprovalPinEnabled(1, { enabled: false });
+
+      expect(result.enabled).toBe(false);
+      expect(prisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 1 }, data: { approvalPinEnabled: false } }),
+      );
+    });
+
+    it('should require correct PIN to disable when feature is currently enabled', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: 1,
+        approvalPinHash: mockPinHash,
+        approvalPinEnabled: true,
+        approvalPinFailedAttempts: 0,
+        approvalPinLockedUntil: null,
+      });
+
+      await expect(service.setApprovalPinEnabled(1, { enabled: false })).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should reject disabling with wrong PIN when feature is currently enabled', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: 1,
+        approvalPinHash: mockPinHash,
+        approvalPinEnabled: true,
+        approvalPinFailedAttempts: 0,
+        approvalPinLockedUntil: null,
+      });
+      prisma.user.update.mockResolvedValue({});
+
+      await expect(
+        service.setApprovalPinEnabled(1, { enabled: false, pin: '000000' }),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('should disable successfully with correct current PIN', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: 1,
+        approvalPinHash: mockPinHash,
+        approvalPinEnabled: true,
+        approvalPinFailedAttempts: 0,
+        approvalPinLockedUntil: null,
+      });
+      prisma.user.update.mockResolvedValue({});
+
+      const result = await service.setApprovalPinEnabled(1, { enabled: false, pin: '778899' });
+
+      expect(result.enabled).toBe(false);
+      expect(prisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 1 }, data: { approvalPinEnabled: false } }),
+      );
+    });
+  });
 });

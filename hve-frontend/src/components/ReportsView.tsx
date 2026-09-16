@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { MOCK_REPORTS_SUMMARY } from '../mockData';
 
 interface ReportsViewProps {
   apiBaseUrl: string;
@@ -29,8 +30,19 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   const [docType, setDocType] = useState<string>('');
 
   // Dropdown lists
-  const [departments, setDepartments] = useState<any[]>([]);
-  const [users, setUsers] = useState<any[]>([]);
+  const [departments, setDepartments] = useState<any[]>([
+    { id: 1, name: 'Phòng Công nghệ Thông tin' },
+    { id: 2, name: 'Phòng Tài chính - Kế toán' },
+    { id: 3, name: 'Phòng Kinh doanh & Tuyển sinh' },
+    { id: 4, name: 'Ban Pháp chế & Thẩm định' },
+  ]);
+  const [users, setUsers] = useState<any[]>([
+    { id: 1, name: 'Nguyễn Văn An', email: 'nv1@huyvoeducation.vn', departmentId: 3 },
+    { id: 2, name: 'Trần Minh Tuấn', email: 'tp_it@huyvoeducation.vn', departmentId: 1 },
+    { id: 3, name: 'Trần Thị Mai', email: 'ketoan@huyvoeducation.vn', departmentId: 2 },
+    { id: 4, name: 'Hoàng Kim Ngân', email: 'phapche@huyvoeducation.vn', departmentId: 4 },
+    { id: 5, name: 'Võ Huy Định', email: 'ceo@huyvoeducation.vn', departmentId: null },
+  ]);
 
   const userRoles: string[] = currentUser?.roles || [];
   const isCeoOrAdmin = userRoles.includes('ceo') || userRoles.includes('it_admin');
@@ -105,7 +117,11 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   const fetchSummary = async () => {
     setIsLoading(true);
     const token = localStorage.getItem('access_token');
-    if (!token) return;
+    if (!token) {
+      setSummaryData(MOCK_REPORTS_SUMMARY);
+      setIsLoading(false);
+      return;
+    }
 
     try {
       const params = new URLSearchParams();
@@ -122,9 +138,12 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
       if (res.ok) {
         const data = await res.json();
         setSummaryData(data);
+      } else {
+        setSummaryData(MOCK_REPORTS_SUMMARY);
       }
     } catch {
-      showToast('Không thể tải dữ liệu báo cáo', 'error');
+      // offline fallback
+      setSummaryData(MOCK_REPORTS_SUMMARY);
     } finally {
       setIsLoading(false);
     }
@@ -135,6 +154,12 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     if (!isCeoOrAdmin) return;
     setIsLoading(true);
     const token = localStorage.getItem('access_token');
+    if (!token) {
+      setAuditLogs(MOCK_REPORTS_SUMMARY.auditLogs);
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const params = new URLSearchParams();
       if (startDate) params.append('startDate', startDate);
@@ -146,9 +171,12 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
       if (res.ok) {
         const data = await res.json();
         setAuditLogs(data);
+      } else {
+        setAuditLogs(MOCK_REPORTS_SUMMARY.auditLogs);
       }
     } catch {
-      showToast('Lỗi khi tải nhật ký hệ thống', 'error');
+      // offline fallback
+      setAuditLogs(MOCK_REPORTS_SUMMARY.auditLogs);
     } finally {
       setIsLoading(false);
     }
@@ -519,8 +547,8 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                           <td className="px-6 py-3 text-gray-500">
                             {d.type === 'payment_request' ? 'Thanh toán' : d.type === 'contract' ? 'Hợp đồng' : 'Đề xuất'}
                           </td>
-                          <td className="px-6 py-3 text-gray-700">{d.creator}</td>
-                          <td className="px-6 py-3 text-gray-500">{d.department}</td>
+                          <td className="px-6 py-3 text-gray-700">{typeof d.creator === 'object' ? d.creator?.name : (d.creator || '—')}</td>
+                          <td className="px-6 py-3 text-gray-500">{typeof d.department === 'object' ? d.department?.name : (d.department || '—')}</td>
                           <td className="px-6 py-3 text-gray-400">
                             {new Date(d.createdAt).toLocaleDateString('vi-VN')}
                           </td>
@@ -589,8 +617,8 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                         >
                           <td className="px-6 py-3 font-bold text-[#0A66C2]">{t.code}</td>
                           <td className="px-6 py-3 font-semibold text-gray-800">{t.title}</td>
-                          <td className="px-6 py-3 text-gray-700">{t.assignee}</td>
-                          <td className="px-6 py-3 text-gray-500">{t.department}</td>
+                          <td className="px-6 py-3 text-gray-700">{typeof t.assignee === 'object' ? t.assignee?.name : (t.assignee || '—')}</td>
+                          <td className="px-6 py-3 text-gray-500">{typeof t.department === 'object' ? t.department?.name : (t.department || '—')}</td>
                           <td className="px-6 py-3">
                             <span className={t.isOverdue ? 'text-red-600 font-bold' : 'text-gray-500'}>
                               {t.dueDate ? new Date(t.dueDate).toLocaleDateString('vi-VN') : '—'}

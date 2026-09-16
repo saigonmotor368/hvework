@@ -5,6 +5,7 @@ import * as bcrypt from 'bcrypt';
 import { AuditService } from '../audit/audit.service.js';
 import { LoginDto } from './dto/login.dto.js';
 import { ResetPasswordDto } from './dto/reset-password.dto.js';
+import { SetApprovalPinDto, ToggleApprovalPinDto } from './dto/set-approval-pin.dto.js';
 
 @Injectable()
 export class AuthService {
@@ -224,5 +225,176 @@ export class AuthService {
     return {
       message: 'Đặt lại mật khẩu thành công. Vui lòng đăng nhập với mật khẩu mới.',
     };
+  }
+
+  /**
+   * Đặt hoặc đổi mã PIN xác nhận duyệt (6 số) — bắt buộc nhập đúng mật khẩu
+   * đăng nhập hiện tại để xác nhận, vì đây là thao tác đổi 1 thông tin bảo mật.
+   */
+  async setApprovalPin(userId: number, dto: SetApprovalPinDto, ip?: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('Không tìm thấy tài khoản');
+    }
+
+    const passwordMatch = await bcrypt.compare(dto.currentPassword, user.passwordHash);
+    if (!passwordMatch) {
+      throw new UnauthorizedException('Mật khẩu hiện tại không chính xác');
+    }
+
+    const pinHash = await bcrypt.hash(dto.newPin, 10);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        approvalPinHash: pinHash,
+        approvalPinEnabled: true,
+        approvalPinFailedAttempts: 0,
+        approvalPinLockedUntil: null,
+      },
+    });
+
+    await this.auditService.logEvent({
+      entityType: 'User',
+      entityId: userId,
+      action: user.approvalPinHash ? 'approval_pin_changed' : 'approval_pin_set',
+      actorId: userId,
+      ip,
+    });
+
+    return { message: 'Đã lưu mã PIN xác nhận duyệt.' };
+  }
+
+  /**
+   * Cho frontend biết user đã đặt PIN chưa, để hiển thị đúng lời nhắc
+   * (không trả về hash, chỉ trả về cờ boolean).
+   */
+  async getApprovalPinStatus(userId: number) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { approvalPinHash: true, approvalPinEnabled: true },
+    });
+    return { hasPin: !!user?.approvalPinHash, enabled: !!user?.approvalPinEnabled };
+  }
+
+  /**
+   * Dùng bởi DocumentsService để quyết định có bắt buộc mã PIN ở bước duyệt
+   * cuối cùng của CEO hay không — CEO có thể tự tắt tính năng này.
+   */
+  async isApprovalPinEnabled(userId: number): Promise<boolean> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { approvalPinEnabled: true },
+    });
+    return !!user?.approvalPinEnabled;
+  }
+
+  /**
+   * Bật/tắt yêu cầu mã PIN cho bước duyệt cuối cùng. Bật thì cần đã có PIN
+   * sẵn (đặt qua setApprovalPin trước). Tắt trong khi đang bật thì bắt buộc
+   * nhập đúng mã PIN hiện tại để xác nhận, tránh người khác lén tắt bảo vệ.
+   */
+  async setApprovalPinEnabled(userId: number, dto: ToggleApprovalPinDto, ip?: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('Không tìm thấy tài khoản');
+    }
+
+    if (dto.enabled) {
+      if (!user.approvalPinHash) {
+        throw new BadRequestException(
+          'Bạn cần đặt mã PIN trước khi bật tính năng xác nhận duyệt bằng PIN.',
+        );
+      }
+    } else if (user.approvalPinEnabled && user.approvalPinHash) {
+      if (!dto.pin) {
+        throw new BadRequestException(
+          'Cần nhập đúng mã PIN hiện tại để xác nhận tắt tính năng này.',
+        );
+      }
+      await this.verifyApprovalPin(userId, dto.pin);
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { approvalPinEnabled: dto.enabled },
+    });
+
+    await this.auditService.logEvent({
+      entityType: 'User',
+      entityId: userId,
+      action: dto.enabled ? 'approval_pin_enabled' : 'approval_pin_disabled',
+      actorId: userId,
+      ip,
+    });
+
+    return {
+      enabled: dto.enabled,
+      message: dto.enabled
+        ? 'Đã bật yêu cầu mã PIN cho bước duyệt cuối cùng.'
+        : 'Đã tắt yêu cầu mã PIN cho bước duyệt cuối cùng.',
+    };
+  }
+
+  /**
+   * Xác thực mã PIN duyệt trước khi cho phép thực hiện hành động phê duyệt
+   * quan trọng (bước duyệt cuối của CEO). Có khoá riêng sau 5 lần sai liên
+   * tiếp (15 phút) — tách biệt với khoá đăng nhập, để tránh 1 người cố tình
+   * dò PIN khoá luôn cả tài khoản CEO không đăng nhập được.
+   */
+  async verifyApprovalPin(userId: number, pin: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('Không tìm thấy tài khoản');
+    }
+
+    if (!user.approvalPinHash) {
+      throw new BadRequestException(
+        'Bạn chưa đặt mã PIN xác nhận duyệt. Vào Hồ sơ cá nhân để thiết lập trước khi phê duyệt.',
+      );
+    }
+
+    const now = new Date();
+    if (user.approvalPinLockedUntil && user.approvalPinLockedUntil > now) {
+      const waitMinutes = Math.ceil(
+        (user.approvalPinLockedUntil.getTime() - now.getTime()) / 60000,
+      );
+      throw new UnauthorizedException(
+        `Mã PIN tạm thời bị khoá do nhập sai nhiều lần. Vui lòng thử lại sau ${waitMinutes} phút.`,
+      );
+    }
+
+    const isMatch = await bcrypt.compare(pin, user.approvalPinHash);
+    if (!isMatch) {
+      const newAttempts = user.approvalPinFailedAttempts + 1;
+      const isLocking = newAttempts >= 5;
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          approvalPinFailedAttempts: newAttempts,
+          approvalPinLockedUntil: isLocking ? new Date(now.getTime() + 15 * 60 * 1000) : null,
+        },
+      });
+
+      await this.auditService.logEvent({
+        entityType: 'User',
+        entityId: userId,
+        action: isLocking ? 'approval_pin_locked' : 'approval_pin_failed',
+        actorId: userId,
+      });
+
+      if (isLocking) {
+        throw new UnauthorizedException(
+          'Mã PIN đã bị tạm khoá 15 phút do nhập sai 5 lần liên tiếp.',
+        );
+      }
+      throw new UnauthorizedException(
+        `Mã PIN không chính xác. Đã nhập sai ${newAttempts}/5 lần.`,
+      );
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { approvalPinFailedAttempts: 0, approvalPinLockedUntil: null },
+    });
   }
 }

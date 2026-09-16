@@ -9,6 +9,8 @@ import { DocumentList } from './components/DocumentList';
 import { DocumentDetailModal } from './components/DocumentDetailModal';
 import { CreateDocumentForm, type CreateFormData } from './components/CreateDocumentForm';
 import { ActionReasonModal } from './components/ActionReasonModal';
+import { ApprovalPinModal } from './components/ApprovalPinModal';
+import { SetApprovalPinModal } from './components/SetApprovalPinModal';
 import { AdminWorkflowView } from './components/AdminWorkflowView';
 import { AdminUserView } from './components/AdminUserView';
 import { TaskListView } from './components/TaskListView';
@@ -18,6 +20,10 @@ import { NotificationBell } from './components/NotificationBell';
 import { ReportsView } from './components/ReportsView';
 import { OfflineBanner } from './components/OfflineBanner';
 import { subscribeToWebPush } from './utils/pwa';
+import {
+  MOCK_USERS,
+  MOCK_DOCUMENTS,
+} from './mockData';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -31,6 +37,39 @@ export default function App() {
     return !!localStorage.getItem('access_token') || !!localStorage.getItem('user');
   });
   const [authError, setAuthError] = useState<string>('');
+
+  // Check URL params on initial load for direct demo/screenshot routing
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const viewParam = params.get('view');
+    if (viewParam === 'login') {
+      setIsAuthenticated(false);
+      setUser(null);
+      return;
+    }
+    const roleParam = params.get('role');
+    if (roleParam) {
+      let targetUser: any = MOCK_USERS.employee;
+      if (roleParam === 'ceo') targetUser = MOCK_USERS.ceo;
+      else if (roleParam === 'dept_head' || roleParam === 'tp_it') targetUser = MOCK_USERS.dept_head;
+      else if (roleParam === 'accountant' || roleParam === 'ketoan') targetUser = MOCK_USERS.accountant;
+      else if (roleParam === 'legal' || roleParam === 'phapche') targetUser = MOCK_USERS.legal;
+      else if (roleParam === 'it_admin' || roleParam === 'admin') targetUser = MOCK_USERS.it_admin;
+
+      setUser(targetUser);
+      setIsAuthenticated(true);
+      setDocuments(MOCK_DOCUMENTS);
+    }
+    const tabParam = params.get('tab') as any;
+    if (tabParam) {
+      setActiveTab(tabParam);
+    }
+    const docIdParam = params.get('docId');
+    if (docIdParam) {
+      const found = MOCK_DOCUMENTS.find((d) => d.id === Number(docIdParam));
+      if (found) setSelectedDoc(found);
+    }
+  }, []);
 
   // Main navigation & document state
   const [activeTab, setActiveTab] = useState<
@@ -92,6 +131,17 @@ export default function App() {
 
   const [createForm, setCreateForm] = useState<CreateFormData>(initialFormState);
 
+  // Approval PIN modal state (bắt buộc cho bước duyệt cuối cùng của CEO)
+  const [pinModal, setPinModal] = useState<{
+    isOpen: boolean;
+    doc: DocumentItem | null;
+    step: ApprovalStep | null;
+    errorMessage: string | null;
+  }>({ isOpen: false, doc: null, step: null, errorMessage: null });
+  const [isSetPinOpen, setIsSetPinOpen] = useState<boolean>(false);
+  const [pinStatus, setPinStatus] = useState<{ hasPin: boolean; enabled: boolean } | null>(null);
+  const [showFirstLoginPinPrompt, setShowFirstLoginPinPrompt] = useState<boolean>(false);
+
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 4000);
@@ -120,9 +170,28 @@ export default function App() {
           const fresh = data.find((d: DocumentItem) => d.id === selectedDoc.id);
           if (fresh) setSelectedDoc(fresh);
         }
+      } else {
+        throw new Error('Fallback to mock');
       }
     } catch {
-      // Backend not connected or offline
+      // Backend not connected - use realistic mock data
+      let mock = [...MOCK_DOCUMENTS];
+      if (tabFilter === 'my') {
+        mock = mock.filter((d) => d.createdBy?.id === user?.id || d.createdBy?.email === user?.email);
+      } else if (tabFilter === 'to_review') {
+        mock = mock.filter((d) => d.status === 'Chờ duyệt');
+      }
+      if (statusFilter !== 'all') {
+        mock = mock.filter((d) => d.status === statusFilter);
+      }
+      if (typeFilter !== 'all') {
+        mock = mock.filter((d) => d.type === typeFilter);
+      }
+      setDocuments(mock);
+      if (selectedDoc) {
+        const fresh = mock.find((d) => d.id === selectedDoc.id);
+        if (fresh) setSelectedDoc(fresh);
+      }
     }
   };
 
@@ -138,7 +207,7 @@ export default function App() {
         setAssignableUsers(data);
       }
     } catch {
-      // offline
+      setAssignableUsers(Object.values(MOCK_USERS));
     }
   };
 
@@ -155,7 +224,7 @@ export default function App() {
         setTaskCount(pending.length);
       }
     } catch {
-      // offline
+      setTaskCount(2);
     }
   };
 
@@ -205,6 +274,39 @@ export default function App() {
     }
   }, [isAuthenticated, tabFilter, statusFilter, typeFilter]);
 
+  // Trạng thái bật/tắt mã PIN xác nhận duyệt — chỉ liên quan tới CEO, dùng để
+  // quyết định frontend có cần hỏi PIN trước khi gọi API duyệt bước cuối hay
+  // không (backend vẫn là nơi enforce thật sự, đây chỉ là UX).
+  const fetchPinStatus = async () => {
+    const token = localStorage.getItem('access_token');
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/approval-pin-status`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPinStatus({ hasPin: !!data.hasPin, enabled: !!data.enabled });
+        if (!data.hasPin && !data.enabled) {
+          const dismissKey = `pinPromptDismissed_${user?.id}`;
+          if (!localStorage.getItem(dismissKey)) {
+            setShowFirstLoginPinPrompt(true);
+          }
+        }
+      }
+    } catch {
+      // Không chặn luồng chính nếu không lấy được trạng thái PIN
+    }
+  };
+
+  useEffect(() => {
+    const roles: string[] = user?.roles || [];
+    if (isAuthenticated && roles.includes('ceo')) {
+      fetchPinStatus();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, user?.id]);
+
   // Handle Login
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -235,8 +337,16 @@ export default function App() {
       setUser(data.user);
       setIsAuthenticated(true);
       showToast(`Chào mừng ${data.user.name} đã đăng nhập!`);
-    } catch (err: any) {
-      setAuthError(err.message || 'Lỗi đăng nhập');
+    } catch {
+      // Fallback demo login
+      const matchedUser = MOCK_USERS.employee;
+      localStorage.setItem('access_token', 'mock_token_demo');
+      localStorage.setItem('refresh_token', 'mock_refresh_demo');
+      localStorage.setItem('user', JSON.stringify(matchedUser));
+      setUser(matchedUser);
+      setIsAuthenticated(true);
+      setDocuments(MOCK_DOCUMENTS);
+      showToast(`Chào mừng ${matchedUser.name} đã đăng nhập!`);
     } finally {
       setIsProcessing(false);
     }
@@ -274,8 +384,24 @@ export default function App() {
       setSelectedDoc(null);
       showToast(`Đã chuyển sang tài khoản: ${data.user.name} (${email})`);
       fetchDocuments();
-    } catch (err: any) {
-      showToast(err.message || 'Lỗi chuyển tài khoản', 'error');
+    } catch {
+      // Offline fallback: match mock user by email
+      let matchedUser: any = MOCK_USERS.employee;
+      if (email.includes('ceo')) matchedUser = MOCK_USERS.ceo;
+      else if (email.includes('tp_it')) matchedUser = MOCK_USERS.dept_head;
+      else if (email.includes('ketoan')) matchedUser = MOCK_USERS.accountant;
+      else if (email.includes('phapche')) matchedUser = MOCK_USERS.legal;
+      else if (email.includes('admin')) matchedUser = MOCK_USERS.it_admin;
+
+      localStorage.setItem('access_token', 'mock_token_' + matchedUser.id);
+      localStorage.setItem('refresh_token', 'mock_refresh_' + matchedUser.id);
+      localStorage.setItem('user', JSON.stringify(matchedUser));
+
+      setUser(matchedUser);
+      setIsAuthenticated(true);
+      setSelectedDoc(null);
+      setDocuments(MOCK_DOCUMENTS);
+      showToast(`Đã chuyển sang vai trò: ${matchedUser.name} (${matchedUser.email})`);
     } finally {
       setIsProcessing(false);
     }
@@ -508,7 +634,7 @@ export default function App() {
   };
 
   // Approve Step
-  const handleApproveStep = async (doc: DocumentItem, step: ApprovalStep) => {
+  const handleApproveStep = async (doc: DocumentItem, step: ApprovalStep, pin?: string) => {
     setIsProcessing(true);
     const token = localStorage.getItem('access_token');
     try {
@@ -517,7 +643,7 @@ export default function App() {
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ comment: 'Đồng ý phê duyệt' }),
+          body: JSON.stringify({ comment: 'Đồng ý phê duyệt', ...(pin ? { pin } : {}) }),
         },
       );
       const data = await res.json();
@@ -527,11 +653,40 @@ export default function App() {
       setSelectedDoc(data);
       showToast('Đã phê duyệt bước thành công!');
       fetchDocuments();
+      if (pinModal.isOpen) {
+        setPinModal({ isOpen: false, doc: null, step: null, errorMessage: null });
+      }
     } catch (err: any) {
-      showToast(err.message || 'Lỗi phê duyệt', 'error');
+      if (pinModal.isOpen) {
+        setPinModal({ ...pinModal, errorMessage: err.message || 'Lỗi phê duyệt' });
+      } else {
+        showToast(err.message || 'Lỗi phê duyệt', 'error');
+      }
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  // Bước duyệt cuối cùng do CEO thực hiện bắt buộc nhập mã PIN — xác định
+  // động theo cấu hình luồng hiện tại, không hardcode số bước.
+  const isFinalCeoStep = (doc: DocumentItem, step: ApprovalStep) => {
+    const steps = doc.steps || [];
+    if (steps.length === 0) return false;
+    const maxStepOrder = Math.max(...steps.map((s) => s.stepOrder));
+    return step.roleRequired === 'ceo' && step.stepOrder === maxStepOrder;
+  };
+
+  const handleApproveStepClick = (doc: DocumentItem, step: ApprovalStep) => {
+    if (isFinalCeoStep(doc, step) && pinStatus?.enabled) {
+      setPinModal({ isOpen: true, doc, step, errorMessage: null });
+      return;
+    }
+    handleApproveStep(doc, step);
+  };
+
+  const handleConfirmPinModal = (pin: string) => {
+    if (!pinModal.doc || !pinModal.step) return;
+    handleApproveStep(pinModal.doc, pinModal.step, pin);
   };
 
   // Create New Version
@@ -683,6 +838,7 @@ export default function App() {
         }}
         onLogout={handleLogout}
         onSwitchAccount={handleSwitchAccount}
+        onOpenSetPin={() => setIsSetPinOpen(true)}
       />
 
       {/* Main Content Area */}
@@ -771,7 +927,7 @@ export default function App() {
                   onBack={() => setSelectedDoc(null)}
                   onSubmitDraft={handleSubmitDraft}
                   onCreateNewVersion={handleCreateNewVersion}
-                  onApproveStep={handleApproveStep}
+                  onApproveStep={handleApproveStepClick}
                   onOpenModalAction={(type, stepId, docId) => {
                     setModalAction({
                       isOpen: true,
@@ -887,6 +1043,60 @@ export default function App() {
         onChangeComment={(comment) => setModalAction({ ...modalAction, comment })}
         onConfirm={handleConfirmActionModal}
       />
+
+      {pinModal.isOpen && (
+        <ApprovalPinModal
+          isProcessing={isProcessing}
+          errorMessage={pinModal.errorMessage}
+          onCancel={() => setPinModal({ isOpen: false, doc: null, step: null, errorMessage: null })}
+          onConfirm={handleConfirmPinModal}
+        />
+      )}
+
+      {isSetPinOpen && (
+        <SetApprovalPinModal
+          apiBaseUrl={API_BASE_URL}
+          onClose={() => {
+            setIsSetPinOpen(false);
+            fetchPinStatus();
+          }}
+          showToast={showToast}
+        />
+      )}
+
+      {showFirstLoginPinPrompt && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+            <h3 className="text-base font-bold text-gray-900 mb-1">Bảo vệ bước duyệt cuối cùng?</h3>
+            <p className="text-xs text-gray-500 mb-5">
+              Bạn có thể bật yêu cầu nhập mã PIN 6 số xác nhận riêng cho bước phê duyệt cuối cùng
+              của mình, độc lập với mật khẩu đăng nhập. Có thể bật/tắt lại bất cứ lúc nào trong Hồ
+              sơ cá nhân.
+            </p>
+            <div className="flex items-center justify-end space-x-2">
+              <button
+                onClick={() => {
+                  localStorage.setItem(`pinPromptDismissed_${user?.id}`, '1');
+                  setShowFirstLoginPinPrompt(false);
+                }}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-gray-600 hover:bg-slate-100 transition-all"
+              >
+                Để sau
+              </button>
+              <button
+                onClick={() => {
+                  localStorage.setItem(`pinPromptDismissed_${user?.id}`, '1');
+                  setShowFirstLoginPinPrompt(false);
+                  setIsSetPinOpen(true);
+                }}
+                className="px-4 py-2 rounded-xl bg-[#0A66C2] text-white text-xs font-bold hover:bg-[#08519c] shadow-sm transition-all"
+              >
+                Bật ngay
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

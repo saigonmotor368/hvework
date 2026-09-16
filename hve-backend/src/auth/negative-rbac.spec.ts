@@ -44,6 +44,10 @@ describe('Negative RBAC & Security Hardening Tests (Phase 5)', () => {
       prismaMock,
       { logEvent: vi.fn() } as any,
       { dispatchNotification: vi.fn() } as any,
+      {
+        verifyApprovalPin: vi.fn().mockResolvedValue(undefined),
+        isApprovalPinEnabled: vi.fn().mockResolvedValue(true),
+      } as any,
     );
   });
 

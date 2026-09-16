@@ -74,3 +74,19 @@ Ngoài ra: mật khẩu `HVE_Secure_Runtime_Pass_2026!` trong script đã bị c
 4. Nên làm trước Go-Live: xác nhận tình trạng logo chính thức với HVE, cân nhắc bảo vệ `/api/docs`.
 
 Sau khi xử lý xong mục 1-3 (bắt buộc), đề nghị chạy lại toàn bộ checklist UAT một lần cuối rồi mới ký văn bản bàn giao chính thức.
+
+---
+
+## Review lần 2 (16/09/2026) — Xác nhận độc lập sau khi vá
+
+Đọc trực tiếp code, không dựa vào báo cáo:
+
+1. ✅ **JWT_SECRET/VAPID fail-closed đúng**: `jwt.strategy.ts`/`auth.module.ts` ném lỗi `FATAL SECURITY ERROR` và dừng khởi động nếu thiếu `JWT_SECRET`; `web-push.service.ts` tương tự cho VAPID, có ghi rõ "Hardcoded demo keys are strictly forbidden". Có thêm test riêng `fail-closed-security.spec.ts` xác nhận hành vi này. `.env.example` viết lại đầy đủ, có hướng dẫn lệnh sinh khoá thật (`openssl rand`, `npx web-push generate-vapid-keys`).
+2. ✅ **Đồng bộ DB hardening đúng**: `docker-compose.yml` và `db_security_hardening.sql` đã cùng dùng database `hve_db`. Mật khẩu `hve_app_user` chuyển sang truyền qua biến `psql -v APP_PASS=...`, không còn hardcode 1 chuỗi thật cố định — có cảnh báo rõ trong comment phải đổi khi lên staging/production. `.env.example` tách riêng `DATABASE_URL` (runtime, quyền hạn chế) và `MIGRATION_DATABASE_URL` (quyền DDL) — đúng nguyên tắc least-privilege.
+3. ✅ **Backup script đã có logic mốc tháng**: `backup_db.sh` bổ sung `MONTHLY_DIR`, ghi đè snapshot mỗi tháng, dọn file cũ hơn 365 ngày — khớp đúng cam kết ở `VAN_BAN_XAC_NHAN_CHOT_HVE.md` Điều khoản 2, không còn cam kết vượt quá thực tế.
+4. ✅ **Logo**: văn bản xác nhận đã ghi rõ đây là hạng mục chờ HVE bàn giao file gốc PA2, kèm hướng dẫn kỹ thuật để IT Admin tự thay khi có (chỉ cần copy file vào `/hve-frontend/public/icons/`, không cần sửa code) — xử lý minh bạch, không giấu như 1 việc đã xong.
+5. ✅ **Bonus ngoài yêu cầu**: Swagger `/api/docs` được bảo vệ bằng Basic Auth middleware thật (không phải chỉ khai báo biến), fail-closed nếu thiếu `SWAGGER_PASSWORD` ở production — vượt mức đề xuất ban đầu (mình chỉ nói "nên", dev đã chủ động làm đầy đủ).
+
+Build/lint/test verify lại: pass sạch cả 2 phía, **121/121 test pass** (tăng 4 so với lần trước, gồm test fail-closed mới).
+
+**Nghiệm thu Phase 5 & toàn dự án: ĐẠT. Đồng ý trình anh Định/anh Minh ký văn bản bàn giao tại [VAN_BAN_XAC_NHAN_CHOT_HVE.md](VAN_BAN_XAC_NHAN_CHOT_HVE.md).**

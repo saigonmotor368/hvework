@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model Department {
@@ -38,6 +39,15 @@ model User {
   refreshTokenHash     String?
   passwordResetToken   String?
   passwordResetExpires DateTime?
+
+  // Mã PIN xác nhận duyệt (6 số, tự đặt) — bắt buộc khi CEO thực hiện bước
+  // phê duyệt cuối cùng của hồ sơ, độc lập với mật khẩu đăng nhập. CEO có
+  // thể tự bật/tắt yêu cầu này (approvalPinEnabled); tắt khi PIN đã có phải
+  // xác nhận lại bằng PIN hiện tại.
+  approvalPinHash          String?
+  approvalPinEnabled       Boolean   @default(false)
+  approvalPinFailedAttempts Int       @default(0)
+  approvalPinLockedUntil    DateTime?
   
   departmentId Int?
   department   Department? @relation(fields: [departmentId], references: [id])
