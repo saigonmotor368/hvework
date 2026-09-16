@@ -227,10 +227,17 @@
      - `OverviewDashboard.tsx`: Nâng cấp giao diện hiện đại, khối "CẦN HÀNH ĐỘNG NGAY" đặt trên cùng kèm hiệu ứng cảnh báo, các card chỉ số thời gian thực, bảng tiến độ phòng ban, nút làm mới dữ liệu gọi clear-cache.
      - `ReportsView.tsx`: 4 tab báo cáo (Hồ sơ, Công việc, Tài chính & Hợp đồng, Nhật ký hệ thống), 5 bộ lọc linh hoạt, nút xuất Excel UTF-8 BOM, nút In / Xuất PDF, drill-down click xem chi tiết, ẩn tab Nhật ký hệ thống với người không có quyền CEO/Admin.
      - `Sidebar.tsx` & `App.tsx`: Tích hợp tab `reports`, gắn NotificationBell vào Header, liên kết điều hướng thông báo.
-  7. **Kiểm thử & Chất lượng**:
-     - Backend unit tests: **105/105 tests pass 100%** (bao phủ 11 test suites).
-     - Backend lint: **0 warnings, 0 errors** (oxlint sạch 100%).
-     - Frontend build: **Pass sạch sẽ trong 241ms** (`tsc -b && vite build` 0 lỗi).
+  7. **Kiểm thử & Khắc phục triệt để lỗi Build TypeScript (Theo [11_REVIEW_PHASE4.md](11_REVIEW_PHASE4.md))**:
+     - Đã xử lý toàn bộ 48 lỗi TypeScript theo phản ánh của Trưởng phòng IT:
+       - **14 lỗi thiếu đuôi `.js` trong import tương đối**: Đã bổ sung `.js` vào 100% relative imports trong 6 file thuộc `dashboard/` và `reports/` chuẩn ESM `NodeNext`.
+       - **33 lỗi implicit any**: Đã khai báo kiểu tường minh cho toàn bộ tham số callback (`.map()`, `.filter()`) trong `reports.service.ts` và `dashboard.service.ts`.
+       - **1 lỗi TS1272**: Đã đổi sang `import type { Response } from 'express'` và chuyển `ReportFilterDto` từ `interface` sang `class` để tương thích hoàn toàn với `emitDecoratorMetadata` và `isolatedModules`.
+     - **Xác minh trực tiếp**:
+       - `npx tsc --noEmit -p tsconfig.build.json`: **PASS 100% (0 errors)**.
+       - `npm run build` (backend `nest build`): **PASS 100% (0 errors)**.
+       - `npm test` (backend `vitest`): **107/107 tests pass 100%**.
+       - `npm run lint` (backend `oxlint`): **0 errors, 0 warnings**.
+       - `npm run build` (frontend `tsc -b && vite build`): **PASS 100%**.
 
 ---
 

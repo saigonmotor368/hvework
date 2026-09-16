@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { DashboardService } from './dashboard.service';
+import { DashboardService } from './dashboard.service.js';
 
 describe('DashboardService', () => {
   let service: DashboardService;
@@ -63,6 +63,51 @@ describe('DashboardService', () => {
     expect(result.actionRequired.overdueTasksCount).toBe(1);
     expect(result.metrics.departmentTasks.total).toBe(2);
     expect(result.metrics.departmentTasks.completed).toBe(1);
+  });
+
+  it('should return Accountant/Legal dashboard with approved payments and expiring contracts', async () => {
+    prismaMock.document.findMany
+      .mockResolvedValueOnce([
+        { id: 1, code: 'DNTT-001', title: 'Chi tiền', dataJson: { amount: 5000000 }, createdAt: new Date() },
+      ])
+      .mockResolvedValueOnce([
+        { id: 2, code: 'HD-001', title: 'Hợp đồng', dataJson: { endDate: new Date(Date.now() + 10 * 86400000).toISOString() }, status: 'Đã duyệt' },
+      ]);
+
+    const user = { id: 3, roles: [{ name: 'accountant' }] };
+    const result = await service.getDashboardData(user);
+
+    expect(result.role).toBe('accountant_legal');
+    expect(result.actionRequired.approvedPaymentsCount).toBe(1);
+    expect(result.actionRequired.expiringContractsCount).toBe(1);
+    expect(result.metrics.totalApprovedAmount).toBe(5000000);
+  });
+
+  it('should return Employee dashboard with returned documents and urgent tasks', async () => {
+    prismaMock.document.findMany
+      .mockResolvedValueOnce([
+        { id: 1, code: 'DNTT-001', title: 'Bị trả lại', updatedAt: new Date() },
+      ])
+      .mockResolvedValueOnce([
+        { status: 'Nháp' },
+        { status: 'Đã duyệt' },
+      ]);
+    prismaMock.task.findMany
+      .mockResolvedValueOnce([
+        { id: 5, code: 'CV-005', title: 'Việc cần làm hôm nay', dueDate: new Date() },
+      ])
+      .mockResolvedValueOnce([
+        { status: 'Đang làm' },
+      ]);
+
+    const user = { id: 10, roles: [{ name: 'employee' }] };
+    const result = await service.getDashboardData(user);
+
+    expect(result.role).toBe('employee');
+    expect(result.actionRequired.returnedDocumentsCount).toBe(1);
+    expect(result.actionRequired.urgentTasksCount).toBe(1);
+    expect(result.metrics.documents.total).toBe(2);
+    expect(result.metrics.tasks.total).toBe(1);
   });
 
   it('should use in-memory cache on subsequent requests within 60s', async () => {

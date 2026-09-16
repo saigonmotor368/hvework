@@ -1,4 +1,4 @@
-export interface ReportFilterDto {
+export class ReportFilterDto {
   startDate?: string;
   endDate?: string;
   departmentId?: number;

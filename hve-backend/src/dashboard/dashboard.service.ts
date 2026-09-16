@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../prisma/prisma.service.js';
 
 export interface DashboardCacheEntry {
   data: any;
@@ -133,7 +133,7 @@ export class DashboardService {
       select: { id: true, code: true, title: true, dataJson: true, status: true },
     });
 
-    const expiringContracts = contracts.filter((c) => {
+    const expiringContracts = contracts.filter((c: any) => {
       const data = (c.dataJson as any) || {};
       if (!data.endDate) return false;
       const end = new Date(data.endDate);
@@ -153,12 +153,12 @@ export class DashboardService {
       },
     });
 
-    const departmentStats = departments.map((d) => {
+    const departmentStats = departments.map((d: any) => {
       let deptTotal = 0;
       let deptCompleted = 0;
       for (const u of d.users) {
         deptTotal += u.assignedTasks.length;
-        deptCompleted += u.assignedTasks.filter((t) => t.status === 'Hoàn thành').length;
+        deptCompleted += u.assignedTasks.filter((t: any) => t.status === 'Hoàn thành').length;
       }
       return {
         id: d.id,
@@ -243,9 +243,9 @@ export class DashboardService {
     });
 
     const total = deptTasks.length;
-    const completed = deptTasks.filter((t) => t.status === 'Hoàn thành').length;
-    const inProgress = deptTasks.filter((t) => t.status === 'Đang làm').length;
-    const pendingReview = deptTasks.filter((t) => t.status === 'Chờ duyệt').length;
+    const completed = deptTasks.filter((t: any) => t.status === 'Hoàn thành').length;
+    const inProgress = deptTasks.filter((t: any) => t.status === 'Đang làm').length;
+    const pendingReview = deptTasks.filter((t: any) => t.status === 'Chờ duyệt').length;
 
     return {
       role: 'department_head',
@@ -288,7 +288,7 @@ export class DashboardService {
       select: { id: true, code: true, title: true, dataJson: true, status: true },
     });
 
-    const expiringContracts = allContracts.filter((c) => {
+    const expiringContracts = allContracts.filter((c: any) => {
       const data = (c.dataJson as any) || {};
       if (!data.endDate) return false;
       const end = new Date(data.endDate);
@@ -367,15 +367,15 @@ export class DashboardService {
       metrics: {
         documents: {
           total: myDocs.length,
-          pending: myDocs.filter((d) => d.status === 'Chờ duyệt').length,
-          approved: myDocs.filter((d) => d.status === 'Đã duyệt').length,
-          draft: myDocs.filter((d) => d.status === 'Nháp').length,
+          pending: myDocs.filter((d: any) => d.status === 'Chờ duyệt').length,
+          approved: myDocs.filter((d: any) => d.status === 'Đã duyệt').length,
+          draft: myDocs.filter((d: any) => d.status === 'Nháp').length,
         },
         tasks: {
           total: myTasks.length,
-          completed: myTasks.filter((t) => t.status === 'Hoàn thành').length,
-          inProgress: myTasks.filter((t) => t.status === 'Đang làm').length,
-          pendingReview: myTasks.filter((t) => t.status === 'Chờ duyệt').length,
+          completed: myTasks.filter((t: any) => t.status === 'Hoàn thành').length,
+          inProgress: myTasks.filter((t: any) => t.status === 'Đang làm').length,
+          pendingReview: myTasks.filter((t: any) => t.status === 'Chờ duyệt').length,
         },
       },
     };

@@ -1,6 +1,6 @@
 import { ForbiddenException } from '@nestjs/common';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ReportsService } from './reports.service';
+import { ReportsService } from './reports.service.js';
 
 describe('ReportsService', () => {
   let service: ReportsService;

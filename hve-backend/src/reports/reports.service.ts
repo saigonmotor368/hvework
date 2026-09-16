@@ -1,6 +1,6 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { ReportFilterDto } from './dto/report-filter.dto';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { ReportFilterDto } from './dto/report-filter.dto.js';
 
 @Injectable()
 export class ReportsService {
@@ -47,21 +47,21 @@ export class ReportsService {
     });
 
     const docTotal = documents.length;
-    const docApproved = documents.filter((d) => d.status === 'Đã duyệt').length;
-    const docPending = documents.filter((d) => d.status === 'Chờ duyệt').length;
-    const docRejected = documents.filter((d) => d.status === 'Từ chối' || d.status === 'Trả lại').length;
-    const docDraft = documents.filter((d) => d.status === 'Nháp').length;
+    const docApproved = documents.filter((d: any) => d.status === 'Đã duyệt').length;
+    const docPending = documents.filter((d: any) => d.status === 'Chờ duyệt').length;
+    const docRejected = documents.filter((d: any) => d.status === 'Từ chối' || d.status === 'Trả lại').length;
+    const docDraft = documents.filter((d: any) => d.status === 'Nháp').length;
 
     // Document types breakdown
     const docTypeMap: Record<string, number> = {};
-    for (const d of documents) {
+    for (const d of documents as any[]) {
       docTypeMap[d.type] = (docTypeMap[d.type] || 0) + 1;
     }
 
     // Average approval time for completed documents (hours)
     let totalApprovalHours = 0;
     let approvedCountWithSteps = 0;
-    for (const d of documents) {
+    for (const d of documents as any[]) {
       if (d.status === 'Đã duyệt' && d.steps.length > 0) {
         const lastStep = d.steps[d.steps.length - 1];
         if (lastStep.actedAt) {
@@ -107,21 +107,21 @@ export class ReportsService {
 
     const now = new Date();
     const taskTotal = tasks.length;
-    const taskCompleted = tasks.filter((t) => t.status === 'Hoàn thành').length;
-    const taskInProgress = tasks.filter((t) => t.status === 'Đang làm').length;
-    const taskPendingReview = tasks.filter((t) => t.status === 'Chờ duyệt').length;
-    const taskNotStarted = tasks.filter((t) => t.status === 'Chưa làm').length;
+    const taskCompleted = tasks.filter((t: any) => t.status === 'Hoàn thành').length;
+    const taskInProgress = tasks.filter((t: any) => t.status === 'Đang làm').length;
+    const taskPendingReview = tasks.filter((t: any) => t.status === 'Chờ duyệt').length;
+    const taskNotStarted = tasks.filter((t: any) => t.status === 'Chưa làm').length;
     const taskOverdue = tasks.filter(
-      (t) => t.status !== 'Hoàn thành' && t.dueDate && new Date(t.dueDate) < now,
+      (t: any) => t.status !== 'Hoàn thành' && t.dueDate && new Date(t.dueDate) < now,
     ).length;
 
     // 3. Contracts metrics
-    const contracts = documents.filter((d) => d.type === 'contract');
+    const contracts = documents.filter((d: any) => d.type === 'contract');
     let totalContractValue = 0;
     let expiringSoonCount = 0;
     const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
-    const contractList = contracts.map((c) => {
+    const contractList = contracts.map((c: any) => {
       const data = (c.dataJson as any) || {};
       const val = Number(data.value) || 0;
       totalContractValue += val;
@@ -160,7 +160,7 @@ export class ReportsService {
         approvalRate: docTotal > 0 ? Math.round((docApproved / docTotal) * 100) : 0,
         avgApprovalTimeHours,
         byType: docTypeMap,
-        items: documents.slice(0, 100).map((d) => ({
+        items: documents.slice(0, 100).map((d: any) => ({
           id: d.id,
           code: d.code,
           title: d.title,
@@ -179,7 +179,7 @@ export class ReportsService {
         notStarted: taskNotStarted,
         overdue: taskOverdue,
         completionRate: taskTotal > 0 ? Math.round((taskCompleted / taskTotal) * 100) : 0,
-        items: tasks.slice(0, 100).map((t) => ({
+        items: tasks.slice(0, 100).map((t: any) => ({
           id: t.id,
           code: t.code,
           title: t.title,
@@ -227,14 +227,14 @@ export class ReportsService {
     });
 
     // Populate actor names
-    const actorIds = Array.from(new Set(logs.map((l) => l.actorId).filter(Boolean))) as number[];
+    const actorIds = Array.from(new Set(logs.map((l: any) => l.actorId).filter(Boolean))) as number[];
     const actors = await this.prisma.user.findMany({
       where: { id: { in: actorIds } },
       select: { id: true, name: true, email: true },
     });
-    const actorMap = new Map(actors.map((a) => [a.id, a]));
+    const actorMap = new Map(actors.map((a: any) => [a.id, a]));
 
-    return logs.map((l) => ({
+    return logs.map((l: any) => ({
       ...l,
       actor: l.actorId ? actorMap.get(l.actorId) || { name: 'Người dùng #' + l.actorId } : { name: 'Hệ thống' },
     }));
@@ -261,7 +261,7 @@ export class ReportsService {
         this.escapeCsv(d.department),
         this.escapeCsv(new Date(d.createdAt).toLocaleDateString('vi-VN')),
       ]);
-      csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
+      csvContent = [headers.join(','), ...rows.map((r: any) => r.join(','))].join('\r\n');
     } else if (type === 'tasks') {
       const summary = await this.getSummary(user, filter);
       const headers = ['Mã công việc', 'Tiêu đề', 'Mức ưu tiên', 'Trạng thái', 'Tiến độ (%)', 'Người thực hiện', 'Phòng ban', 'Hạn hoàn thành', 'Quá hạn'];
@@ -276,7 +276,7 @@ export class ReportsService {
         this.escapeCsv(t.dueDate ? new Date(t.dueDate).toLocaleDateString('vi-VN') : ''),
         t.isOverdue ? 'Có' : 'Không',
       ]);
-      csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
+      csvContent = [headers.join(','), ...rows.map((r: any) => r.join(','))].join('\r\n');
     } else if (type === 'contracts') {
       const summary = await this.getSummary(user, filter);
       const headers = ['Mã hợp đồng', 'Tiêu đề', 'Đối tác', 'Giá trị (VNĐ)', 'Ngày hiệu lực', 'Ngày hết hạn', 'Người phụ trách', 'Trạng thái', 'Sắp hết hạn'];
@@ -291,7 +291,7 @@ export class ReportsService {
         this.escapeCsv(c.status),
         c.isExpiringSoon ? 'Có' : 'Không',
       ]);
-      csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
+      csvContent = [headers.join(','), ...rows.map((r: any) => r.join(','))].join('\r\n');
     } else if (type === 'audit_logs') {
       const logs = await this.getAuditLogs(user, {
         startDate: filter.startDate,
@@ -308,7 +308,7 @@ export class ReportsService {
         this.escapeCsv(l.ip || ''),
         this.escapeCsv(new Date(l.createdAt).toLocaleString('vi-VN')),
       ]);
-      csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
+      csvContent = [headers.join(','), ...rows.map((r: any) => r.join(','))].join('\r\n');
     }
 
     return BOM + csvContent;
