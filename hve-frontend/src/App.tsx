@@ -141,6 +141,7 @@ export default function App() {
   const [isSetPinOpen, setIsSetPinOpen] = useState<boolean>(false);
   const [pinStatus, setPinStatus] = useState<{ hasPin: boolean; enabled: boolean } | null>(null);
   const [showFirstLoginPinPrompt, setShowFirstLoginPinPrompt] = useState<boolean>(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
@@ -815,7 +816,6 @@ export default function App() {
           authError={authError}
           isProcessing={isProcessing}
           onLogin={handleLogin}
-          onSwitchAccount={handleSwitchAccount}
         />
       </>
     );
@@ -832,13 +832,14 @@ export default function App() {
         pendingCount={pendingCount}
         taskCount={taskCount}
         user={user}
+        isMobileOpen={isMobileMenuOpen}
+        onClose={() => setIsMobileMenuOpen(false)}
         onSelectTab={(tab) => {
           setSelectedDoc(null);
           setSelectedTaskId(null);
           setActiveTab(tab);
         }}
         onLogout={handleLogout}
-        onSwitchAccount={handleSwitchAccount}
         onOpenSetPin={() => setIsSetPinOpen(true)}
       />
 
@@ -847,37 +848,47 @@ export default function App() {
         <OfflineBanner />
 
         {/* Header Bar */}
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 z-10">
+        <header className="h-14 md:h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-8 z-10 flex-shrink-0">
           <div className="flex items-center space-x-3">
-            <h2 className="text-base font-bold text-gray-900">
+            {/* Mobile hamburger */}
+            <button
+              className="md:hidden p-2 rounded-lg text-gray-600 hover:bg-slate-100 transition-colors"
+              onClick={() => setIsMobileMenuOpen(true)}
+              aria-label="Mở menu"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+            <h2 className="text-sm md:text-base font-bold text-gray-900 truncate">
               {activeTab === 'overview' && 'Tổng quan điều hành'}
               {activeTab === 'documents' && 'Danh sách hồ sơ phê duyệt'}
               {activeTab === 'tasks' && 'Quản lý công việc & Giao nhiệm vụ'}
               {activeTab === 'reports' && 'Báo cáo & Thống kê điều hành'}
               {activeTab === 'create' && 'Khởi tạo hồ sơ phê duyệt mới'}
-              {activeTab === 'admin_workflows' && 'Cấu hình quy trình phê duyệt (Quản trị IT)'}
-              {activeTab === 'admin_users' && 'Quản lý người dùng & phân quyền (Quản trị IT)'}
+              {activeTab === 'admin_workflows' && 'Cấu hình quy trình (Quản trị IT)'}
+              {activeTab === 'admin_users' && 'Quản lý người dùng (Quản trị IT)'}
             </h2>
             {selectedDoc && (
-              <span className="text-sm text-gray-400 font-medium">/ Chi tiết {selectedDoc.code}</span>
+              <span className="hidden sm:inline text-sm text-gray-400 font-medium">/ Chi tiết {selectedDoc.code}</span>
             )}
           </div>
 
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2 md:space-x-4">
             <NotificationBell
               apiBaseUrl={API_BASE_URL}
               onNavigate={handleNotificationNavigate}
             />
-            <div className="h-5 w-px bg-slate-200" />
-            <span className="text-xs text-gray-500">
-              Đang đăng nhập: <strong className="text-gray-800">{user?.name}</strong> (
-              {user?.roles?.map((r: string) => ROLE_LABELS[r] || r).join(', ')})
+            <div className="hidden sm:block h-5 w-px bg-slate-200" />
+            <span className="hidden sm:block text-xs text-gray-500">
+              <strong className="text-gray-800">{user?.name}</strong>
+              <span className="hidden md:inline"> ({user?.roles?.map((r: string) => ROLE_LABELS[r] || r).join(', ')})</span>
             </span>
           </div>
         </header>
 
         {/* Tab Body */}
-        <div className="flex-1 p-8 overflow-y-auto">
+        <div className="flex-1 p-4 md:p-8 overflow-y-auto">
           {/* TAB 1: OVERVIEW */}
           {activeTab === 'overview' && (
             <OverviewDashboard

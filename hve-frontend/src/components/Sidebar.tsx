@@ -7,9 +7,10 @@ interface SidebarProps {
   pendingCount: number;
   taskCount?: number;
   user: any;
+  isMobileOpen?: boolean;
+  onClose?: () => void;
   onSelectTab: (tab: 'overview' | 'documents' | 'create' | 'tasks' | 'reports' | 'admin_workflows' | 'admin_users') => void;
   onLogout: () => void;
-  onSwitchAccount: (email: string) => void;
   onOpenSetPin?: () => void;
 }
 
@@ -18,17 +19,40 @@ export const Sidebar: React.FC<SidebarProps> = ({
   pendingCount,
   taskCount = 0,
   user,
+  isMobileOpen = false,
+  onClose,
   onSelectTab,
   onLogout,
-  onSwitchAccount,
   onOpenSetPin,
 }) => {
   const userRoleNames: string[] = user?.roles || [];
   const isAdmin = userRoleNames.includes('it_admin') || userRoleNames.includes('ceo');
   const isCeo = userRoleNames.includes('ceo');
 
+  const handleTabSelect = (tab: any) => {
+    onSelectTab(tab);
+    onClose?.(); // close mobile drawer on nav
+  };
+
   return (
-    <aside className="w-64 bg-white border-r border-slate-200 flex flex-col justify-between">
+    <>
+      {/* Mobile backdrop overlay */}
+      {isMobileOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-black/40 md:hidden"
+          onClick={onClose}
+          aria-hidden="true"
+        />
+      )}
+
+      <aside
+        className={`
+          w-64 bg-white border-r border-slate-200 flex flex-col justify-between
+          fixed inset-y-0 left-0 z-40 transform transition-transform duration-300 ease-in-out
+          md:relative md:translate-x-0 md:z-auto
+          ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'}
+        `}
+      >
       <div>
         {/* Logo Header */}
         <div className="h-16 flex items-center px-6 border-b border-slate-100 space-x-3">
@@ -45,7 +69,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Navigation Links */}
         <nav className="p-4 space-y-1.5">
           <button
-            onClick={() => onSelectTab('overview')}
+            onClick={() => handleTabSelect('overview')}
             className={`w-full flex items-center px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
               activeTab === 'overview'
                 ? 'bg-blue-50 text-[#0A66C2] font-semibold'
@@ -56,7 +80,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
 
           <button
-            onClick={() => onSelectTab('documents')}
+            onClick={() => handleTabSelect('documents')}
             className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
               activeTab === 'documents'
                 ? 'bg-blue-50 text-[#0A66C2] font-semibold'
@@ -74,7 +98,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
 
           <button
-            onClick={() => onSelectTab('tasks')}
+            onClick={() => handleTabSelect('tasks')}
             className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
               activeTab === 'tasks'
                 ? 'bg-blue-50 text-[#0A66C2] font-semibold'
@@ -92,7 +116,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
 
           <button
-            onClick={() => onSelectTab('reports')}
+            onClick={() => handleTabSelect('reports')}
             className={`w-full flex items-center px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
               activeTab === 'reports'
                 ? 'bg-blue-50 text-[#0A66C2] font-semibold'
@@ -103,7 +127,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
 
           <button
-            onClick={() => onSelectTab('create')}
+            onClick={() => handleTabSelect('create')}
             className={`w-full flex items-center px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
               activeTab === 'create'
                 ? 'bg-blue-50 text-[#0A66C2] font-semibold'
@@ -121,7 +145,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
 
               <button
-                onClick={() => onSelectTab('admin_workflows')}
+                onClick={() => handleTabSelect('admin_workflows')}
                 className={`w-full flex items-center px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
                   activeTab === 'admin_workflows'
                     ? 'bg-blue-50 text-[#0A66C2] font-semibold'
@@ -132,7 +156,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </button>
 
               <button
-                onClick={() => onSelectTab('admin_users')}
+                onClick={() => handleTabSelect('admin_users')}
                 className={`w-full flex items-center px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
                   activeTab === 'admin_users'
                     ? 'bg-blue-50 text-[#0A66C2] font-semibold'
@@ -183,57 +207,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         )}
 
-        {/* Demo fast-switch account */}
-        <div className="pt-2 border-t border-slate-200/60">
-          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block mb-1.5">
-            Chuyển nhanh vai trò:
-          </span>
-          <div className="grid grid-cols-2 gap-1 text-[11px]">
-            <button
-              onClick={() => onSwitchAccount('admin@huyvoeducation.vn')}
-              className="p-1 rounded bg-white hover:bg-slate-100 text-gray-700 font-medium border border-slate-200 text-left truncate"
-              title="Quản trị IT (Cấu hình luồng, Quản lý người dùng)"
-            >
-              🛠 Quản trị IT
-            </button>
-            <button
-              onClick={() => onSwitchAccount('ceo@huyvoeducation.vn')}
-              className="p-1 rounded bg-white hover:bg-slate-100 text-gray-700 font-medium border border-slate-200 text-left truncate"
-              title="CEO (Phê duyệt cao nhất)"
-            >
-              👑 CEO
-            </button>
-            <button
-              onClick={() => onSwitchAccount('tp_it@huyvoeducation.vn')}
-              className="p-1 rounded bg-white hover:bg-slate-100 text-gray-700 font-medium border border-slate-200 text-left truncate"
-              title="Trưởng phòng IT (Duyệt cấp bộ phận IT)"
-            >
-              👔 Trưởng BP IT
-            </button>
-            <button
-              onClick={() => onSwitchAccount('ketoan@huyvoeducation.vn')}
-              className="p-1 rounded bg-white hover:bg-slate-100 text-gray-700 font-medium border border-slate-200 text-left truncate"
-              title="Kế toán (Duyệt thanh toán, hợp đồng)"
-            >
-              💼 Kế toán
-            </button>
-            <button
-              onClick={() => onSwitchAccount('phapche@huyvoeducation.vn')}
-              className="p-1 rounded bg-white hover:bg-slate-100 text-gray-700 font-medium border border-slate-200 text-left truncate"
-              title="Pháp chế (Duyệt hợp đồng)"
-            >
-              ⚖️ Pháp chế
-            </button>
-            <button
-              onClick={() => onSwitchAccount('nv1@huyvoeducation.vn')}
-              className="p-1 rounded bg-white hover:bg-slate-100 text-gray-700 font-medium border border-slate-200 text-left truncate"
-              title="Nhân viên 1 (Lập đề nghị)"
-            >
-              👤 Nhân viên
-            </button>
-          </div>
-        </div>
       </div>
     </aside>
+    </>
   );
 };
