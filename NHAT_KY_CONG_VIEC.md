@@ -352,4 +352,23 @@ Dự án đã hoàn thành toàn bộ các giai đoạn (Phase 0 ➔ Phase 5) v�
 - **Tối ưu frontend:** main chunk giảm từ 434,02 KB xuống 337,54 KB (gzip 110,47 KB xuống 94,61 KB); các trang lớn được lazy-load và có error boundary.
 - **Baseline kiểm thử:** backend build/lint pass, 146/146 test pass; frontend build pass, 6/6 contract test pass, lint không có error.
 - **Triển khai:** Dockerfile Node.js 22 và `--ignore-scripts`; Railway một replica Singapore, không dùng volume; không có migration database.
-- **Lưu ý dọn UAT:** một tệp upload kiểm tra có tên chứa `TEST-railway-cutover-icon` có thể còn trên Google Drive vì service account không có quyền liệt kê/xóa tệp qua API. Cần tài khoản quản trị Drive xóa thủ công nếu nhìn thấy tệp này.
+- **Dọn UAT:** attachment metadata cũ đã được xóa; file Drive được tham chiếu trả 404 khi kiểm tra nên không còn file vật lý đó để dọn.
+
+---
+
+## 8. RESET DATA PRODUCTION & XÁC MINH EMAIL ĐĂNG NHẬP (TỐI 16/09/2026)
+
+- **Yêu cầu:** đưa production về dữ liệu trắng và bổ sung xác minh email chống chiếm tài khoản/đăng nhập thiết bị lạ.
+- **Reset production đã thực hiện:**
+  - Trước reset: 10 user, 5 hồ sơ, 16 bước duyệt, 6 công việc, 1 attachment, 7 thông báo, 65 audit log và 4 push subscription.
+  - Sau reset: giữ duy nhất `admin@huyvoeducation.vn` với role `it_admin`; hồ sơ, công việc, attachment, comment, notification, audit và push subscription đều bằng 0.
+  - Giữ nguyên dữ liệu cấu hình: 5 phòng ban, 6 role, 3 workflow và 9 workflow step.
+  - Thu hồi refresh token, reset bộ đếm đăng nhập sai của IT Admin; giữ nguyên mật khẩu hiện tại.
+  - Tệp Drive được tham chiếu bởi attachment cũ đã trả 404 trước khi xóa metadata, nên không còn file vật lý đó để dọn.
+- **Xác minh đăng nhập:**
+  - OTP email 6 số cho lần đầu/thiết bị lạ; hạn 10 phút, một lần sử dụng, tối đa 5 lần sai.
+  - Thiết bị tin cậy lưu bằng hash của ID ngẫu nhiên trên trình duyệt; không dùng IP làm định danh.
+  - Chưa cấp JWT trước khi OTP đúng; đổi email hoặc reset mật khẩu thu hồi thiết bị và phiên cũ.
+  - UI đăng nhập có màn hình nhập OTP và hiển thị email đã che bớt.
+- **Trạng thái kích hoạt:** code/migration sẵn sàng; Railway giữ `LOGIN_EMAIL_OTP_ENABLED=false` vì chưa có SMTP production. Cần cấu hình SMTP HVE, gửi thử thành công rồi mới bật để tránh khóa toàn bộ người dùng.
+- **Kiểm thử:** backend lint/build pass, 148/148 test pass; frontend build pass, 6/6 contract test pass, lint không có error.

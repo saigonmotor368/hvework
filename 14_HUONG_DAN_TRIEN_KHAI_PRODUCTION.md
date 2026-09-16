@@ -92,3 +92,26 @@ Deploy từ commit sạch. Sau deploy phải kiểm tra:
 ## 7. Theo dõi sau phát hành
 
 Theo dõi 30–60 phút: HTTP 5xx, thời gian phản hồi, lỗi CORS, lỗi xác thực, kết nối Supabase và Google Drive. Mục tiêu phản hồi warm median dưới 500 ms. Nếu xuất hiện lỗi nghiêm trọng, rollback trước rồi mới điều tra.
+
+## 8. Xác minh email khi đăng nhập
+
+Hệ thống hỗ trợ OTP email 6 số trong hai trường hợp:
+
+- Lần đăng nhập đầu tiên của tài khoản.
+- Đăng nhập từ trình duyệt/thiết bị chưa được xác minh.
+
+OTP có hiệu lực 10 phút, dùng một lần và khóa challenge sau 5 lần nhập sai. Chỉ sau khi OTP đúng backend mới cấp access/refresh token và ghi nhận thiết bị tin cậy. Đổi email hoặc IT Admin reset mật khẩu sẽ thu hồi toàn bộ thiết bị tin cậy và refresh token của tài khoản đó.
+
+Các biến Railway cần cấu hình:
+
+```text
+SMTP_HOST=<GOOGLE_WORKSPACE_SMTP_HOST>
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=<HVE_MAILBOX>
+SMTP_PASS=<GOOGLE_WORKSPACE_APP_PASSWORD>
+EMAIL_FROM=HVE Work <no-reply@huyvoeducation.vn>
+LOGIN_EMAIL_OTP_ENABLED=true
+```
+
+Giữ `LOGIN_EMAIL_OTP_ENABLED=false` cho tới khi gửi thử SMTP thành công. Nếu bật nhưng SMTP thiếu hoặc lỗi, luồng xác minh sẽ fail-closed và không cấp JWT.
