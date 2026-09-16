@@ -1,4 +1,5 @@
 import React from 'react';
+import { PwaInstallPrompt } from './PwaInstallPrompt.js';
 
 interface LoginPageProps {
   authError: string;
@@ -72,6 +73,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             Quên mật khẩu? Liên hệ IT Admin tại{' '}
             <span className="font-medium text-gray-600">admin@huyvoeducation.vn</span>
           </p>
+
+          <div className="mt-4 pt-4 border-t border-gray-100">
+            <PwaInstallPrompt />
+          </div>
         </div>
       </div>
     </div>
