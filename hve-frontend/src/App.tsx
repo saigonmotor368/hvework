@@ -381,6 +381,7 @@ export default function App() {
       localStorage.setItem('user', JSON.stringify(data.user));
 
       setUser(data.user);
+      setIsAuthenticated(true);
       setSelectedDoc(null);
       showToast(`Đã chuyển sang tài khoản: ${data.user.name} (${email})`);
       fetchDocuments();
