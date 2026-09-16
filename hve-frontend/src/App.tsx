@@ -16,7 +16,7 @@ import { NotificationBell } from './components/NotificationBell';
 import { OfflineBanner } from './components/OfflineBanner';
 import { ViewErrorBoundary } from './components/ViewErrorBoundary';
 import { subscribeToWebPush } from './utils/pwa';
-import { uploadAttachment } from './api/client';
+import { currentDeviceName, getOrCreateDeviceId, uploadAttachment } from './api/client';
 import { ENABLE_MOCK_DATA } from './config';
 import {
   MOCK_USERS,
@@ -51,6 +51,10 @@ export default function App() {
     return !!localStorage.getItem('access_token') && !!localStorage.getItem('user');
   });
   const [authError, setAuthError] = useState<string>('');
+  const [emailChallenge, setEmailChallenge] = useState<{
+    id: string;
+    maskedEmail: string;
+  } | null>(null);
 
   // Check URL params on initial load for direct demo/screenshot routing
   useEffect(() => {
@@ -326,6 +330,16 @@ export default function App() {
   }, [isAuthenticated, user?.id]);
 
   // Handle Login
+  const completeLogin = (data: any) => {
+    localStorage.setItem('access_token', data.access_token);
+    localStorage.setItem('refresh_token', data.refresh_token);
+    localStorage.setItem('user', JSON.stringify(data.user));
+    setEmailChallenge(null);
+    setUser(data.user);
+    setIsAuthenticated(true);
+    showToast(`Chào mừng ${data.user.name} đã đăng nhập!`);
+  };
+
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setAuthError('');
@@ -339,7 +353,12 @@ export default function App() {
       const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({
+          email,
+          password,
+          deviceId: getOrCreateDeviceId(),
+          deviceName: currentDeviceName(),
+        }),
       });
 
       const data = await response.json().catch(() => ({}));
@@ -349,15 +368,45 @@ export default function App() {
         return;
       }
 
-      localStorage.setItem('access_token', data.access_token);
-      localStorage.setItem('refresh_token', data.refresh_token);
-      localStorage.setItem('user', JSON.stringify(data.user));
+      if (data.requiresEmailVerification) {
+        setEmailChallenge({ id: data.challengeId, maskedEmail: data.maskedEmail });
+        showToast(data.message || 'Đã gửi mã xác minh tới email công việc.');
+        return;
+      }
 
-      setUser(data.user);
-      setIsAuthenticated(true);
-      showToast(`Chào mừng ${data.user.name} đã đăng nhập!`);
+      completeLogin(data);
     } catch (err: any) {
       showToast(err.message || 'Không thể kết nối đến máy chủ', 'error');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleVerifyEmail = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!emailChallenge) return;
+    setAuthError('');
+    setIsProcessing(true);
+    const code = String(new FormData(e.currentTarget).get('code') || '').trim();
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/verify-login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          challengeId: emailChallenge.id,
+          code,
+          deviceId: getOrCreateDeviceId(),
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setAuthError(data.message || 'Mã xác minh không chính xác hoặc đã hết hạn');
+        return;
+      }
+      completeLogin(data);
+    } catch (err: any) {
+      setAuthError(err.message || 'Không thể kết nối đến máy chủ');
     } finally {
       setIsProcessing(false);
     }
@@ -724,6 +773,12 @@ export default function App() {
           authError={authError}
           isProcessing={isProcessing}
           onLogin={handleLogin}
+          verificationEmail={emailChallenge?.maskedEmail}
+          onVerifyEmail={handleVerifyEmail}
+          onCancelVerification={() => {
+            setEmailChallenge(null);
+            setAuthError('');
+          }}
         />
       </>
     );

@@ -6,6 +6,9 @@ import { AuditService } from '../audit/audit.service.js';
 import { LoginDto } from './dto/login.dto.js';
 import { ResetPasswordDto } from './dto/reset-password.dto.js';
 import { SetApprovalPinDto, ToggleApprovalPinDto } from './dto/set-approval-pin.dto.js';
+import { VerifyLoginDto } from './dto/verify-login.dto.js';
+import { LoginVerificationMailer } from './login-verification-mailer.service.js';
+import { createHash, randomInt, randomUUID } from 'node:crypto';
 
 @Injectable()
 export class AuthService {
@@ -13,7 +16,37 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private auditService: AuditService,
+    private loginVerificationMailer: LoginVerificationMailer,
   ) {}
+
+  private hashDevice(deviceId: string): string {
+    return createHash('sha256').update(deviceId).digest('hex');
+  }
+
+  private maskEmail(email: string): string {
+    const [local, domain] = email.split('@');
+    if (!domain) return '***';
+    return `${local.slice(0, 2)}***@${domain}`;
+  }
+
+  private tokenPair(user: { id: number; email: string }) {
+    const payload = { email: user.email, sub: user.id };
+    return {
+      accessToken: this.jwtService.sign(payload, { expiresIn: '15m' }),
+      refreshToken: this.jwtService.sign(payload, { expiresIn: '7d' }),
+    };
+  }
+
+  private publicUser(user: any) {
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      department: user.department?.name || null,
+      departmentId: user.departmentId || null,
+      roles: user.roles.map((r: { name: string }) => r.name),
+    };
+  }
 
   async login(loginDto: LoginDto, ip?: string, device?: string) {
     const { email, password } = loginDto;
@@ -72,10 +105,79 @@ export class AuthService {
       );
     }
 
-    // Reset failed login attempts on success
-    const payload = { email: user.email, sub: user.id };
-    const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
-    const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
+    if (this.loginVerificationMailer.isEnabled()) {
+      if (!loginDto.deviceId) {
+        throw new BadRequestException('Thiết bị đăng nhập không hợp lệ. Vui lòng tải lại trang.');
+      }
+
+      const deviceHash = this.hashDevice(loginDto.deviceId);
+      const trustedDevice = await this.prisma.trustedDevice.findUnique({
+        where: { userId_deviceHash: { userId: user.id, deviceHash } },
+      });
+      const firstLogin = !user.emailVerifiedAt;
+
+      if (firstLogin || !trustedDevice || trustedDevice.revokedAt) {
+        const code = randomInt(100000, 1000000).toString();
+        const challengeId = randomUUID();
+        const otpHash = await bcrypt.hash(code, 10);
+
+        await this.prisma.loginChallenge.deleteMany({
+          where: { userId: user.id, deviceHash, consumedAt: null },
+        });
+        await this.prisma.loginChallenge.create({
+          data: {
+            id: challengeId,
+            userId: user.id,
+            otpHash,
+            deviceHash,
+            deviceLabel: loginDto.deviceName || device,
+            ip,
+            expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+          },
+        });
+
+        try {
+          await this.loginVerificationMailer.sendLoginCode({
+            email: user.email,
+            name: user.name,
+            code,
+            deviceName: loginDto.deviceName || device,
+            ip,
+            firstLogin,
+          });
+        } catch (error) {
+          await this.prisma.loginChallenge.delete({ where: { id: challengeId } });
+          throw error;
+        }
+
+        await this.prisma.user.update({
+          where: { id: user.id },
+          data: { failedLoginAttempts: 0, lockedUntil: null, refreshTokenHash: null },
+        });
+        await this.auditService.logEvent({
+          entityType: 'User',
+          entityId: user.id,
+          action: firstLogin ? 'first_login_email_requested' : 'unfamiliar_device_challenge',
+          actorId: user.id,
+          ip,
+          device: loginDto.deviceName || device,
+        });
+
+        return {
+          requiresEmailVerification: true,
+          challengeId,
+          maskedEmail: this.maskEmail(user.email),
+          message: 'Mã xác minh đăng nhập đã được gửi tới email công việc.',
+        };
+      }
+
+      await this.prisma.trustedDevice.update({
+        where: { id: trustedDevice.id },
+        data: { lastUsedAt: new Date(), lastIp: ip, label: loginDto.deviceName || device },
+      });
+    }
+
+    const { accessToken, refreshToken } = this.tokenPair(user);
     const refreshTokenHash = await bcrypt.hash(refreshToken, 10);
 
     await this.prisma.user.update({
@@ -99,14 +201,107 @@ export class AuthService {
     return {
       access_token: accessToken,
       refresh_token: refreshToken,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        department: user.department?.name || null,
-        departmentId: user.departmentId || null,
-        roles: user.roles.map((r) => r.name),
-      },
+      user: this.publicUser(user),
+    };
+  }
+
+  async verifyLoginChallenge(dto: VerifyLoginDto, ip?: string, device?: string) {
+    const challenge = await this.prisma.loginChallenge.findUnique({
+      where: { id: dto.challengeId },
+      include: { user: { include: { roles: true, department: true } } },
+    });
+
+    if (
+      !challenge ||
+      challenge.consumedAt ||
+      challenge.expiresAt < new Date() ||
+      challenge.deviceHash !== this.hashDevice(dto.deviceId)
+    ) {
+      throw new UnauthorizedException('Phiên xác minh không hợp lệ hoặc đã hết hạn');
+    }
+
+    if (challenge.attempts >= 5) {
+      throw new UnauthorizedException('Mã xác minh đã bị khóa do nhập sai quá nhiều lần');
+    }
+
+    const isMatch = await bcrypt.compare(dto.code, challenge.otpHash);
+    if (!isMatch) {
+      const attempts = challenge.attempts + 1;
+      await this.prisma.loginChallenge.update({
+        where: { id: challenge.id },
+        data: { attempts },
+      });
+      await this.auditService.logEvent({
+        entityType: 'User',
+        entityId: challenge.userId,
+        action: attempts >= 5 ? 'login_email_code_locked' : 'login_email_code_failed',
+        actorId: challenge.userId,
+        ip,
+        device,
+      });
+      throw new UnauthorizedException(
+        attempts >= 5
+          ? 'Mã xác minh đã bị khóa do nhập sai 5 lần'
+          : `Mã xác minh không chính xác. Đã nhập sai ${attempts}/5 lần.`,
+      );
+    }
+
+    const user = challenge.user;
+    if (user.status !== 'active') {
+      throw new UnauthorizedException('Tài khoản không hoạt động');
+    }
+
+    const { accessToken, refreshToken } = this.tokenPair(user);
+    const refreshTokenHash = await bcrypt.hash(refreshToken, 10);
+    const verifiedAt = new Date();
+
+    await this.prisma.$transaction([
+      this.prisma.loginChallenge.update({
+        where: { id: challenge.id },
+        data: { consumedAt: verifiedAt },
+      }),
+      this.prisma.trustedDevice.upsert({
+        where: {
+          userId_deviceHash: { userId: user.id, deviceHash: challenge.deviceHash },
+        },
+        create: {
+          userId: user.id,
+          deviceHash: challenge.deviceHash,
+          label: challenge.deviceLabel || device,
+          lastIp: ip || challenge.ip,
+          lastUsedAt: verifiedAt,
+        },
+        update: {
+          revokedAt: null,
+          label: challenge.deviceLabel || device,
+          lastIp: ip || challenge.ip,
+          lastUsedAt: verifiedAt,
+        },
+      }),
+      this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          emailVerifiedAt: user.emailVerifiedAt || verifiedAt,
+          refreshTokenHash,
+          failedLoginAttempts: 0,
+          lockedUntil: null,
+        },
+      }),
+    ]);
+
+    await this.auditService.logEvent({
+      entityType: 'User',
+      entityId: user.id,
+      action: user.emailVerifiedAt ? 'unfamiliar_device_verified' : 'first_login_email_verified',
+      actorId: user.id,
+      ip,
+      device: challenge.deviceLabel || device,
+    });
+
+    return {
+      access_token: accessToken,
+      refresh_token: refreshToken,
+      user: this.publicUser(user),
     };
   }
 

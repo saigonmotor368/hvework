@@ -5,12 +5,18 @@ interface LoginPageProps {
   authError: string;
   isProcessing: boolean;
   onLogin: (e: React.FormEvent<HTMLFormElement>) => void;
+  verificationEmail?: string;
+  onVerifyEmail: (e: React.FormEvent<HTMLFormElement>) => void;
+  onCancelVerification: () => void;
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({
   authError,
   isProcessing,
   onLogin,
+  verificationEmail,
+  onVerifyEmail,
+  onCancelVerification,
 }) => {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
@@ -29,6 +35,49 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-6 shadow-xl shadow-slate-200/60 rounded-2xl sm:px-10 border border-slate-100">
+          {verificationEmail ? (
+            <form className="space-y-5" onSubmit={onVerifyEmail}>
+              <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-900">
+                Thiết bị này cần được xác minh. Mã 6 số đã gửi tới{' '}
+                <strong>{verificationEmail}</strong> và có hiệu lực trong 10 phút.
+              </div>
+              {authError && (
+                <div className="text-sm text-red-700 bg-red-50 p-3 rounded-lg border border-red-100">
+                  {authError}
+                </div>
+              )}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700">Mã xác minh email</label>
+                <input
+                  name="code"
+                  type="text"
+                  required
+                  inputMode="numeric"
+                  pattern="[0-9]{6}"
+                  maxLength={6}
+                  autoComplete="one-time-code"
+                  placeholder="000000"
+                  autoFocus
+                  className="mt-1 block w-full px-3.5 py-3 bg-slate-50 border border-gray-200 rounded-lg text-center text-xl tracking-[0.35em] font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#0A66C2] focus:bg-white"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={isProcessing}
+                className="w-full flex justify-center py-2.5 px-4 rounded-lg shadow-md text-sm font-semibold text-white bg-[#0A66C2] hover:bg-blue-700 disabled:opacity-50"
+              >
+                {isProcessing ? 'Đang xác minh...' : 'Xác minh và đăng nhập'}
+              </button>
+              <button
+                type="button"
+                onClick={onCancelVerification}
+                disabled={isProcessing}
+                className="w-full text-sm font-medium text-gray-500 hover:text-gray-700"
+              >
+                Quay lại đăng nhập
+              </button>
+            </form>
+          ) : (
           <form className="space-y-5" onSubmit={onLogin}>
             {authError && (
               <div className="text-sm text-red-700 bg-red-50 p-3 rounded-lg border border-red-100">
@@ -68,6 +117,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
               {isProcessing ? 'Đang đăng nhập...' : 'Đăng nhập vào hệ thống'}
             </button>
           </form>
+          )}
 
           <p className="mt-6 text-center text-xs text-gray-400">
             Quên mật khẩu? Liên hệ IT Admin tại{' '}
@@ -82,5 +132,4 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     </div>
   );
 };
-
 

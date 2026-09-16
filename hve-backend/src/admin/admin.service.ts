@@ -151,6 +151,8 @@ export class AdminService {
         throw new ConflictException('Email này đã được sử dụng bởi người dùng khác');
       }
       updateData.email = emailLower;
+      updateData.emailVerifiedAt = null;
+      updateData.refreshTokenHash = null;
     }
 
     if (dto.departmentId !== undefined) {
@@ -203,6 +205,11 @@ export class AdminService {
       },
     });
 
+    if (updateData.emailVerifiedAt === null) {
+      await this.prisma.trustedDevice.deleteMany({ where: { userId: targetUserId } });
+      await this.prisma.loginChallenge.deleteMany({ where: { userId: targetUserId } });
+    }
+
     await this.auditService.logEvent({
       entityType: 'User',
       entityId: user.id,
@@ -252,8 +259,13 @@ export class AdminService {
         failedLoginAttempts: 0,
         lockedUntil: null,
         status: 'active',
+        refreshTokenHash: null,
+        emailVerifiedAt: null,
       },
     });
+
+    await this.prisma.trustedDevice.deleteMany({ where: { userId: targetUserId } });
+    await this.prisma.loginChallenge.deleteMany({ where: { userId: targetUserId } });
 
     await this.auditService.logEvent({
       entityType: 'User',

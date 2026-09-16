@@ -1,5 +1,19 @@
 export type Fetcher = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
+const DEVICE_ID_KEY = 'hve_device_id';
+
+export function getOrCreateDeviceId(): string {
+  const existing = localStorage.getItem(DEVICE_ID_KEY);
+  if (existing) return existing;
+  const id = crypto.randomUUID();
+  localStorage.setItem(DEVICE_ID_KEY, id);
+  return id;
+}
+
+export function currentDeviceName(): string {
+  return navigator.userAgent.slice(0, 200);
+}
+
 function apiUrl(apiBaseUrl: string, path: string): string {
   if (/^https?:\/\//i.test(path)) return path;
   return `${apiBaseUrl.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`;

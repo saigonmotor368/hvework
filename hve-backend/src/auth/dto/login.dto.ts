@@ -1,4 +1,4 @@
-import { IsEmail, IsNotEmpty, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class LoginDto {
   @IsEmail({}, { message: 'Email không hợp lệ' })
@@ -9,4 +9,15 @@ export class LoginDto {
   @IsNotEmpty({ message: 'Mật khẩu không được để trống' })
   @MinLength(6, { message: 'Mật khẩu tối thiểu 6 ký tự' })
   password: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(16)
+  @MaxLength(200)
+  deviceId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  deviceName?: string;
 }

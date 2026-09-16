@@ -5,12 +5,15 @@ import { JwtService } from '@nestjs/jwt';
 import { AuditService } from '../audit/audit.service.js';
 import { UnauthorizedException, BadRequestException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
+import { LoginVerificationMailer } from './login-verification-mailer.service.js';
+import { createHash } from 'node:crypto';
 
 describe('AuthService', () => {
   let service: AuthService;
   let prisma: any;
   let jwtService: any;
   let auditService: any;
+  let loginVerificationMailer: any;
 
   const mockPasswordHash = bcrypt.hashSync('123456', 10);
 
@@ -20,6 +23,22 @@ describe('AuthService', () => {
         findUnique: vi.fn(),
         update: vi.fn(),
       },
+      trustedDevice: {
+        findUnique: vi.fn(),
+        update: vi.fn(),
+        upsert: vi.fn().mockResolvedValue({}),
+        deleteMany: vi.fn(),
+      },
+      loginChallenge: {
+        findUnique: vi.fn(),
+        create: vi.fn(),
+        update: vi.fn().mockResolvedValue({}),
+        delete: vi.fn(),
+        deleteMany: vi.fn(),
+      },
+      $transaction: vi.fn().mockImplementation(async (operations: Promise<unknown>[]) =>
+        Promise.all(operations),
+      ),
     };
 
     jwtService = {
@@ -30,6 +49,10 @@ describe('AuthService', () => {
     auditService = {
       logEvent: vi.fn().mockResolvedValue({ id: 1 }),
     };
+    loginVerificationMailer = {
+      isEnabled: vi.fn().mockReturnValue(false),
+      sendLoginCode: vi.fn().mockResolvedValue(undefined),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -37,6 +60,7 @@ describe('AuthService', () => {
         { provide: PrismaService, useValue: prisma },
         { provide: JwtService, useValue: jwtService },
         { provide: AuditService, useValue: auditService },
+        { provide: LoginVerificationMailer, useValue: loginVerificationMailer },
       ],
     }).compile();
 
@@ -146,6 +170,79 @@ describe('AuthService', () => {
       await expect(
         service.login({ email: 'locked@huyvoeducation.vn', password: '123456' }),
       ).rejects.toThrow('Tài khoản tạm thời bị khoá');
+    });
+
+    it('should send an email challenge and withhold JWT on first login', async () => {
+      loginVerificationMailer.isEnabled.mockReturnValue(true);
+      prisma.user.findUnique.mockResolvedValue({
+        id: 11,
+        email: 'new.user@huyvoeducation.vn',
+        passwordHash: mockPasswordHash,
+        name: 'New User',
+        status: 'active',
+        failedLoginAttempts: 0,
+        lockedUntil: null,
+        emailVerifiedAt: null,
+        roles: [{ name: 'employee' }],
+        department: { name: 'IT' },
+      });
+      prisma.trustedDevice.findUnique.mockResolvedValue(null);
+      prisma.loginChallenge.deleteMany.mockResolvedValue({ count: 0 });
+      prisma.loginChallenge.create.mockResolvedValue({});
+      prisma.user.update.mockResolvedValue({});
+
+      const result = await service.login({
+        email: 'new.user@huyvoeducation.vn',
+        password: '123456',
+        deviceId: 'device-identifier-123456',
+        deviceName: 'Chrome on Windows',
+      });
+
+      expect(result).toMatchObject({ requiresEmailVerification: true });
+      expect(result).not.toHaveProperty('access_token');
+      expect(loginVerificationMailer.sendLoginCode).toHaveBeenCalledWith(
+        expect.objectContaining({ email: 'new.user@huyvoeducation.vn', firstLogin: true }),
+      );
+    });
+  });
+
+  describe('verifyLoginChallenge', () => {
+    it('should trust the device and issue JWT after a correct email code', async () => {
+      const code = '654321';
+      prisma.loginChallenge.findUnique.mockResolvedValue({
+        id: '30ecad53-9d42-4ed1-8b3e-bc66d5e39f4c',
+        userId: 11,
+        otpHash: bcrypt.hashSync(code, 10),
+        deviceHash: createHash('sha256').update('device-identifier-123456').digest('hex'),
+        deviceLabel: 'Chrome on Windows',
+        ip: '127.0.0.1',
+        expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+        attempts: 0,
+        consumedAt: null,
+        user: {
+          id: 11,
+          email: 'new.user@huyvoeducation.vn',
+          name: 'New User',
+          status: 'active',
+          emailVerifiedAt: null,
+          departmentId: 1,
+          department: { name: 'IT' },
+          roles: [{ name: 'employee' }],
+        },
+      });
+      prisma.user.update.mockResolvedValue({});
+
+      const result = await service.verifyLoginChallenge({
+        challengeId: '30ecad53-9d42-4ed1-8b3e-bc66d5e39f4c',
+        code,
+        deviceId: 'device-identifier-123456',
+      });
+
+      expect(result).toHaveProperty('access_token');
+      expect(prisma.trustedDevice.upsert).toHaveBeenCalled();
+      expect(auditService.logEvent).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'first_login_email_verified' }),
+      );
     });
   });
 

@@ -27,201 +27,235 @@ model Role {
 }
 
 model User {
-  id           Int      @id @default(autoincrement())
-  email        String   @unique
+  id           Int     @id @default(autoincrement())
+  email        String  @unique
   passwordHash String
   name         String
   phone        String?
-  status       String   @default("active") // active, locked
+  status       String  @default("active") // active, locked
 
   failedLoginAttempts  Int       @default(0)
   lockedUntil          DateTime?
   refreshTokenHash     String?
   passwordResetToken   String?
   passwordResetExpires DateTime?
+  emailVerifiedAt      DateTime?
 
   // Mã PIN xác nhận duyệt (6 số, tự đặt) — bắt buộc khi CEO thực hiện bước
   // phê duyệt cuối cùng của hồ sơ, độc lập với mật khẩu đăng nhập. CEO có
   // thể tự bật/tắt yêu cầu này (approvalPinEnabled); tắt khi PIN đã có phải
   // xác nhận lại bằng PIN hiện tại.
-  approvalPinHash          String?
-  approvalPinEnabled       Boolean   @default(false)
+  approvalPinHash           String?
+  approvalPinEnabled        Boolean   @default(false)
   approvalPinFailedAttempts Int       @default(0)
   approvalPinLockedUntil    DateTime?
-  
+
   departmentId Int?
   department   Department? @relation(fields: [departmentId], references: [id])
-  
-  roles        Role[]
+
+  roles Role[]
 
   // References for created documents/tasks
-  createdDocuments Document[]
-  assignedTasks    Task[] @relation("AssignedTasks")
-  createdTasks     Task[] @relation("CreatedTasks")
+  createdDocuments  Document[]
+  assignedTasks     Task[]             @relation("AssignedTasks")
+  createdTasks      Task[]             @relation("CreatedTasks")
   pushSubscriptions PushSubscription[]
-  
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  trustedDevices    TrustedDevice[]
+  loginChallenges   LoginChallenge[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TrustedDevice {
+  id         String    @id @default(uuid())
+  userId     Int
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceHash String
+  label      String?
+  lastIp     String?
+  lastUsedAt DateTime  @default(now())
+  createdAt  DateTime  @default(now())
+  revokedAt  DateTime?
+
+  @@unique([userId, deviceHash])
+  @@index([userId, revokedAt])
+}
+
+model LoginChallenge {
+  id          String    @id @default(uuid())
+  userId      Int
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  otpHash     String
+  deviceHash  String
+  deviceLabel String?
+  ip          String?
+  expiresAt   DateTime
+  attempts    Int       @default(0)
+  consumedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([userId, expiresAt])
 }
 
 model Document {
-  id            Int      @id @default(autoincrement())
-  code          String   @unique // e.g., DNTT-2026-001
-  title         String
-  type          String   // payment_request, proposal, contract
-  status        String   @default("Nháp") // Nháp, Chờ duyệt, Trả lại, Từ chối, Đã duyệt
-  dataJson      Json     // Flexible data based on document type
-  
-  createdById   Int
-  createdBy     User     @relation(fields: [createdById], references: [id])
-  
-  version       Int      @default(1)
-  
-  steps         DocumentApprovalStep[]
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id       Int    @id @default(autoincrement())
+  code     String @unique // e.g., DNTT-2026-001
+  title    String
+  type     String // payment_request, proposal, contract
+  status   String @default("Nháp") // Nháp, Chờ duyệt, Trả lại, Từ chối, Đã duyệt
+  dataJson Json // Flexible data based on document type
+
+  createdById Int
+  createdBy   User @relation(fields: [createdById], references: [id])
+
+  version Int @default(1)
+
+  steps DocumentApprovalStep[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model DocumentApprovalStep {
-  id          Int      @id @default(autoincrement())
-  documentId  Int
-  document    Document @relation(fields: [documentId], references: [id])
-  
-  stepOrder   Int
+  id         Int      @id @default(autoincrement())
+  documentId Int
+  document   Document @relation(fields: [documentId], references: [id])
+
+  stepOrder    Int
   roleRequired String
-  assigneeId  Int?     // specific user if assigned
-  
-  status      String   @default("pending") // pending, approved, returned, rejected
-  actedById   Int?
-  actedAt     DateTime?
-  comment     String?
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  assigneeId   Int? // specific user if assigned
+
+  status    String    @default("pending") // pending, approved, returned, rejected
+  actedById Int?
+  actedAt   DateTime?
+  comment   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([documentId, stepOrder])
 }
 
 model WorkflowTemplate {
-  id          Int      @id @default(autoincrement())
-  type        String   @unique // payment_request, proposal, contract
-  name        String
-  
-  steps       WorkflowStepTemplate[]
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id   Int    @id @default(autoincrement())
+  type String @unique // payment_request, proposal, contract
+  name String
+
+  steps WorkflowStepTemplate[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model WorkflowStepTemplate {
-  id                 Int      @id @default(autoincrement())
+  id                 Int              @id @default(autoincrement())
   workflowTemplateId Int
   workflowTemplate   WorkflowTemplate @relation(fields: [workflowTemplateId], references: [id])
-  
-  stepOrder          Int
-  roleRequired       String
-  
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+
+  stepOrder    Int
+  roleRequired String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Task {
-  id               Int      @id @default(autoincrement())
-  code             String   @unique
-  title            String
-  description      String?
-  priority         String   @default("normal") // low, normal, high
-  status           String   @default("Chưa làm") // Chưa làm, Đang làm, Chờ duyệt, Hoàn thành
-  progressPercent  Int      @default(0)
-  
-  startDate        DateTime?
-  dueDate          DateTime?
-  
-  assigneeId       Int?
-  assignee         User?    @relation("AssignedTasks", fields: [assigneeId], references: [id])
-  
-  createdById      Int
-  createdBy        User     @relation("CreatedTasks", fields: [createdById], references: [id])
-  
-  parentTaskId     Int?
-  parentTask       Task?    @relation("TaskToSubtask", fields: [parentTaskId], references: [id])
-  subTasks         Task[]   @relation("TaskToSubtask")
-  
-  recurrenceRule   String?  // null if no recurrence
-  
-  tags             String?  // comma-separated tags or category
-  collaboratorIds  Json?    // array of user ids [2, 3]
-  
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id              Int     @id @default(autoincrement())
+  code            String  @unique
+  title           String
+  description     String?
+  priority        String  @default("normal") // low, normal, high
+  status          String  @default("Chưa làm") // Chưa làm, Đang làm, Chờ duyệt, Hoàn thành
+  progressPercent Int     @default(0)
+
+  startDate DateTime?
+  dueDate   DateTime?
+
+  assigneeId Int?
+  assignee   User? @relation("AssignedTasks", fields: [assigneeId], references: [id])
+
+  createdById Int
+  createdBy   User @relation("CreatedTasks", fields: [createdById], references: [id])
+
+  parentTaskId Int?
+  parentTask   Task?  @relation("TaskToSubtask", fields: [parentTaskId], references: [id])
+  subTasks     Task[] @relation("TaskToSubtask")
+
+  recurrenceRule String? // null if no recurrence
+
+  tags            String? // comma-separated tags or category
+  collaboratorIds Json? // array of user ids [2, 3]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Attachment {
-  id          Int      @id @default(autoincrement())
-  entityType  String   // document, task
-  entityId    Int
-  fileUrl     String
-  fileName    String
-  mimeType    String
-  size        Int
-  version     Int      @default(1)
-  
+  id         Int    @id @default(autoincrement())
+  entityType String // document, task
+  entityId   Int
+  fileUrl    String
+  fileName   String
+  mimeType   String
+  size       Int
+  version    Int    @default(1)
+
   uploadedById Int
-  uploadedAt  DateTime @default(now())
+  uploadedAt   DateTime @default(now())
 }
 
 model Comment {
-  id          Int      @id @default(autoincrement())
-  entityType  String   // document, task
-  entityId    Int
-  userId      Int
-  content     String
-  mentions    Json?    // array of user ids
-  
-  createdAt   DateTime @default(now())
+  id         Int    @id @default(autoincrement())
+  entityType String // document, task
+  entityId   Int
+  userId     Int
+  content    String
+  mentions   Json? // array of user ids
+
+  createdAt DateTime @default(now())
 }
 
 model Notification {
-  id          Int      @id @default(autoincrement())
-  userId      Int
-  eventType   String
-  entityRef   String
-  title       String?
-  content     String?
-  link        String?
-  channel     String   // in_app, email
-  dedupeKey   String   @unique
-  readAt      DateTime?
-  
-  sentAt      DateTime @default(now())
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  eventType String
+  entityRef String
+  title     String?
+  content   String?
+  link      String?
+  channel   String // in_app, email
+  dedupeKey String    @unique
+  readAt    DateTime?
+
+  sentAt DateTime @default(now())
 }
 
 model ReminderRule {
-  id             Int      @id @default(autoincrement())
+  id             Int     @id @default(autoincrement())
   name           String?
-  entityType     String   // document, task, contract
-  offsetDays     Json     // array of days
+  entityType     String // document, task, contract
+  offsetDays     Json // array of days
   recipientsRule String
-  channel        String   // in_app, email
-  isActive       Boolean  @default(true)
-  
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  channel        String // in_app, email
+  isActive       Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model AuditLog {
-  id          Int      @id @default(autoincrement())
-  entityType  String
-  entityId    Int?
-  action      String
-  actorId     Int?
-  beforeJson  Json?
-  afterJson   Json?
-  ip          String?
-  device      String?
-  
-  createdAt   DateTime @default(now())
+  id         Int     @id @default(autoincrement())
+  entityType String
+  entityId   Int?
+  action     String
+  actorId    Int?
+  beforeJson Json?
+  afterJson  Json?
+  ip         String?
+  device     String?
+
+  createdAt DateTime @default(now())
 }
 
 model PushSubscription {
