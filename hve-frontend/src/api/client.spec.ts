@@ -39,6 +39,7 @@ describe('API contracts', () => {
 
   it.each([
     [401, 'Phiên đăng nhập không hợp lệ'],
+    [404, 'Không tìm thấy tệp'],
     [413, 'Dung lượng tệp vượt quá giới hạn'],
   ])('surfaces upload errors with status %s', async (status, message) => {
     const fetcher = vi.fn<Fetcher>().mockResolvedValue(jsonResponse({ message }, status));
