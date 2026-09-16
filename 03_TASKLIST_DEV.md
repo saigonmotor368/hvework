@@ -76,19 +76,20 @@ Bám theo [02_KE_HOACH_TRIEN_KHAI.md](02_KE_HOACH_TRIEN_KHAI.md) và [01_KIEN_TR
 ## Phase 2 — Mở rộng phê duyệt
 
 ### Backend
-- [ ] Màn hình/API IT admin: CRUD `WorkflowTemplate` + `WorkflowStepTemplate` (chọn vai trò từng cấp, thứ tự cấp)
-- [ ] API tạo/sửa/gửi duyệt Đề xuất (form theo mục 5 brief — chỉ mã, tiêu đề, người tạo là bắt buộc)
-- [ ] API tạo/sửa/gửi duyệt Hợp đồng (5 cấp: Người tạo → Trưởng BP → Pháp chế → Kế toán → CEO)
-- [ ] Hợp đồng: lưu ngày hiệu lực/ngày hết hạn, job tính trạng thái cảnh báo sắp hết hạn
-- [ ] Đảm bảo engine duyệt dùng chung code với Phase 1 (không copy-paste logic 3 lần)
+- [x] Màn hình/API IT admin: CRUD `WorkflowTemplate` + `WorkflowStepTemplate` (chọn vai trò từng cấp, thứ tự cấp)
+- [x] API tạo/sửa/gửi duyệt Đề xuất (form theo mục 5 brief — chỉ mã, tiêu đề, người tạo là bắt buộc)
+- [x] API tạo/sửa/gửi duyệt Hợp đồng (5 cấp: Người tạo → Trưởng BP → Pháp chế → Kế toán → CEO)
+- [x] Hợp đồng: lưu ngày hiệu lực/ngày hết hạn, job/helper tính trạng thái cảnh báo sắp hết hạn
+- [x] Đảm bảo engine duyệt dùng chung code với Phase 1 (không copy-paste logic 3 lần)
+- [x] Phân quyền duyệt theo bộ phận: Trưởng bộ phận (`department_head`) chỉ duyệt hồ sơ của nhân sự thuộc bộ phận mình phụ trách
 
 ### Frontend
-- [ ] Form Đề xuất
-- [ ] Form Hợp đồng (đối tác, giá trị, ngày hiệu lực/hết hạn, người phụ trách, file hợp đồng)
-- [ ] Màn hình IT admin cấu hình workflow (kéo thả hoặc form thứ tự cấp + chọn vai trò)
-- [ ] Màn hình quản lý user/vai trò/bộ phận cho IT admin
+- [x] Form Đề xuất (tiêu đề, nội dung đề xuất, tệp đính kèm tùy chọn)
+- [x] Form Hợp đồng (đối tác, giá trị, ngày hiệu lực/hết hạn, người phụ trách, file hợp đồng bắt buộc)
+- [x] Màn hình IT admin cấu hình workflow (thêm/xóa/đổi thứ tự cấp + chọn vai trò)
+- [x] Màn hình quản lý user/vai trò/bộ phận cho IT admin (khóa/mở tài khoản, phân quyền vai trò)
 
-**Nghiệm thu Phase 2:** cả 3 loại hồ sơ chạy đúng luồng riêng của mình bằng cùng 1 engine; IT admin đổi được thứ tự luồng qua UI mà không cần deploy lại code.
+**Nghiệm thu Phase 2:** ✅ **ĐÃ ĐẠT** (Backend 71/71 tests pass, lint sạch 0 warning, Frontend build pass, cả 3 loại hồ sơ chạy đúng luồng riêng bằng chung 1 engine, phân quyền bộ phận chặt chẽ, IT admin cấu hình quy trình và quản lý nhân sự hoàn chỉnh).
 
 ---
 

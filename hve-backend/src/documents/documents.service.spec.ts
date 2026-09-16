@@ -310,6 +310,7 @@ describe('DocumentsService', () => {
         id: 1,
         status: 'Chờ duyệt',
         createdById: 10,
+        createdBy: { id: 10, departmentId: 1 },
         version: 1,
         steps: [
           { id: 101, stepOrder: 1, roleRequired: 'department_head', status: 'pending' },
@@ -318,7 +319,7 @@ describe('DocumentsService', () => {
         ],
       });
 
-      const deptHeadUser = { id: 20, roles: [{ name: 'department_head' }] };
+      const deptHeadUser = { id: 20, departmentId: 1, roles: [{ name: 'department_head' }] };
 
       await service.approveStep(1, 101, deptHeadUser, { comment: 'Đồng ý duyệt' });
 
@@ -337,11 +338,31 @@ describe('DocumentsService', () => {
       );
     });
 
+    it('should reject department_head approval if approver is from a different department', async () => {
+      prisma.document.findUnique.mockResolvedValue({
+        id: 1,
+        status: 'Chờ duyệt',
+        createdById: 10,
+        createdBy: { id: 10, departmentId: 1 }, // Dept 1
+        version: 1,
+        steps: [
+          { id: 101, stepOrder: 1, roleRequired: 'department_head', status: 'pending' },
+        ],
+      });
+
+      const otherDeptHead = { id: 99, departmentId: 2, roles: [{ name: 'department_head' }] }; // Dept 2
+
+      await expect(
+        service.approveStep(1, 101, otherDeptHead, { comment: 'Duyệt chéo phòng' }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
     it('should transition document status to "Đã duyệt" when final step is approved', async () => {
       prisma.document.findUnique.mockResolvedValue({
         id: 1,
         status: 'Chờ duyệt',
         createdById: 10,
+        createdBy: { id: 10, departmentId: 1 },
         version: 3,
         steps: [
           { id: 101, stepOrder: 1, roleRequired: 'department_head', status: 'approved' },
@@ -369,13 +390,14 @@ describe('DocumentsService', () => {
         id: 1,
         status: 'Chờ duyệt',
         createdById: 10,
+        createdBy: { id: 10, departmentId: 1 },
         version: 1,
         steps: [
           { id: 101, stepOrder: 1, roleRequired: 'department_head', status: 'pending' },
         ],
       });
 
-      const approver = { id: 20, roles: [{ name: 'department_head' }] };
+      const approver = { id: 20, departmentId: 1, roles: [{ name: 'department_head' }] };
 
       // Missing comment should fail
       await expect(
@@ -403,13 +425,14 @@ describe('DocumentsService', () => {
         id: 1,
         status: 'Chờ duyệt',
         createdById: 10,
+        createdBy: { id: 10, departmentId: 1 },
         version: 1,
         steps: [
           { id: 101, stepOrder: 1, roleRequired: 'department_head', status: 'pending' },
         ],
       });
 
-      const approver = { id: 20, roles: [{ name: 'department_head' }] };
+      const approver = { id: 20, departmentId: 1, roles: [{ name: 'department_head' }] };
 
       await service.rejectStep(1, 101, approver, {
         comment: 'Khoản chi không phù hợp với kế hoạch ngân sách',
@@ -444,6 +467,156 @@ describe('DocumentsService', () => {
       // Client passed stale version 4
       await expect(service.approveStep(1, 101, user, {}, 4)).rejects.toThrow(
         ConflictException,
+      );
+    });
+  });
+
+  describe('Phase 2: Multi-Document Types & Expiry Calculation', () => {
+    it('should create a proposal with DX code and draft status', async () => {
+      prisma.document.findFirst.mockResolvedValue(null);
+      prisma.document.create.mockResolvedValue({
+        id: 201,
+        code: 'DX-2026-001',
+        title: 'Đề xuất trang bị màn hình mở rộng cho team Dev',
+        type: 'proposal',
+        status: 'Nháp',
+        version: 1,
+        createdById: 10,
+        dataJson: { content: 'Cần 5 màn hình Dell U2422H', attachmentIds: [] },
+      });
+
+      const result = await service.createProposal(10, {
+        title: 'Đề xuất trang bị màn hình mở rộng cho team Dev',
+        content: 'Cần 5 màn hình Dell U2422H',
+      });
+
+      expect(result.code).toBe('DX-2026-001');
+      expect(result.type).toBe('proposal');
+      expect(result.status).toBe('Nháp');
+      expect(auditService.logEvent).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'create_document' }),
+      );
+    });
+
+    it('should create a contract with HD code and valid dates', async () => {
+      prisma.document.findFirst.mockResolvedValue(null);
+      prisma.document.create.mockResolvedValue({
+        id: 301,
+        code: 'HD-2026-001',
+        title: 'Hợp đồng dịch vụ bảo trì hạ tầng IT',
+        type: 'contract',
+        status: 'Nháp',
+        version: 1,
+        createdById: 10,
+        dataJson: {
+          partner: 'Công ty Công nghệ CMC',
+          value: 120000000,
+          startDate: '2026-01-01',
+          endDate: '2026-12-31',
+          manager: 'Nguyễn Văn A',
+        },
+      });
+
+      const result = await service.createContract(10, {
+        title: 'Hợp đồng dịch vụ bảo trì hạ tầng IT',
+        partner: 'Công ty Công nghệ CMC',
+        value: 120000000,
+        startDate: '2026-01-01',
+        endDate: '2026-12-31',
+        manager: 'Nguyễn Văn A',
+      });
+
+      expect(result.code).toBe('HD-2026-001');
+      expect(result.type).toBe('contract');
+      expect(result.isExpiringSoon).toBeDefined();
+    });
+
+    it('should reject contract creation when endDate is before startDate', async () => {
+      await expect(
+        service.createContract(10, {
+          title: 'Hợp đồng sai ngày',
+          partner: 'Công ty ABC',
+          value: 50000000,
+          startDate: '2026-12-31',
+          endDate: '2026-01-01', // End date before start date!
+          manager: 'Nguyễn Văn A',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should calculate contract expiry correctly for valid, expiring_soon, and expired', () => {
+      const now = new Date();
+
+      // Expired: 10 days ago
+      const pastDate = new Date(now.getTime() - 10 * 86400000).toISOString().split('T')[0];
+      const expiredRes = service.calculateContractExpiry({ endDate: pastDate });
+      expect(expiredRes.expiringStatus).toBe('expired');
+      expect(expiredRes.isExpiringSoon).toBe(true);
+
+      // Expiring soon: 15 days in future (<= 30 days)
+      const soonDate = new Date(now.getTime() + 15 * 86400000).toISOString().split('T')[0];
+      const soonRes = service.calculateContractExpiry({ endDate: soonDate });
+      expect(soonRes.expiringStatus).toBe('expiring_soon');
+      expect(soonRes.isExpiringSoon).toBe(true);
+
+      // Valid: 90 days in future (> 30 days)
+      const futureDate = new Date(now.getTime() + 90 * 86400000).toISOString().split('T')[0];
+      const validRes = service.calculateContractExpiry({ endDate: futureDate });
+      expect(validRes.expiringStatus).toBe('valid');
+      expect(validRes.isExpiringSoon).toBe(false);
+    });
+
+    it('should allow proposal submission without mandatory attachments', async () => {
+      prisma.document.findUnique.mockResolvedValue({
+        id: 201,
+        type: 'proposal',
+        status: 'Nháp',
+        createdById: 10,
+        version: 1,
+        dataJson: { content: 'Nội dung đề xuất' },
+      });
+      prisma.attachment.count.mockResolvedValue(0);
+      prisma.workflowTemplate.findUnique.mockResolvedValue({
+        id: 2,
+        type: 'proposal',
+        steps: [
+          { stepOrder: 1, roleRequired: 'department_head' },
+          { stepOrder: 2, roleRequired: 'ceo' },
+        ],
+      });
+      prisma.documentApprovalStep.create.mockResolvedValue({ id: 1 });
+      prisma.document.update.mockResolvedValue({
+        id: 201,
+        type: 'proposal',
+        status: 'Chờ duyệt',
+        version: 2,
+      });
+
+      const result = await service.submitForApproval(201, 10);
+      expect(result.status).toBe('Chờ duyệt');
+      expect(prisma.documentApprovalStep.create).toHaveBeenCalledTimes(2);
+    });
+
+    it('should require contract file attachment when submitting contract', async () => {
+      prisma.document.findUnique.mockResolvedValue({
+        id: 301,
+        type: 'contract',
+        status: 'Nháp',
+        createdById: 10,
+        version: 1,
+        dataJson: {
+          partner: 'Đối tác',
+          value: 10000000,
+          startDate: '2026-01-01',
+          endDate: '2026-12-31',
+          manager: 'Nguyễn Văn A',
+          attachmentIds: [],
+        },
+      });
+      prisma.attachment.count.mockResolvedValue(0);
+
+      await expect(service.submitForApproval(301, 10)).rejects.toThrow(
+        'Bắt buộc phải đính kèm file hợp đồng trước khi gửi duyệt',
       );
     });
   });

@@ -15,6 +15,8 @@ import {
 } from '@nestjs/common';
 import { DocumentsService } from './documents.service.js';
 import { CreatePaymentRequestDto } from './dto/create-payment-request.dto.js';
+import { CreateProposalDto } from './dto/create-proposal.dto.js';
+import { CreateContractDto } from './dto/create-contract.dto.js';
 import { UpdatePaymentRequestDto } from './dto/update-payment-request.dto.js';
 import { ActionStepDto, RejectOrReturnStepDto } from './dto/action-step.dto.js';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
@@ -31,6 +33,33 @@ export class DocumentsController {
     @Req() req: any,
   ) {
     return this.documentsService.createPaymentRequest(req.user.id, dto, req.ip);
+  }
+
+  @Post('proposals')
+  @HttpCode(HttpStatus.CREATED)
+  async createProposal(
+    @Body() dto: CreateProposalDto,
+    @Req() req: any,
+  ) {
+    return this.documentsService.createProposal(req.user.id, dto, req.ip);
+  }
+
+  @Post('contracts')
+  @HttpCode(HttpStatus.CREATED)
+  async createContract(
+    @Body() dto: CreateContractDto,
+    @Req() req: any,
+  ) {
+    return this.documentsService.createContract(req.user.id, dto, req.ip);
+  }
+
+  @Get('contracts/expiring')
+  async getExpiringContracts(
+    @Req() req: any,
+    @Query('offset') offset?: string,
+  ) {
+    const offsetDays = offset ? parseInt(offset, 10) : 30;
+    return this.documentsService.getExpiringContracts(req.user, offsetDays);
   }
 
   @Get()

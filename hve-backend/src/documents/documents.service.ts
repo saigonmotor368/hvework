@@ -8,6 +8,8 @@ import {
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import { CreatePaymentRequestDto } from './dto/create-payment-request.dto.js';
+import { CreateProposalDto } from './dto/create-proposal.dto.js';
+import { CreateContractDto } from './dto/create-contract.dto.js';
 import { UpdatePaymentRequestDto } from './dto/update-payment-request.dto.js';
 import { ActionStepDto, RejectOrReturnStepDto } from './dto/action-step.dto.js';
 
@@ -95,6 +97,143 @@ export class DocumentsService {
     });
 
     return document;
+  }
+
+  async createProposal(userId: number, dto: CreateProposalDto, ip?: string) {
+    const code = await this.generateDocumentCode('DX');
+
+    const dataJson = {
+      content: dto.content,
+      attachmentIds: dto.attachmentIds || [],
+    };
+
+    const document = await this.prisma.document.create({
+      data: {
+        code,
+        title: dto.title,
+        type: 'proposal',
+        status: 'Nháp',
+        dataJson,
+        createdById: userId,
+        version: 1,
+      },
+      include: {
+        createdBy: {
+          select: { id: true, name: true, email: true, department: true },
+        },
+      },
+    });
+
+    if (dto.attachmentIds && dto.attachmentIds.length > 0) {
+      await this.prisma.attachment.updateMany({
+        where: { id: { in: dto.attachmentIds } },
+        data: { entityId: document.id, entityType: 'document' },
+      });
+    }
+
+    await this.auditService.logEvent({
+      entityType: 'Document',
+      entityId: document.id,
+      action: 'create_document',
+      actorId: userId,
+      afterJson: { code, title: dto.title, type: 'proposal', status: 'Nháp' },
+      ip,
+    });
+
+    return document;
+  }
+
+  async createContract(userId: number, dto: CreateContractDto, ip?: string) {
+    if (new Date(dto.endDate) < new Date(dto.startDate)) {
+      throw new BadRequestException('Ngày hết hạn hợp đồng không thể trước ngày hiệu lực');
+    }
+
+    const code = await this.generateDocumentCode('HD');
+
+    const dataJson = {
+      partner: dto.partner,
+      value: dto.value,
+      startDate: dto.startDate,
+      endDate: dto.endDate,
+      manager: dto.manager,
+      notes: dto.notes || '',
+      attachmentIds: dto.attachmentIds || [],
+    };
+
+    const document = await this.prisma.document.create({
+      data: {
+        code,
+        title: dto.title,
+        type: 'contract',
+        status: 'Nháp',
+        dataJson,
+        createdById: userId,
+        version: 1,
+      },
+      include: {
+        createdBy: {
+          select: { id: true, name: true, email: true, department: true },
+        },
+      },
+    });
+
+    if (dto.attachmentIds && dto.attachmentIds.length > 0) {
+      await this.prisma.attachment.updateMany({
+        where: { id: { in: dto.attachmentIds } },
+        data: { entityId: document.id, entityType: 'document' },
+      });
+    }
+
+    await this.auditService.logEvent({
+      entityType: 'Document',
+      entityId: document.id,
+      action: 'create_document',
+      actorId: userId,
+      afterJson: { code, title: dto.title, type: 'contract', status: 'Nháp' },
+      ip,
+    });
+
+    return this.enrichDocument(document);
+  }
+
+  calculateContractExpiry(dataJson: any, offsetDays: number = 30): {
+    isExpiringSoon: boolean;
+    expiringStatus: 'valid' | 'expiring_soon' | 'expired';
+    daysRemaining: number | null;
+  } {
+    if (!dataJson || !dataJson.endDate) {
+      return { isExpiringSoon: false, expiringStatus: 'valid', daysRemaining: null };
+    }
+
+    const end = new Date(dataJson.endDate);
+    if (isNaN(end.getTime())) {
+      return { isExpiringSoon: false, expiringStatus: 'valid', daysRemaining: null };
+    }
+
+    const now = new Date();
+    const endMidnight = new Date(end.getFullYear(), end.getMonth(), end.getDate()).getTime();
+    const nowMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const diffDays = Math.round((endMidnight - nowMidnight) / (1000 * 3600 * 24));
+
+    if (diffDays < 0) {
+      return { isExpiringSoon: true, expiringStatus: 'expired', daysRemaining: diffDays };
+    } else if (diffDays <= offsetDays) {
+      return { isExpiringSoon: true, expiringStatus: 'expiring_soon', daysRemaining: diffDays };
+    } else {
+      return { isExpiringSoon: false, expiringStatus: 'valid', daysRemaining: diffDays };
+    }
+  }
+
+  enrichDocument(doc: any) {
+    if (!doc) return doc;
+    if (doc.type === 'contract') {
+      const expiry = this.calculateContractExpiry(doc.dataJson);
+      return {
+        ...doc,
+        ...expiry,
+      };
+    }
+    return doc;
   }
 
   async updatePaymentRequest(
@@ -277,26 +416,47 @@ export class DocumentsService {
       throw new ForbiddenException('Chỉ người tạo hồ sơ mới có quyền gửi duyệt');
     }
 
-    // Validate mandatory data in dataJson
+    // Validate mandatory data based on document type
+    const docType = doc.type || 'payment_request';
     const data: any = doc.dataJson || {};
-    if (!data.amount || !data.receiver || !data.bankName || !data.bankAccount || !data.content) {
-      throw new BadRequestException('Hồ sơ thiếu các thông tin thanh toán bắt buộc');
-    }
-
-    // Validate mandatory attachments per brief section 5
     const attachmentCount = await this.prisma.attachment.count({
       where: { entityType: 'document', entityId: documentId },
     });
     const hasAttachmentInJson = Array.isArray(data.attachmentIds) && data.attachmentIds.length > 0;
 
-    if (attachmentCount === 0 && !hasAttachmentInJson) {
-      throw new BadRequestException(
-        'Quy định nghiệp vụ: Bắt buộc phải đính kèm ít nhất 1 chứng từ / hóa đơn trước khi gửi duyệt.',
-      );
+    if (docType === 'payment_request') {
+      if (!data.amount || !data.receiver || !data.bankName || !data.bankAccount || !data.content) {
+        throw new BadRequestException('Hồ sơ thiếu các thông tin thanh toán bắt buộc');
+      }
+
+      if (attachmentCount === 0 && !hasAttachmentInJson) {
+        throw new BadRequestException(
+          'Quy định nghiệp vụ: Bắt buộc phải đính kèm ít nhất 1 chứng từ / hóa đơn trước khi gửi duyệt.',
+        );
+      }
+    } else if (docType === 'proposal') {
+      if (!data.content || !data.content.trim()) {
+        throw new BadRequestException('Đề xuất thiếu thông tin nội dung bắt buộc');
+      }
+      // Attachments are optional for proposal
+    } else if (docType === 'contract') {
+      if (!data.partner || data.value === undefined || !data.startDate || !data.endDate || !data.manager) {
+        throw new BadRequestException(
+          'Hợp đồng thiếu các thông tin bắt buộc (đối tác, giá trị, ngày hiệu lực/hết hạn, người phụ trách)',
+        );
+      }
+      if (new Date(data.endDate) < new Date(data.startDate)) {
+        throw new BadRequestException('Ngày hết hạn hợp đồng không thể trước ngày hiệu lực');
+      }
+      if (attachmentCount === 0 && !hasAttachmentInJson) {
+        throw new BadRequestException(
+          'Quy định nghiệp vụ: Bắt buộc phải đính kèm file hợp đồng trước khi gửi duyệt.',
+        );
+      }
     }
 
     const workflowTemplate = await this.prisma.workflowTemplate.findUnique({
-      where: { type: doc.type },
+      where: { type: docType },
       include: {
         steps: {
           orderBy: { stepOrder: 'asc' },
@@ -362,7 +522,10 @@ export class DocumentsService {
   ) {
     const doc = await this.prisma.document.findUnique({
       where: { id: documentId },
-      include: { steps: { orderBy: { stepOrder: 'asc' } } },
+      include: {
+        steps: { orderBy: { stepOrder: 'asc' } },
+        createdBy: { select: { id: true, name: true, email: true, departmentId: true } },
+      },
     });
 
     if (!doc) {
@@ -402,6 +565,17 @@ export class DocumentsService {
       throw new ForbiddenException(
         `Bạn không có vai trò '${step.roleRequired}' để phê duyệt bước này`,
       );
+    }
+
+    // Check department scoping for department_head
+    if (step.roleRequired === 'department_head') {
+      const creatorDeptId = doc.createdBy?.departmentId;
+      const userDeptId = user.departmentId || user.department?.id;
+      if (!creatorDeptId || !userDeptId || creatorDeptId !== userDeptId) {
+        throw new ForbiddenException(
+          'Quy định kiểm soát nội bộ: Trưởng bộ phận chỉ được quyền phê duyệt hồ sơ của nhân sự thuộc bộ phận mình phụ trách',
+        );
+      }
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -475,7 +649,10 @@ export class DocumentsService {
 
     const doc = await this.prisma.document.findUnique({
       where: { id: documentId },
-      include: { steps: { orderBy: { stepOrder: 'asc' } } },
+      include: {
+        steps: { orderBy: { stepOrder: 'asc' } },
+        createdBy: { select: { id: true, name: true, email: true, departmentId: true } },
+      },
     });
 
     if (!doc) {
@@ -506,6 +683,17 @@ export class DocumentsService {
       throw new ForbiddenException(
         `Bạn không có vai trò '${step.roleRequired}' để thực hiện trả lại hồ sơ`,
       );
+    }
+
+    // Check department scoping for department_head
+    if (step.roleRequired === 'department_head') {
+      const creatorDeptId = doc.createdBy?.departmentId;
+      const userDeptId = user.departmentId || user.department?.id;
+      if (!creatorDeptId || !userDeptId || creatorDeptId !== userDeptId) {
+        throw new ForbiddenException(
+          'Quy định kiểm soát nội bộ: Trưởng bộ phận chỉ được quyền trả lại hồ sơ của nhân sự thuộc bộ phận mình phụ trách',
+        );
+      }
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -561,7 +749,10 @@ export class DocumentsService {
 
     const doc = await this.prisma.document.findUnique({
       where: { id: documentId },
-      include: { steps: { orderBy: { stepOrder: 'asc' } } },
+      include: {
+        steps: { orderBy: { stepOrder: 'asc' } },
+        createdBy: { select: { id: true, name: true, email: true, departmentId: true } },
+      },
     });
 
     if (!doc) {
@@ -592,6 +783,17 @@ export class DocumentsService {
       throw new ForbiddenException(
         `Bạn không có vai trò '${step.roleRequired}' để từ chối hồ sơ`,
       );
+    }
+
+    // Check department scoping for department_head
+    if (step.roleRequired === 'department_head') {
+      const creatorDeptId = doc.createdBy?.departmentId;
+      const userDeptId = user.departmentId || user.department?.id;
+      if (!creatorDeptId || !userDeptId || creatorDeptId !== userDeptId) {
+        throw new ForbiddenException(
+          'Quy định kiểm soát nội bộ: Trưởng bộ phận chỉ được quyền từ chối hồ sơ của nhân sự thuộc bộ phận mình phụ trách',
+        );
+      }
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -648,19 +850,36 @@ export class DocumentsService {
     if (query.tab === 'my') {
       where.createdById = user.id;
     } else if (query.tab === 'to_review') {
-      // Only documents in 'Chờ duyệt' where current pending step matches one of user's roles
-      // AND user is NOT the creator (Anti self-approval)
       where.status = 'Chờ duyệt';
       where.createdById = { not: user.id };
-      where.steps = {
-        some: {
+
+      const userDeptId = user.departmentId || user.department?.id;
+      const conditions: any[] = [];
+      const nonDeptRoles = userRoleNames.filter((r) => r !== 'department_head');
+      if (nonDeptRoles.length > 0) {
+        conditions.push({
           status: 'pending',
-          roleRequired: { in: userRoleNames },
-        },
+          roleRequired: { in: nonDeptRoles },
+        });
+      }
+      if (userRoleNames.includes('department_head') && userDeptId) {
+        conditions.push({
+          status: 'pending',
+          roleRequired: 'department_head',
+          document: {
+            createdBy: {
+              departmentId: userDeptId,
+            },
+          },
+        });
+      }
+
+      where.steps = {
+        some: conditions.length === 1 ? conditions[0] : { OR: conditions },
       };
     }
 
-    return this.prisma.document.findMany({
+    const docs = await this.prisma.document.findMany({
       where,
       orderBy: { createdAt: 'desc' },
       include: {
@@ -672,6 +891,8 @@ export class DocumentsService {
         },
       },
     });
+
+    return docs.map((doc) => this.enrichDocument(doc));
   }
 
   async findById(id: number) {
@@ -696,9 +917,17 @@ export class DocumentsService {
       orderBy: { uploadedAt: 'desc' },
     });
 
-    return {
+    return this.enrichDocument({
       ...doc,
       attachments,
-    };
+    });
+  }
+
+  async getExpiringContracts(user: any, offsetDays: number = 30) {
+    const contracts = await this.findAll(user, { type: 'contract' });
+    return contracts.filter((c: any) => {
+      const expiry = this.calculateContractExpiry(c.dataJson, offsetDays);
+      return expiry.expiringStatus === 'expiring_soon' || expiry.expiringStatus === 'expired';
+    });
   }
 }

@@ -5,104 +5,175 @@ import * as bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
 async function main() {
-  // Check if roles exist
-  const existingRoles = await prisma.role.count();
-  if (existingRoles > 0) {
-    console.log('Database already seeded');
-    return;
+  console.log('Starting database seed/update...');
+
+  // Create Departments if not exists
+  let deptIT = await prisma.department.findUnique({ where: { code: 'IT' } });
+  if (!deptIT) {
+    deptIT = await prisma.department.create({
+      data: { name: 'IT & Engineering', code: 'IT' },
+    });
   }
 
-  console.log('Seeding database...');
+  let deptHR = await prisma.department.findUnique({ where: { code: 'HR' } });
+  if (!deptHR) {
+    deptHR = await prisma.department.create({
+      data: { name: 'Human Resources', code: 'HR' },
+    });
+  }
 
-  // Create Departments
-  const deptIT = await prisma.department.create({
-    data: { name: 'IT & Engineering', code: 'IT' },
-  });
-  const deptHR = await prisma.department.create({
-    data: { name: 'Human Resources', code: 'HR' },
-  });
-  const deptFin = await prisma.department.create({
-    data: { name: 'Finance', code: 'FIN' },
-  });
-  const deptLegal = await prisma.department.create({
-    data: { name: 'Legal', code: 'LEG' },
-  });
+  let deptFin = await prisma.department.findUnique({ where: { code: 'FIN' } });
+  if (!deptFin) {
+    deptFin = await prisma.department.create({
+      data: { name: 'Finance', code: 'FIN' },
+    });
+  }
 
-  // Create Roles
-  const rEmployee = await prisma.role.create({ data: { name: 'employee', description: 'Nhân viên' } });
-  const rDeptHead = await prisma.role.create({ data: { name: 'department_head', description: 'Trưởng bộ phận' } });
-  const rAccountant = await prisma.role.create({ data: { name: 'accountant', description: 'Kế toán' } });
-  const rLegal = await prisma.role.create({ data: { name: 'legal', description: 'Pháp chế' } });
-  const rCeo = await prisma.role.create({ data: { name: 'ceo', description: 'CEO' } });
-  const rItAdmin = await prisma.role.create({ data: { name: 'it_admin', description: 'IT Admin' } });
+  let deptLegal = await prisma.department.findUnique({ where: { code: 'LEG' } });
+  if (!deptLegal) {
+    deptLegal = await prisma.department.create({
+      data: { name: 'Legal', code: 'LEG' },
+    });
+  }
+
+  // Create Roles if not exists
+  const roleNames = [
+    { name: 'employee', description: 'Nhân viên' },
+    { name: 'department_head', description: 'Trưởng bộ phận' },
+    { name: 'accountant', description: 'Kế toán' },
+    { name: 'legal', description: 'Pháp chế' },
+    { name: 'ceo', description: 'CEO' },
+    { name: 'it_admin', description: 'IT Admin' },
+  ];
+
+  const roles: Record<string, any> = {};
+  for (const r of roleNames) {
+    let existing = await prisma.role.findUnique({ where: { name: r.name } });
+    if (!existing) {
+      existing = await prisma.role.create({ data: r });
+    }
+    roles[r.name] = existing;
+  }
 
   const defaultPassword = await bcrypt.hash('123456', 10);
 
-  // Create Users
-  await prisma.user.create({
-    data: {
+  // Users to seed
+  const usersToSeed = [
+    {
       email: 'ceo@hve.com',
-      passwordHash: defaultPassword,
       name: 'CEO',
       departmentId: deptIT.id,
-      roles: { connect: [{ id: rCeo.id }, { id: rEmployee.id }] },
+      roleNames: ['ceo', 'employee'],
     },
-  });
-
-  await prisma.user.create({
-    data: {
+    {
       email: 'admin@hve.com',
-      passwordHash: defaultPassword,
       name: 'IT Admin',
       departmentId: deptIT.id,
-      roles: { connect: [{ id: rItAdmin.id }] },
+      roleNames: ['it_admin'],
     },
-  });
-
-  await prisma.user.create({
-    data: {
+    {
+      email: 'tp_it@hve.com',
+      name: 'Trưởng Phòng IT',
+      departmentId: deptIT.id,
+      roleNames: ['department_head', 'employee'],
+    },
+    {
       email: 'ketoan@hve.com',
-      passwordHash: defaultPassword,
       name: 'Kế Toán Trưởng',
       departmentId: deptFin.id,
-      roles: { connect: [{ id: rAccountant.id }, { id: rDeptHead.id }] },
+      roleNames: ['accountant', 'department_head'],
     },
-  });
-
-  await prisma.user.create({
-    data: {
+    {
       email: 'phapche@hve.com',
-      passwordHash: defaultPassword,
       name: 'Nhân viên Pháp Chế',
       departmentId: deptLegal.id,
-      roles: { connect: [{ id: rLegal.id }] },
+      roleNames: ['legal', 'employee'],
     },
-  });
-
-  await prisma.user.create({
-    data: {
+    {
       email: 'nv1@hve.com',
-      passwordHash: defaultPassword,
       name: 'Nhân viên 1',
       departmentId: deptIT.id,
-      roles: { connect: [{ id: rEmployee.id }] },
+      roleNames: ['employee'],
     },
-  });
+  ];
 
-  // Create Default Workflow Template for Payment Request
-  const wfPayment = await prisma.workflowTemplate.create({
-    data: {
-      type: 'payment_request',
-      name: 'Quy trình duyệt Đề nghị thanh toán',
-      steps: {
-        create: [
-          { stepOrder: 1, roleRequired: 'department_head' },
-          { stepOrder: 2, roleRequired: 'accountant' },
-          { stepOrder: 3, roleRequired: 'ceo' },
-        ],
-      },
-    },
+  for (const u of usersToSeed) {
+    const existing = await prisma.user.findUnique({ where: { email: u.email } });
+    if (!existing) {
+      await prisma.user.create({
+        data: {
+          email: u.email,
+          passwordHash: defaultPassword,
+          name: u.name,
+          departmentId: u.departmentId,
+          roles: {
+            connect: u.roleNames.map((r) => ({ id: roles[r].id })),
+          },
+        },
+      });
+    }
+  }
+
+  // Workflow Templates
+  // 1. payment_request: Trưởng BP -> Kế toán -> CEO
+  const existingWfPayment = await prisma.workflowTemplate.findUnique({
+    where: { type: 'payment_request' },
   });
+  if (!existingWfPayment) {
+    await prisma.workflowTemplate.create({
+      data: {
+        type: 'payment_request',
+        name: 'Quy trình duyệt Đề nghị thanh toán',
+        steps: {
+          create: [
+            { stepOrder: 1, roleRequired: 'department_head' },
+            { stepOrder: 2, roleRequired: 'accountant' },
+            { stepOrder: 3, roleRequired: 'ceo' },
+          ],
+        },
+      },
+    });
+  }
+
+  // 2. proposal: Trưởng BP -> CEO
+  const existingWfProposal = await prisma.workflowTemplate.findUnique({
+    where: { type: 'proposal' },
+  });
+  if (!existingWfProposal) {
+    await prisma.workflowTemplate.create({
+      data: {
+        type: 'proposal',
+        name: 'Quy trình duyệt Đề xuất',
+        steps: {
+          create: [
+            { stepOrder: 1, roleRequired: 'department_head' },
+            { stepOrder: 2, roleRequired: 'ceo' },
+          ],
+        },
+      },
+    });
+  }
+
+  // 3. contract: Trưởng BP -> Pháp chế -> Kế toán -> CEO
+  const existingWfContract = await prisma.workflowTemplate.findUnique({
+    where: { type: 'contract' },
+  });
+  if (!existingWfContract) {
+    await prisma.workflowTemplate.create({
+      data: {
+        type: 'contract',
+        name: 'Quy trình duyệt Hợp đồng',
+        steps: {
+          create: [
+            { stepOrder: 1, roleRequired: 'department_head' },
+            { stepOrder: 2, roleRequired: 'legal' },
+            { stepOrder: 3, roleRequired: 'accountant' },
+            { stepOrder: 4, roleRequired: 'ceo' },
+          ],
+        },
+      },
+    });
+  }
 
   console.log('Seeding completed successfully');
 }

@@ -109,21 +109,58 @@
      - Frontend build: **Pass sạch sẽ trong 216ms**.
      - Nghiệm thu Phase 1: **CHÍNH THỨC ĐẠT** (Xem [05_REVIEW_PHASE1.md](05_REVIEW_PHASE1.md)).
 
-
+### Phiên làm việc: 16/09/2026 (Phiên 3 — Triển khai hoàn thiện Phase 2: Mở rộng phê duyệt & Quản trị IT Admin)
+- **Nhiệm vụ chính**: Triển khai trọn vẹn Phase 2 theo kế hoạch [PHASE2_PLAN.md](PHASE2_PLAN.md) và tiếp thu toàn bộ góp ý tại [06_REVIEW_PHASE2_PLAN.md](06_REVIEW_PHASE2_PLAN.md).
+- **Kết quả thực hiện**:
+  1. **Đa dạng hóa loại hồ sơ trên cùng 1 Core Approval Engine (Backend)**:
+     - Hỗ trợ đầy đủ 3 loại hồ sơ: Đề nghị thanh toán (`payment_request`, mã `DNTT-YYYY-NNN`), Đề xuất (`proposal`, mã `DX-YYYY-NNN`), Hợp đồng (`contract`, mã `HD-YYYY-NNN`).
+     - Tái sử dụng 100% Core Engine: chung các hàm `submitForApproval`, `approveStep`, `returnStep`, `rejectStep`, `createNewVersion`, Optimistic Locking (`version`) và Audit Trail.
+     - Validate động theo loại khi gửi duyệt: `proposal` không ép buộc chứng từ; `contract` bắt buộc có file hợp đồng đính kèm và ngày hiệu lực ≤ ngày hết hạn.
+  2. **Vá triệt để lỗ hổng phân quyền duyệt theo bộ phận (`department_head`)**:
+     - Kiểm tra bắt buộc: khi bước duyệt yêu cầu `department_head`, so sánh `document.createdBy.departmentId === user.departmentId`. Chặn hoàn toàn việc Trưởng phòng ban này duyệt hồ sơ của nhân sự phòng ban khác.
+     - Cập nhật cả ở luồng duyệt (`approveStep`, `returnStep`, `rejectStep`) và danh sách cần duyệt (`findAll` tab `to_review`).
+     - Các vai trò toàn công ty (`accountant`, `legal`, `ceo`) giữ nguyên phạm vi duyệt toàn hệ thống.
+  3. **Theo dõi và Cảnh báo hạn Hợp đồng**:
+     - Helper runtime `calculateContractExpiry` và endpoint `GET /documents/contracts/expiring`: gắn cờ `isExpiringSoon`, trạng thái `valid` / `expiring_soon` (mặc định ≤ 30 ngày) / `expired`, và số ngày còn lại `daysRemaining`.
+  4. **Module & API Quản lý Workflow cho IT Admin (`WorkflowsModule`)**:
+     - Cung cấp `GET /workflows`, `GET /workflows/:type`, `PUT /workflows/:type`.
+     - Validate chặt chẽ cấu hình: kiểm tra `stepOrder` liên tục từ 1, không rỗng, đối chiếu vai trò với bảng `Role` trong DB.
+     - Cập nhật các bước trong transaction, ghi nhận Audit Log.
+  5. **Module & API Quản lý Người dùng & Phân quyền cho IT Admin (`AdminModule`)**:
+     - Cung cấp `GET /admin/users`, `GET /admin/roles`, `GET /admin/departments`, `PATCH /admin/users/:id/status`, `PUT /admin/users/:id/roles`.
+     - Cơ chế an toàn: Chặn IT admin tự khóa tài khoản của chính mình.
+  6. **Seed Database hoàn chỉnh (`prisma/seed.ts`)**:
+     - Seed sẵn workflow templates cho `proposal` (Trưởng BP → CEO) và `contract` (Trưởng BP → Pháp chế → Kế toán → CEO).
+     - Thêm tài khoản test cho Trưởng phòng IT (`tp_it@hve.com`) và Pháp chế (`phapche@hve.com`).
+  7. **Giao diện người dùng Frontend Phase 2**:
+     - `CreateDocumentForm.tsx`: Bộ chọn trực quan 3 loại hồ sơ với các trường dữ liệu tương ứng.
+     - `DocumentList.tsx`: Thêm bộ lọc loại hồ sơ, badge phân loại màu sắc, badge cảnh báo hợp đồng sắp hết hạn / quá hạn.
+     - `DocumentDetailModal.tsx`: Layout chi tiết động theo loại hồ sơ, hiển thị banner cảnh báo hạn hợp đồng và tiến trình duyệt động.
+     - `AdminWorkflowView.tsx`: Màn hình trực quan cho IT Admin cấu hình thứ tự và vai trò các cấp duyệt.
+     - `AdminUserView.tsx`: Màn hình quản lý nhân sự, gán vai trò, phân phòng ban và khóa/mở khóa tài khoản.
+     - `Sidebar.tsx`: Thêm menu quản trị hệ thống (`admin_workflows`, `admin_users`) và nút chuyển nhanh tài khoản demo cho 6 vai trò.
+  8. **Kiểm thử & Chất lượng mã nguồn**:
+     - Unit tests backend: **71/71 tests pass** (tăng thêm 20 tests mới cho proposal, contract, hạn hợp đồng, phân quyền bộ phận chéo phòng, IT admin workflow validation, IT admin self-lock prevention).
+     - Lint backend: **0 warnings, 0 errors** (oxlint sạch 100%).
+     - Frontend build: **Pass sạch sẽ trong 216ms** (tsc + vite build 0 lỗi).
+     - Nghiệm thu Phase 2: **CHÍNH THỨC ĐẠT** (Cả 3 loại hồ sơ chạy đúng luồng riêng bằng chung 1 engine; IT admin đổi được cấu hình duyệt và quản lý user qua UI mà không cần sửa code).
 
 ---
 
 ## 🎯 4. KẾ HOẠCH BƯỚC TIẾP THEO (NEXT STEPS)
 
-Khi bắt đầu phiên làm việc tiếp theo, ưu tiên thực hiện các nội dung sau:
+Khi bắt đầu phiên làm việc tiếp theo, chuyển sang triển khai **Phase 3 — Quản lý công việc ([03_TASKLIST_DEV.md](03_TASKLIST_DEV.md) §Phase 3)**:
 
-1. **Khởi động Phase 2 — Mở rộng phê duyệt ([03_TASKLIST_DEV.md](03_TASKLIST_DEV.md) §Phase 2)**:
-   - **Backend**:
-     - Thêm hỗ trợ loại hồ sơ **Đề xuất** (form tinh gọn: mã, tiêu đề, người tạo, nội dung đề xuất).
-     - Thêm hỗ trợ loại hồ sơ **Hợp đồng** (5 cấp duyệt: Người tạo → Trưởng BP → Pháp chế → Kế toán → CEO; ngày hiệu lực/hết hạn, đối tác, giá trị hợp đồng).
-     - Xây dựng API cho IT Admin quản lý quy trình phê duyệt (`WorkflowTemplate` & `WorkflowStepTemplate`).
-   - **Frontend**:
-     - Màn hình/Form tạo hồ sơ Đề xuất & Hợp đồng.
-     - Màn hình cấu hình Workflow cho IT Admin (chọn số cấp, sắp xếp thứ tự vai trò duyệt).
-2. **Kiểm thử tích hợp & chạy thử với Docker local**:
-   - Khởi chạy Docker Compose (Postgres + Redis) và chạy `prisma migrate` + `prisma db seed` để tạo dữ liệu mẫu thực tế.
+1. **Backend**:
+   - API tạo/giao việc: tiêu đề, mô tả, người thực hiện, người phối hợp, hạn hoàn thành, ưu tiên, thẻ phân loại.
+   - API việc con (`parentTaskId`), tính progress cha theo việc con.
+   - API việc lặp lại: cấu hình chu kỳ (ngày/tuần/tháng), job tự sinh kỳ mới.
+   - API cập nhật tiến độ (%), đổi trạng thái Chưa làm → Đang làm → Chờ duyệt.
+   - API xác nhận hoàn thành (chỉ người giao việc được xác nhận).
+   - Runtime flag `is_overdue`.
+   - API bình luận + mention người dùng trên task.
+2. **Frontend**:
+   - Form tạo & giao việc (desktop + mobile).
+   - Danh sách việc: của tôi / tôi giao / theo bộ phận, filter theo trạng thái/ưu tiên/hạn.
+   - Màn hình chi tiết việc: tiến độ, việc con, bình luận, nút xác nhận hoàn thành cho người giao việc.
+

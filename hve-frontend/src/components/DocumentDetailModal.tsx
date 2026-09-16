@@ -1,6 +1,5 @@
 import React from 'react';
-import { type DocumentItem, type ApprovalStep, ROLE_LABELS } from '../types';
-
+import { type DocumentItem, type ApprovalStep, ROLE_LABELS, DOCUMENT_TYPE_LABELS } from '../types';
 
 interface DocumentDetailModalProps {
   selectedDoc: DocumentItem;
@@ -40,17 +39,47 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
         <span className="text-xs text-gray-400">Phiên bản hồ sơ: v{selectedDoc.version}</span>
       </div>
 
+      {/* Contract Expiration Alerts Banner */}
+      {selectedDoc.type === 'contract' && selectedDoc.expiringStatus === 'expired' && (
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-center space-x-3 text-red-800">
+          <span className="text-2xl">🛑</span>
+          <div>
+            <h5 className="text-sm font-bold">Hợp đồng đã quá hạn hiệu lực!</h5>
+            <p className="text-xs mt-0.5">
+              Hạn hợp đồng đã kết thúc vào ngày <strong>{selectedDoc.dataJson?.endDate}</strong>. Vui lòng kiểm tra gia hạn hoặc thanh lý hợp đồng.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {selectedDoc.type === 'contract' && selectedDoc.expiringStatus === 'expiring_soon' && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center space-x-3 text-amber-800">
+          <span className="text-2xl">⚠️</span>
+          <div>
+            <h5 className="text-sm font-bold">Cảnh báo: Hợp đồng sắp hết hạn hiệu lực!</h5>
+            <p className="text-xs mt-0.5">
+              Hợp đồng này chỉ còn <strong>{selectedDoc.daysRemaining} ngày</strong> nữa sẽ hết hạn (vào ngày{' '}
+              <strong>{selectedDoc.dataJson?.endDate}</strong>). Vui lòng lên phương án gia hạn kịp thời.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Header Card */}
       <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
         <div className="flex flex-col md:flex-row md:items-center justify-between pb-6 border-b border-slate-100 gap-4">
           <div>
             <div className="flex items-center space-x-3">
               <h3 className="text-xl font-extrabold text-gray-900">{selectedDoc.title}</h3>
+              <span className="inline-block px-2.5 py-1 rounded-md text-xs font-bold bg-slate-100 text-slate-700">
+                {DOCUMENT_TYPE_LABELS[selectedDoc.type] || selectedDoc.type}
+              </span>
               {getStatusBadge(selectedDoc.status)}
             </div>
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="text-xs text-gray-400 mt-1.5">
               Mã hồ sơ: <strong className="text-gray-700">{selectedDoc.code}</strong> — Tạo lúc:{' '}
-              {new Date(selectedDoc.createdAt).toLocaleString('vi-VN')} bởi {selectedDoc.createdBy?.name} ({selectedDoc.createdBy?.department?.name || 'IT'})
+              {new Date(selectedDoc.createdAt).toLocaleString('vi-VN')} bởi {selectedDoc.createdBy?.name || 'Nhân viên'} (
+              {selectedDoc.createdBy?.department?.name || 'Bộ phận'})
             </p>
           </div>
 
@@ -78,41 +107,96 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
           </div>
         </div>
 
-        {/* Details Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6 text-sm">
-          <div>
-            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Số tiền đề nghị</span>
-            <p className="text-2xl font-black text-[#0A66C2] mt-1">
-              {selectedDoc.dataJson?.amount?.toLocaleString('vi-VN')} VND
-            </p>
-          </div>
+        {/* Details Grid: CONTRACT */}
+        {selectedDoc.type === 'contract' && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6 text-sm">
+            <div>
+              <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Giá trị hợp đồng</span>
+              <p className="text-2xl font-black text-amber-700 mt-1">
+                {selectedDoc.dataJson?.value !== undefined
+                  ? `${Number(selectedDoc.dataJson.value).toLocaleString('vi-VN')} VND`
+                  : '—'}
+              </p>
+            </div>
 
-          <div>
-            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Đơn vị thụ hưởng</span>
-            <p className="font-bold text-gray-800 mt-1">{selectedDoc.dataJson?.receiver}</p>
-            <p className="text-xs text-gray-500 mt-0.5">
-              {selectedDoc.dataJson?.bankName} - STK: <strong className="text-gray-700">{selectedDoc.dataJson?.bankAccount}</strong>
-            </p>
-          </div>
+            <div>
+              <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Đối tác ký kết</span>
+              <p className="font-bold text-gray-800 mt-1">{selectedDoc.dataJson?.partner}</p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Phụ trách: <strong className="text-gray-700">{selectedDoc.dataJson?.manager}</strong>
+              </p>
+            </div>
 
-          <div>
-            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Hạn thanh toán</span>
-            <p className="font-bold text-gray-800 mt-1">{selectedDoc.dataJson?.deadline}</p>
-          </div>
+            <div>
+              <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Thời hạn hiệu lực</span>
+              <p className="font-bold text-gray-800 mt-1">
+                {selectedDoc.dataJson?.startDate} → {selectedDoc.dataJson?.endDate}
+              </p>
+            </div>
 
-          <div className="md:col-span-3">
-            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Nội dung chi tiết</span>
-            <p className="text-gray-700 mt-1 bg-slate-50 p-4 rounded-xl border border-slate-100">
+            {selectedDoc.dataJson?.notes && (
+              <div className="md:col-span-3">
+                <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Ghi chú điều khoản</span>
+                <p className="text-gray-700 mt-1 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                  {selectedDoc.dataJson.notes}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Details Grid: PROPOSAL */}
+        {selectedDoc.type === 'proposal' && (
+          <div className="pt-6 text-sm">
+            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Nội dung đề xuất / Kiến nghị</span>
+            <div className="text-gray-800 mt-2 bg-slate-50 p-5 rounded-xl border border-slate-100 whitespace-pre-wrap leading-relaxed">
               {selectedDoc.dataJson?.content}
-            </p>
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Details Grid: PAYMENT REQUEST */}
+        {selectedDoc.type === 'payment_request' && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6 text-sm">
+            <div>
+              <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Số tiền đề nghị</span>
+              <p className="text-2xl font-black text-[#0A66C2] mt-1">
+                {selectedDoc.dataJson?.amount?.toLocaleString('vi-VN')} VND
+              </p>
+            </div>
+
+            <div>
+              <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Đơn vị thụ hưởng</span>
+              <p className="font-bold text-gray-800 mt-1">{selectedDoc.dataJson?.receiver}</p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                {selectedDoc.dataJson?.bankName} - STK: <strong className="text-gray-700">{selectedDoc.dataJson?.bankAccount}</strong>
+              </p>
+            </div>
+
+            <div>
+              <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Hạn thanh toán</span>
+              <p className="font-bold text-gray-800 mt-1">{selectedDoc.dataJson?.deadline}</p>
+            </div>
+
+            <div className="md:col-span-3">
+              <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Nội dung chi tiết</span>
+              <p className="text-gray-700 mt-1 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                {selectedDoc.dataJson?.content}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Attachments Section */}
         {selectedDoc.attachments && selectedDoc.attachments.length > 0 && (
           <div className="mt-6 pt-6 border-t border-slate-100">
             <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-3">
-              Chứng từ & Hóa đơn đính kèm ({selectedDoc.attachments.length})
+              {selectedDoc.type === 'contract'
+                ? 'Tệp Hợp đồng đính kèm'
+                : selectedDoc.type === 'proposal'
+                ? 'Tài liệu đính kèm'
+                : 'Chứng từ & Hóa đơn đính kèm'}{' '}
+              ({selectedDoc.attachments.length})
             </span>
             <div className="flex flex-wrap gap-3">
               {selectedDoc.attachments.map((att) => {
@@ -137,10 +221,10 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
         )}
       </div>
 
-      {/* 4-Step Approval Timeline */}
+      {/* Dynamic Workflow Timeline */}
       <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
         <h4 className="text-base font-bold text-gray-900 mb-6">
-          Tiến trình phê duyệt 4 cấp (Workflow Timeline)
+          Tiến trình phê duyệt {(selectedDoc.steps?.length || 0) + 1} cấp (Workflow Timeline)
         </h4>
 
         {selectedDoc.steps && selectedDoc.steps.length > 0 ? (
@@ -156,7 +240,9 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
                 <div className="flex-1 bg-slate-50 p-4 rounded-xl border border-slate-100">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-gray-500 uppercase">Cấp 0: Người tạo</span>
-                    <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">Đã khởi tạo & gửi duyệt</span>
+                    <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">
+                      Đã khởi tạo & gửi duyệt
+                    </span>
                   </div>
                   <p className="text-sm font-bold text-gray-800 mt-1">{selectedDoc.createdBy?.name || 'Nhân viên'}</p>
                   <p className="text-xs text-gray-400">{new Date(selectedDoc.createdAt).toLocaleString('vi-VN')}</p>
@@ -172,7 +258,18 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
 
                 const isCreator = selectedDoc.createdById === user?.id;
                 const hasRole = user?.roles?.includes(step.roleRequired);
-                const canAct = isPending && hasRole && !isCreator;
+
+                // Department scoping check for UI
+                let departmentMatch = true;
+                if (step.roleRequired === 'department_head') {
+                  const creatorDeptId = selectedDoc.createdBy?.department?.id;
+                  const userDeptId = user?.departmentId || user?.department?.id;
+                  if (creatorDeptId && userDeptId && creatorDeptId !== userDeptId) {
+                    departmentMatch = false;
+                  }
+                }
+
+                const canAct = isPending && hasRole && !isCreator && departmentMatch;
 
                 return (
                   <div key={step.id} className="flex items-start space-x-4 relative z-10">
@@ -240,6 +337,11 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
                             <div className="text-xs font-semibold text-amber-800 bg-amber-50 p-2.5 rounded-lg border border-amber-200 flex items-center">
                               <span className="mr-2">⚠️</span>
                               Quy định Anti Self-Approval: Bạn là người tạo hồ sơ này nên không thể tự phê duyệt.
+                            </div>
+                          ) : !departmentMatch && hasRole ? (
+                            <div className="text-xs font-semibold text-gray-600 bg-gray-50 p-2.5 rounded-lg border border-gray-200 flex items-center">
+                              <span className="mr-2">🔒</span>
+                              Giới hạn phạm vi: Bạn là Trưởng bộ phận nhưng hồ sơ này thuộc bộ phận khác ({selectedDoc.createdBy?.department?.name || 'khác'}).
                             </div>
                           ) : canAct ? (
                             <div className="flex items-center space-x-2">
