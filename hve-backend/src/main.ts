@@ -48,7 +48,52 @@ async function bootstrap() {
     }),
   );
 
-  // OpenAPI / Swagger Documentation
+  // OpenAPI / Swagger Documentation with Basic Auth Protection
+  const swaggerUser = process.env.SWAGGER_USER || 'admin';
+  const swaggerPassword =
+    process.env.SWAGGER_PASSWORD ||
+    (process.env.NODE_ENV === 'production' ? null : 'HVE_Swagger_Pass_2026!');
+
+  app.use(
+    ['/api/docs', '/api/docs-json', '/api/docs-yaml'],
+    (req: any, res: any, next: any) => {
+      if (!swaggerPassword) {
+        return res
+          .status(403)
+          .send(
+            'Swagger documentation is disabled in production without SWAGGER_PASSWORD configured.',
+          );
+      }
+
+      const authHeader = req.headers['authorization'];
+      if (!authHeader) {
+        res.setHeader('WWW-Authenticate', 'Basic realm="HVE Work API Docs"');
+        return res
+          .status(401)
+          .send('Authentication required to access API documentation');
+      }
+
+      const [type, token] = authHeader.split(' ');
+      if (type !== 'Basic' || !token) {
+        res.setHeader('WWW-Authenticate', 'Basic realm="HVE Work API Docs"');
+        return res.status(401).send('Invalid authorization format');
+      }
+
+      const credentials = Buffer.from(token, 'base64')
+        .toString('utf8')
+        .split(':');
+      const user = credentials[0];
+      const pass = credentials.slice(1).join(':');
+
+      if (user === swaggerUser && pass === swaggerPassword) {
+        return next();
+      }
+
+      res.setHeader('WWW-Authenticate', 'Basic realm="HVE Work API Docs"');
+      return res.status(401).send('Access denied: Invalid credentials');
+    },
+  );
+
   const swaggerConfig = new DocumentBuilder()
     .setTitle('HVE Work API')
     .setDescription('Tài liệu API Hệ thống Quản lý Điều hành & Phê duyệt HVE Work (Huy Võ Education)')

@@ -14,9 +14,19 @@ import { AuditModule } from '../audit/audit.module.js';
     PrismaModule,
     AuditModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
-    JwtModule.register({
-      secret: process.env.JWT_SECRET || 'secretKey',
-      signOptions: { expiresIn: '15m' },
+    JwtModule.registerAsync({
+      useFactory: () => {
+        const secret = process.env.JWT_SECRET;
+        if (!secret) {
+          throw new Error(
+            'FATAL SECURITY ERROR: JWT_SECRET environment variable is missing or empty! Startup aborted.',
+          );
+        }
+        return {
+          secret,
+          signOptions: { expiresIn: '15m' },
+        };
+      },
     }),
   ],
   providers: [AuthService, JwtStrategy, JwtAuthGuard, RolesGuard],

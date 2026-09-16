@@ -6,15 +6,24 @@ import { PrismaService } from '../prisma/prisma.service.js';
 export class WebPushService {
   private readonly logger = new Logger(WebPushService.name);
 
-  private readonly vapidPublicKey =
-    process.env.VAPID_PUBLIC_KEY ||
-    'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U';
-  private readonly vapidPrivateKey =
-    process.env.VAPID_PRIVATE_KEY || 'UUxI4g7-2N8XkP_W4L3w_R7O3jB-8Y8bI8nB7I0nJ5c';
-  private readonly vapidSubject =
-    process.env.VAPID_SUBJECT || 'mailto:admin@huyvoeducation.vn';
+  private readonly vapidPublicKey: string;
+  private readonly vapidPrivateKey: string;
+  private readonly vapidSubject: string;
 
   constructor(private readonly prisma: PrismaService) {
+    const pubKey = process.env.VAPID_PUBLIC_KEY;
+    const privKey = process.env.VAPID_PRIVATE_KEY;
+    if (!pubKey || !privKey) {
+      throw new Error(
+        'FATAL SECURITY ERROR: VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY environment variables are missing or empty! Hardcoded demo keys are strictly forbidden. Startup aborted.',
+      );
+    }
+
+    this.vapidPublicKey = pubKey;
+    this.vapidPrivateKey = privKey;
+    this.vapidSubject =
+      process.env.VAPID_SUBJECT || 'mailto:admin@huyvoeducation.vn';
+
     try {
       webpush.setVapidDetails(
         this.vapidSubject,
@@ -22,7 +31,8 @@ export class WebPushService {
         this.vapidPrivateKey,
       );
     } catch (err) {
-      this.logger.warn(`Failed to initialize VAPID details: ${err}`);
+      this.logger.error(`Failed to initialize VAPID details: ${err}`);
+      throw err;
     }
   }
 

@@ -61,6 +61,15 @@ Hai bên cùng thống nhất và xác nhận bằng văn bản 4 điều khoả
 
 ---
 
+### Điều khoản 5: Bàn giao Tài sản Số & Nhận diện Thương hiệu (Brand Assets)
+1. **Biểu trưng Ứng dụng & PWA Icon:**
+   - Hệ thống hiện tại đang sử dụng bộ biểu trưng vector SVG chuẩn nhận diện thương hiệu HVE (chữ H cách điệu & biểu tượng khiên học thuật trên nền dải màu HVE Blue `#0A66C2` / `#003566` và điểm nhấn HVE Yellow `#F59E0B`).
+   - Cấu trúc hệ thống được thiết kế mở: Khi Ban Giám đốc HVE bàn giao file thiết kế gốc định dạng AI/EPS/SVG theo phương án PA2 (`Logo Proposal PA2 14.07.2026.pdf`), IT Admin chỉ cần sao chép các tệp biểu trưng vào thư mục `/hve-frontend/public/icons/` để cập nhật đồng bộ toàn hệ thống mà không cần chỉnh sửa mã nguồn cốt lõi.
+2. **Bảo mật Tài liệu Kỹ thuật & API Docs:**
+   - Toàn bộ cổng tài liệu OpenAPI / Swagger tại `/api/docs` đã được khóa bảo vệ bằng giao thức xác thực HTTP Basic Auth, chỉ cấp quyền truy cập cho nhân sự CNTT được ủy quyền.
+
+---
+
 **ĐẠI DIỆN HVE (DOANH NGHIỆP)**  
 *(Ký và ghi rõ họ tên)*
 
