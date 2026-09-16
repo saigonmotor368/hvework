@@ -115,19 +115,23 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
               Chứng từ & Hóa đơn đính kèm ({selectedDoc.attachments.length})
             </span>
             <div className="flex flex-wrap gap-3">
-              {selectedDoc.attachments.map((att) => (
-                <a
-                  key={att.id}
-                  href={`${apiBaseUrl}${att.fileUrl}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center space-x-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 px-3.5 py-2 rounded-xl text-xs font-semibold text-[#0A66C2] transition-colors"
-                >
-                  <span>📎</span>
-                  <span>{att.fileName}</span>
-                  <span className="text-gray-400 text-[10px]">({Math.round(att.size / 1024)} KB)</span>
-                </a>
-              ))}
+              {selectedDoc.attachments.map((att) => {
+                const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : '';
+                const downloadUrl = `${apiBaseUrl}${att.fileUrl}${token ? `?token=${token}` : ''}`;
+                return (
+                  <a
+                    key={att.id}
+                    href={downloadUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center space-x-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 px-3.5 py-2 rounded-xl text-xs font-semibold text-[#0A66C2] transition-colors"
+                  >
+                    <span>📎</span>
+                    <span>{att.fileName}</span>
+                    <span className="text-gray-400 text-[10px]">({Math.round(att.size / 1024)} KB)</span>
+                  </a>
+                );
+              })}
             </div>
           </div>
         )}

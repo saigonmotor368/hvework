@@ -89,9 +89,11 @@
      - Sinh chữ ký HMAC SHA-256 kèm thời hạn 15 phút tại `generatePresignedUrl`, kiểm tra xác thực khi upload chống gọi tắt.
      - Lắng nghe stream data, ngắt kết nối (`req.destroy()`) ngay khi luồng dữ liệu vượt 10MB để chống DoS bộ nhớ/ổ đĩa.
      - Validate lại định dạng phần mở rộng và kích thước buffer trước khi ghi đĩa; chống path traversal bằng `path.basename`.
-  2. **Khắc phục lỗi 404 xem chứng từ**:
-     - Cấu hình serve static `app.useStaticAssets(uploadDir, { prefix: '/uploads/' })` trong `main.ts`.
-     - Thêm endpoint `GET /attachments/file/:fileKey` có guard bảo mật.
+  2. **Vá triệt để lỗ hổng tải chứng từ (Bảo vệ thông tin tài chính/ngân hàng)**:
+     - Gỡ bỏ hoàn toàn `app.useStaticAssets(uploadDir, { prefix: '/uploads/' })` khỏi `main.ts`, xóa bỏ đường tắt công khai không xác thực. Truy cập `/uploads/...` hiện nhận lỗi 404.
+     - Đổi toàn bộ `fileUrl` ở backend (`generatePresignedUrl` và `saveUploadedFile`) sang trỏ về endpoint an toàn `/attachments/file/:fileKey`.
+     - Cấu hình `JwtStrategy` hỗ trợ trích xuất JWT qua query param `?token=...`.
+     - Frontend `DocumentDetailModal.tsx` gắn token vào URL tải file, đi qua `JwtAuthGuard` 100%. Truy cập không token bị chặn 401 Unauthorized.
   3. **Sửa bug logic số hiệu bản sửa đổi (`createNewVersion`)**:
      - Tách độc lập `revision` number với `version` optimistic-lock. Đếm tài liệu có cùng `baseCode` trong DB để tính đúng mã `-v2`, `-v3` kể cả khi `doc.version` của bản ghi gốc là 6.
      - Bản nháp sửa đổi mới khởi tạo `version: 1` cho khoá lạc quan riêng.
@@ -102,10 +104,11 @@
      - Thêm `uploads/` và `*.db` vào `.gitignore` của root và backend.
   5. **Quản lý mã nguồn & Kiểm thử**:
      - Khởi tạo Git repo (`git init -b main`) và cấu hình theo dõi phiên bản.
-     - Unit tests backend: **47/47 tests pass** (tăng thêm 7 tests mới kiểm tra bảo mật upload, HMAC signature, size limit, path traversal, revision numbering).
+     - Unit tests backend: **51/51 tests pass** (tăng thêm 11 tests mới kiểm tra bảo mật upload, HMAC signature, size limit, path traversal, revision numbering, phục vụ file có guard).
      - Lint backend: **0 warnings, 0 errors**.
-     - Frontend build: **Pass sạch sẽ trong 170ms**.
-     - Nghiệm thu Phase 1: **ĐẠT TOÀN DIỆN** (Xem [05_REVIEW_PHASE1.md](05_REVIEW_PHASE1.md)).
+     - Frontend build: **Pass sạch sẽ trong 216ms**.
+     - Nghiệm thu Phase 1: **CHÍNH THỨC ĐẠT** (Xem [05_REVIEW_PHASE1.md](05_REVIEW_PHASE1.md)).
+
 
 
 ---

@@ -40,6 +40,7 @@ describe('AttachmentsService', () => {
       expect(result).toHaveProperty('fileUrl');
       expect(result).toHaveProperty('fileKey');
       expect(result.uploadUrl).toContain('/attachments/upload-storage/');
+      expect(result.fileUrl).toContain('/attachments/file/');
       expect(result.expiresIn).toBe(900);
     });
 
@@ -128,7 +129,7 @@ describe('AttachmentsService', () => {
       );
 
       expect(result.success).toBe(true);
-      expect(result.fileUrl).toContain('/uploads/');
+      expect(result.fileUrl).toContain('/attachments/file/');
       expect(result.size).toBe(buffer.length);
     });
 

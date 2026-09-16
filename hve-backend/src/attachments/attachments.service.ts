@@ -80,7 +80,8 @@ export class AttachmentsService {
     const token = this.createSignature(fileKey, uploadedById, expiresAt);
 
     const uploadUrl = `/attachments/upload-storage/${fileKey}?token=${token}&expires=${expiresAt}&user=${uploadedById}`;
-    const fileUrl = `/uploads/${fileKey}`;
+    const fileUrl = `/attachments/file/${fileKey}`;
+
 
     return {
       uploadUrl,
@@ -139,7 +140,7 @@ export class AttachmentsService {
     return {
       success: true,
       fileKey: safeKey,
-      fileUrl: `/uploads/${safeKey}`,
+      fileUrl: `/attachments/file/${safeKey}`,
       size: buffer.length,
     };
   }
