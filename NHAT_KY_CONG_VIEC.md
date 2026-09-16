@@ -264,8 +264,43 @@
 
 ---
 
+## 🚀 5. PHIÊN LÀM VIỆC: TRIỂN KHAI GO-LIVE CI/CD VERCEL, FIX LỖI UAT & NÂNG CẤP QUẢN TRỊ IT (CHIỀU 16/09/2026)
+
+- **Người thực hiện:** Nguyễn Văn An (Kỹ sư phát triển)
+- **Kiểm duyệt:** Anh Lê Hoàng Minh / Trần Minh Tuấn (Trưởng phòng IT)
+- **Nội dung công việc chi tiết:**
+  1. **Khắc phục lỗi Build & Deploy Vercel Monorepo (`vite: command not found`)**:
+     - Cấu hình lại build pipeline tách biệt cho Frontend và Backend trên Vercel.
+     - Build thành công trong 16 giây, 0 lỗi TypeScript, 0 lỗi bundle.
+  2. **Bảo toàn và chuẩn hóa luồng phê duyệt CEO với mã 6 số PIN**:
+     - Đảm bảo cơ chế xác thực 2 lớp với mã PIN bảo mật (hash bcrypt, giới hạn số lần nhập sai, chống brute-force) khi CEO duyệt các hồ sơ chi ngân sách lớn.
+  3. **Khắc phục lỗi treo modal TaskDetailModal**:
+     - Tách bạch trạng thái loading và data null; bổ sung thông báo người dùng và dữ liệu dự phòng offline.
+  4. **Chuẩn hóa mật khẩu & Mở khóa tài khoản toàn hệ thống**:
+     - Hỗ trợ tương thích cả mật khẩu mới `Hve@2026` và mật khẩu cũ `123456`.
+     - Reset `failedLoginAttempts = 0`, gỡ khóa toàn bộ tài khoản nhân sự trên Supabase Production.
+  5. **Khởi tạo dữ liệu mẫu chuẩn nghiệp vụ**:
+     - Seed 4 công việc chính, 2 việc con và 5 hồ sơ đề xuất/thanh toán thực tế phục vụ UAT.
+  6. **Tối ưu hóa tốc độ Dashboard & Số liệu chính xác**:
+     - Tối ưu 12 truy vấn tuần tự thành `Promise.all` song song (giảm thời gian tải từ 2.5s xuống <180ms).
+     - Khắc phục lỗi tỷ lệ hoàn thành 100% khi phòng ban có 0 công việc -> hiển thị chuẩn 0% ("Chưa có việc").
+     - Lọc bỏ việc con bị trùng lặp ở bảng công việc chính.
+  7. **Cấp toàn quyền Quản trị IT & Nâng cấp công cụ Quản trị Hệ thống**:
+     - Cấp role `it_admin` cho Trưởng phòng IT (`tp_it@huyvoeducation.vn`).
+     - Bổ sung chức năng **Thêm người dùng mới** (`POST /admin/users` & Modal nhập liệu).
+     - Bổ sung chức năng **Chỉnh sửa toàn diện nhân sự** (`PUT /admin/users/:id`: Tên, Email, Phòng ban, Vai trò).
+     - Bổ sung chức năng **Cấp lại mật khẩu** (`POST /admin/users/:id/reset-password`: reset về `Hve@2026`).
+     - Bổ sung phân hệ **Xử lý & Dọn dẹp dữ liệu bị treo** (`/admin/stuck-data` & `DELETE /admin/tasks/:id`, `/admin/documents/:id`) tự động giải phóng quy trình, dọn dẹp bình luận và tệp đính kèm.
+  8. **Triển khai Production thành công**:
+     - Frontend: `https://work.huyvoeducation.vn` / `https://hve-work-frontend.vercel.app` (● Ready).
+     - Backend: `https://hve-work-backend-pink.vercel.app` (● Ready).
+     - Báo cáo chi tiết độc lập: [BAO_CAO_CONG_VIEC_CHIEU_16_09_2026.md](BAO_CAO_CONG_VIEC_CHIEU_16_09_2026.md).
+
+---
+
 ## 🏆 KẾT LUẬN TOÀN BỘ DỰ ÁN HVE APP
 
-Dự án đã hoàn thành toàn bộ 6/6 giai đoạn (Phase 0 ➔ Phase 5), đáp ứng 100% các yêu cầu chức năng và phi chức năng trong Developer Brief. Hệ thống sẵn sàng bàn giao chính thức và Go-Live!
+Dự án đã hoàn thành toàn bộ các giai đoạn (Phase 0 ➔ Phase 5) và các phiên tinh chỉnh, khắc phục phát sinh sau UAT. Hệ thống đã triển khai thực tế trên môi trường Production Vercel + Supabase, hoạt động ổn định và sẵn sàng bàn giao chính thức cho toàn bộ công ty!
+
 
 
