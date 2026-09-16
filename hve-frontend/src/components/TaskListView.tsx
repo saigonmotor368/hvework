@@ -5,6 +5,7 @@ import {
   type TaskItem,
 } from '../types';
 import { MOCK_TASKS } from '../mockData';
+import { ENABLE_MOCK_DATA } from '../config';
 
 interface TaskListViewProps {
   apiBaseUrl: string;
@@ -16,6 +17,7 @@ interface TaskListViewProps {
 
 export const TaskListView: React.FC<TaskListViewProps> = ({
   apiBaseUrl,
+  showToast,
   onOpenCreate,
   onSelectTask,
 }) => {
@@ -37,7 +39,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
   const fetchTasks = async () => {
     const token = localStorage.getItem('access_token');
     if (!token) {
-      setTasks(MOCK_TASKS);
+      setTasks(ENABLE_MOCK_DATA ? MOCK_TASKS : []);
       return;
     }
 
@@ -56,8 +58,12 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
       if (!res.ok) throw new Error('Không thể tải danh sách công việc');
       const data: TaskItem[] = await res.json();
       setTasks(data);
-    } catch {
-      // Offline fallback to mock tasks
+    } catch (error: any) {
+      if (!ENABLE_MOCK_DATA) {
+        setTasks([]);
+        showToast(error.message || 'Không thể tải danh sách công việc', 'error');
+        return;
+      }
       let filtered = [...MOCK_TASKS];
       if (statusFilter !== 'all') filtered = filtered.filter((t) => t.status === statusFilter);
       if (priorityFilter !== 'all') filtered = filtered.filter((t) => t.priority === priorityFilter);

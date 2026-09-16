@@ -38,7 +38,15 @@ const MIME_BY_EXTENSION: Record<string, string> = {
 };
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB per file
-const STORAGE_SIGN_SECRET = process.env.JWT_SECRET || 'hve-upload-hmac-signature-secret-key';
+function getStorageSignSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error(
+      'FATAL SECURITY ERROR: JWT_SECRET is required to sign attachment upload URLs.',
+    );
+  }
+  return secret;
+}
 
 @Injectable()
 export class AttachmentsService {
@@ -49,7 +57,7 @@ export class AttachmentsService {
 
   createSignature(fileKey: string, userId: number, expiresAt: number): string {
     return crypto
-      .createHmac('sha256', STORAGE_SIGN_SECRET)
+      .createHmac('sha256', getStorageSignSecret())
       .update(`${fileKey}:${userId}:${expiresAt}`)
       .digest('hex');
   }

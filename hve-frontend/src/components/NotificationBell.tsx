@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { markAllNotificationsRead } from '../api/client';
 
 interface NotificationItem {
   id: number;
@@ -83,17 +84,18 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ apiBaseUrl, 
   const markAllAsRead = async () => {
     setIsLoading(true);
     const token = localStorage.getItem('access_token');
+    if (!token) {
+      setIsLoading(false);
+      return;
+    }
     try {
-      await fetch(`${apiBaseUrl}/notifications/mark-all-read`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await markAllNotificationsRead(apiBaseUrl, token);
       setNotifications((prev) =>
         prev.map((n) => ({ ...n, readAt: n.readAt || new Date().toISOString() })),
       );
       setUnreadCount(0);
-    } catch {
-      // ignore
+    } catch (error) {
+      console.warn('[Notifications] Không thể đánh dấu tất cả là đã đọc:', error);
     } finally {
       setIsLoading(false);
     }

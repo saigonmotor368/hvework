@@ -36,6 +36,22 @@ describe('AttachmentsService', () => {
   });
 
   describe('generatePresignedUrl', () => {
+    it('should fail closed when JWT_SECRET is missing', () => {
+      const originalSecret = process.env.JWT_SECRET;
+      delete process.env.JWT_SECRET;
+      try {
+        expect(() =>
+          service.generatePresignedUrl(10, {
+            fileName: 'hoa_don.pdf',
+            mimeType: 'application/pdf',
+            size: 1024,
+          }),
+        ).toThrow('FATAL SECURITY ERROR');
+      } finally {
+        process.env.JWT_SECRET = originalSecret;
+      }
+    });
+
     it('should generate pre-signed upload URL and file URL for valid PDF', () => {
       const result = service.generatePresignedUrl(10, {
         fileName: 'hoa_don.pdf',
@@ -185,4 +201,3 @@ describe('AttachmentsService', () => {
     });
   });
 });
-

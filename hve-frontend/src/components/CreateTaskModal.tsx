@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { TASK_PRIORITY_LABELS, type TaskItem } from '../types';
+import { uploadAttachment } from '../api/client';
 
 interface CreateTaskModalProps {
   isOpen: boolean;
@@ -61,57 +62,8 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
 
       // 1. Tải file đính kèm nếu có
       if (selectedFile) {
-        const urlRes = await fetch(`${apiBaseUrl}/attachments/presigned-url`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            fileName: selectedFile.name,
-            mimeType: selectedFile.type || 'application/octet-stream',
-            size: selectedFile.size,
-          }),
-        });
-
-        if (!urlRes.ok) {
-          throw new Error('Không lấy được URL tải lên file');
-        }
-        const { uploadUrl, fileKey } = await urlRes.json();
-
-        // Gửi file
-        const upRes = await fetch(uploadUrl, {
-          method: 'PUT',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': selectedFile.type || 'application/octet-stream',
-          },
-          body: selectedFile,
-        });
-
-        if (!upRes.ok) {
-          throw new Error('Tải file lên máy chủ thất bại');
-        }
-
-        // Lưu metadata file
-        const saveRes = await fetch(`${apiBaseUrl}/attachments/save-uploaded`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            fileKey,
-            fileName: selectedFile.name,
-            mimeType: selectedFile.type || 'application/octet-stream',
-            size: selectedFile.size,
-          }),
-        });
-
-        if (saveRes.ok) {
-          const fileData = await saveRes.json();
-          attachmentIds.push(fileData.id);
-        }
+        const attachmentId = await uploadAttachment(apiBaseUrl, token, selectedFile);
+        attachmentIds.push(attachmentId);
       }
 
       // 2. Tạo công việc

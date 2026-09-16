@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import type { DocumentItem } from '../types';
 import { MOCK_DASHBOARD_DATA } from '../mockData';
+import { ENABLE_MOCK_DATA } from '../config';
 
 interface OverviewDashboardProps {
   apiBaseUrl: string;
@@ -28,18 +29,21 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
   onViewAll,
 }) => {
   const [dashboardData, setDashboardData] = useState<any>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
 
   const fetchDashboard = async (clearCache = false) => {
     const token = localStorage.getItem('access_token');
     if (!token) {
-      setDashboardData(MOCK_DASHBOARD_DATA);
+      setDashboardData(ENABLE_MOCK_DATA ? MOCK_DASHBOARD_DATA : null);
+      if (!ENABLE_MOCK_DATA) setLoadError('Phiên đăng nhập đã hết hạn.');
       setIsLoading(false);
       return;
     }
 
     try {
+      setLoadError(null);
       if (clearCache) {
         setIsRefreshing(true);
         await fetch(`${apiBaseUrl}/dashboard/clear-cache`, {
@@ -52,15 +56,12 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        setDashboardData(data);
-      } else {
-        setDashboardData(MOCK_DASHBOARD_DATA);
-      }
-    } catch {
-      // offline fallback
-      setDashboardData(MOCK_DASHBOARD_DATA);
+      if (!res.ok) throw new Error('Không thể tải dữ liệu tổng quan');
+      const data = await res.json();
+      setDashboardData(data);
+    } catch (error: any) {
+      setDashboardData(ENABLE_MOCK_DATA ? MOCK_DASHBOARD_DATA : null);
+      if (!ENABLE_MOCK_DATA) setLoadError(error.message || 'Không thể tải dữ liệu tổng quan');
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -81,6 +82,14 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
       <div className="py-24 text-center text-sm text-gray-400">
         <div className="w-9 h-9 border-2 border-[#0A66C2] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
         Đang tổng hợp dữ liệu điều hành...
+      </div>
+    );
+  }
+
+  if (loadError && !dashboardData) {
+    return (
+      <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center text-sm text-red-700">
+        {loadError}
       </div>
     );
   }

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { MOCK_REPORTS_SUMMARY } from '../mockData';
+import { ENABLE_MOCK_DATA } from '../config';
 
 interface ReportsViewProps {
   apiBaseUrl: string;
@@ -118,7 +119,8 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     setIsLoading(true);
     const token = localStorage.getItem('access_token');
     if (!token) {
-      setSummaryData(MOCK_REPORTS_SUMMARY);
+      setSummaryData(ENABLE_MOCK_DATA ? MOCK_REPORTS_SUMMARY : null);
+      if (!ENABLE_MOCK_DATA) showToast('Phiên đăng nhập đã hết hạn', 'error');
       setIsLoading(false);
       return;
     }
@@ -135,15 +137,12 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
       const res = await fetch(`${apiBaseUrl}/reports/summary?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.ok) {
-        const data = await res.json();
-        setSummaryData(data);
-      } else {
-        setSummaryData(MOCK_REPORTS_SUMMARY);
-      }
-    } catch {
-      // offline fallback
-      setSummaryData(MOCK_REPORTS_SUMMARY);
+      if (!res.ok) throw new Error('Không thể tải dữ liệu báo cáo');
+      const data = await res.json();
+      setSummaryData(data);
+    } catch (error: any) {
+      setSummaryData(ENABLE_MOCK_DATA ? MOCK_REPORTS_SUMMARY : null);
+      if (!ENABLE_MOCK_DATA) showToast(error.message || 'Không thể tải dữ liệu báo cáo', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -155,7 +154,8 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     setIsLoading(true);
     const token = localStorage.getItem('access_token');
     if (!token) {
-      setAuditLogs(MOCK_REPORTS_SUMMARY.auditLogs);
+      setAuditLogs(ENABLE_MOCK_DATA ? MOCK_REPORTS_SUMMARY.auditLogs : []);
+      if (!ENABLE_MOCK_DATA) showToast('Phiên đăng nhập đã hết hạn', 'error');
       setIsLoading(false);
       return;
     }
@@ -168,15 +168,12 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
       const res = await fetch(`${apiBaseUrl}/reports/audit-logs?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.ok) {
-        const data = await res.json();
-        setAuditLogs(data);
-      } else {
-        setAuditLogs(MOCK_REPORTS_SUMMARY.auditLogs);
-      }
-    } catch {
-      // offline fallback
-      setAuditLogs(MOCK_REPORTS_SUMMARY.auditLogs);
+      if (!res.ok) throw new Error('Không thể tải nhật ký hệ thống');
+      const data = await res.json();
+      setAuditLogs(data);
+    } catch (error: any) {
+      setAuditLogs(ENABLE_MOCK_DATA ? MOCK_REPORTS_SUMMARY.auditLogs : []);
+      if (!ENABLE_MOCK_DATA) showToast(error.message || 'Không thể tải nhật ký hệ thống', 'error');
     } finally {
       setIsLoading(false);
     }

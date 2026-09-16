@@ -1,31 +1,45 @@
-import { useState, useEffect } from 'react';
+import { lazy, Suspense, useState, useEffect } from 'react';
 import { type DocumentItem, type ApprovalStep, type TaskItem, ROLE_LABELS } from './types';
 
 import { Toast } from './components/Toast';
 import { LoginPage } from './components/LoginPage';
 import { Sidebar } from './components/Sidebar';
-import { OverviewDashboard } from './components/OverviewDashboard';
 import { DocumentList } from './components/DocumentList';
 import { DocumentDetailModal } from './components/DocumentDetailModal';
 import { CreateDocumentForm, type CreateFormData } from './components/CreateDocumentForm';
 import { ActionReasonModal } from './components/ActionReasonModal';
 import { ApprovalPinModal } from './components/ApprovalPinModal';
 import { SetApprovalPinModal } from './components/SetApprovalPinModal';
-import { AdminWorkflowView } from './components/AdminWorkflowView';
-import { AdminUserView } from './components/AdminUserView';
-import { TaskListView } from './components/TaskListView';
 import { CreateTaskModal } from './components/CreateTaskModal';
 import { TaskDetailModal } from './components/TaskDetailModal';
 import { NotificationBell } from './components/NotificationBell';
-import { ReportsView } from './components/ReportsView';
 import { OfflineBanner } from './components/OfflineBanner';
+import { ViewErrorBoundary } from './components/ViewErrorBoundary';
 import { subscribeToWebPush } from './utils/pwa';
+import { uploadAttachment } from './api/client';
+import { ENABLE_MOCK_DATA } from './config';
 import {
   MOCK_USERS,
   MOCK_DOCUMENTS,
 } from './mockData';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
+const OverviewDashboard = lazy(() =>
+  import('./components/OverviewDashboard').then((module) => ({ default: module.OverviewDashboard })),
+);
+const TaskListView = lazy(() =>
+  import('./components/TaskListView').then((module) => ({ default: module.TaskListView })),
+);
+const ReportsView = lazy(() =>
+  import('./components/ReportsView').then((module) => ({ default: module.ReportsView })),
+);
+const AdminWorkflowView = lazy(() =>
+  import('./components/AdminWorkflowView').then((module) => ({ default: module.AdminWorkflowView })),
+);
+const AdminUserView = lazy(() =>
+  import('./components/AdminUserView').then((module) => ({ default: module.AdminUserView })),
+);
 
 export default function App() {
   // Auth state
@@ -34,7 +48,7 @@ export default function App() {
     return saved ? JSON.parse(saved) : null;
   });
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    return !!localStorage.getItem('access_token') || !!localStorage.getItem('user');
+    return !!localStorage.getItem('access_token') && !!localStorage.getItem('user');
   });
   const [authError, setAuthError] = useState<string>('');
 
@@ -48,7 +62,7 @@ export default function App() {
       return;
     }
     const roleParam = params.get('role');
-    if (roleParam) {
+    if (ENABLE_MOCK_DATA && roleParam) {
       let targetUser: any = MOCK_USERS.employee;
       if (roleParam === 'ceo') targetUser = MOCK_USERS.ceo;
       else if (roleParam === 'dept_head' || roleParam === 'tp_it') targetUser = MOCK_USERS.dept_head;
@@ -65,7 +79,7 @@ export default function App() {
       setActiveTab(tabParam);
     }
     const docIdParam = params.get('docId');
-    if (docIdParam) {
+    if (ENABLE_MOCK_DATA && docIdParam) {
       const found = MOCK_DOCUMENTS.find((d) => d.id === Number(docIdParam));
       if (found) setSelectedDoc(found);
     }
@@ -172,10 +186,14 @@ export default function App() {
           if (fresh) setSelectedDoc(fresh);
         }
       } else {
-        throw new Error('Fallback to mock');
+        throw new Error('Không thể tải danh sách hồ sơ');
       }
-    } catch {
-      // Backend not connected - use realistic mock data
+    } catch (error: any) {
+      if (!ENABLE_MOCK_DATA) {
+        setDocuments([]);
+        showToast(error.message || 'Không thể tải danh sách hồ sơ', 'error');
+        return;
+      }
       let mock = [...MOCK_DOCUMENTS];
       if (tabFilter === 'my') {
         mock = mock.filter((d) => d.createdBy?.id === user?.id || d.createdBy?.email === user?.email);
@@ -203,12 +221,12 @@ export default function App() {
       const res = await fetch(`${API_BASE_URL}/tasks/users`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.ok) {
-        const data = await res.json();
-        setAssignableUsers(data);
-      }
-    } catch {
-      setAssignableUsers(Object.values(MOCK_USERS));
+      if (!res.ok) throw new Error('Không thể tải danh sách nhân sự');
+      const data = await res.json();
+      setAssignableUsers(data);
+    } catch (error: any) {
+      setAssignableUsers(ENABLE_MOCK_DATA ? Object.values(MOCK_USERS) : []);
+      if (!ENABLE_MOCK_DATA) showToast(error.message || 'Không thể tải danh sách nhân sự', 'error');
     }
   };
 
@@ -219,13 +237,12 @@ export default function App() {
       const res = await fetch(`${API_BASE_URL}/tasks?tab=assigned_to_me`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.ok) {
-        const data = await res.json();
-        const pending = data.filter((t: any) => t.status === 'Chờ duyệt' || t.isOverdue);
-        setTaskCount(pending.length);
-      }
+      if (!res.ok) throw new Error('Không thể tải số công việc cần xử lý');
+      const data = await res.json();
+      const pending = data.filter((t: any) => t.status === 'Chờ duyệt' || t.isOverdue);
+      setTaskCount(pending.length);
     } catch {
-      setTaskCount(2);
+      setTaskCount(ENABLE_MOCK_DATA ? 2 : 0);
     }
   };
 
@@ -367,59 +384,12 @@ export default function App() {
   // Upload Attachment via Presigned URL
   const uploadAttachmentReal = async (file: File): Promise<number | null> => {
     const token = localStorage.getItem('access_token');
+    if (!token) {
+      showToast('Phiên đăng nhập đã hết hạn', 'error');
+      return null;
+    }
     try {
-      // 1. Request presigned URL from backend
-      const presignRes = await fetch(`${API_BASE_URL}/attachments/presigned-url`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          fileName: file.name,
-          mimeType: file.type || 'application/pdf',
-          size: file.size,
-        }),
-      });
-
-      if (!presignRes.ok) {
-        const err = await presignRes.json().catch(() => ({}));
-        throw new Error(err.message || 'Lỗi lấy pre-signed URL');
-      }
-
-      const { uploadUrl, fileUrl } = await presignRes.json();
-
-      // 2. Upload binary file to destination storage
-      const fullUploadUrl = uploadUrl.startsWith('http') ? uploadUrl : `${API_BASE_URL}${uploadUrl}`;
-      const uploadRes = await fetch(fullUploadUrl, {
-        method: 'PUT',
-        headers: { Authorization: `Bearer ${token}` },
-        body: file,
-      });
-
-      if (!uploadRes.ok) {
-        const err = await uploadRes.json().catch(() => ({}));
-        throw new Error(err.message || 'Lỗi tải tệp lên máy chủ lưu trữ');
-      }
-
-      // 3. Register Attachment Metadata in DB
-      const regRes = await fetch(`${API_BASE_URL}/attachments/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          fileName: file.name,
-          mimeType: file.type || 'application/pdf',
-          size: file.size,
-          fileUrl,
-        }),
-      });
-
-      if (!regRes.ok) {
-        throw new Error('Lỗi đăng ký thông tin chứng từ');
-      }
-
-      const registered = await regRes.json();
-      return registered.id;
+      return await uploadAttachment(API_BASE_URL, token, file);
     } catch (err: any) {
       showToast(err.message || 'Lỗi tải lên tệp đính kèm', 'error');
       return null;
@@ -827,6 +797,8 @@ export default function App() {
 
         {/* Tab Body */}
         <div className="flex-1 p-4 md:p-8 overflow-y-auto">
+          <ViewErrorBoundary key={activeTab}>
+          <Suspense fallback={<div className="py-24 text-center text-sm text-gray-400">Đang tải màn hình...</div>}>
           {/* TAB 1: OVERVIEW */}
           {activeTab === 'overview' && (
             <OverviewDashboard
@@ -946,6 +918,8 @@ export default function App() {
           {activeTab === 'admin_users' && (
             <AdminUserView apiBaseUrl={API_BASE_URL} currentUser={user} showToast={showToast} />
           )}
+          </Suspense>
+          </ViewErrorBoundary>
         </div>
       </main>
 

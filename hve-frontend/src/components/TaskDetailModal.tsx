@@ -5,6 +5,8 @@ import {
   type TaskItem,
 } from '../types';
 import { MOCK_TASKS } from '../mockData';
+import { authenticatedFileUrl } from '../api/client';
+import { ENABLE_MOCK_DATA } from '../config';
 
 interface TaskDetailModalProps {
   taskId: number;
@@ -46,8 +48,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     setFetchError(null);
     const token = localStorage.getItem('access_token');
 
-    // Demo/offline mode fallback
-    if (!token || token === 'mock_token_demo') {
+    if (ENABLE_MOCK_DATA && (!token || token === 'mock_token_demo')) {
       const mock = MOCK_TASKS.find((t) => t.id === taskId);
       if (mock) {
         setTask(mock);
@@ -488,7 +489,11 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                   {task.attachments.map((file) => (
                     <a
                       key={file.id}
-                      href={`${apiBaseUrl}${file.fileUrl}`}
+                      href={authenticatedFileUrl(
+                        apiBaseUrl,
+                        file.fileUrl,
+                        localStorage.getItem('access_token') || '',
+                      )}
                       target="_blank"
                       rel="noreferrer"
                       className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-blue-700 hover:bg-blue-50 flex items-center space-x-2 transition-colors"
