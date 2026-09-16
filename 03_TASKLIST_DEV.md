@@ -12,8 +12,8 @@ Bám theo [02_KE_HOACH_TRIEN_KHAI.md](02_KE_HOACH_TRIEN_KHAI.md) và [01_KIEN_TR
 - [x] Thiết lập Docker Compose cho dev local (app + Postgres + Redis)
 - [x] Thiết lập CI (lint, typecheck, unit test, build) trên mỗi PR
 - [ ] Thiết lập CD deploy tự động lên staging khi merge `main` (bổ sung trước UAT Phase 5)
-- [ ] Tạo môi trường production (chưa cần trỏ domain thật)
-- [ ] Cấu hình HTTPS/TLS cho staging và production
+- [x] Tạo môi trường production: frontend Vercel, backend Railway Singapore, database Supabase, file Google Drive
+- [x] Cấu hình HTTPS/TLS cho production (`work.huyvoeducation.vn` và domain Railway)
 - [x] Thiết lập storage upload chứng từ (pre-signed URL)
 - [x] Thiết lập biến môi trường/secrets management (không commit secret vào repo)
 
@@ -172,3 +172,17 @@ Bám theo [02_KE_HOACH_TRIEN_KHAI.md](02_KE_HOACH_TRIEN_KHAI.md) và [01_KIEN_TR
 - [x] Chuyển giao mã nguồn, cấu trúc DB, quy trình release, môi trường vận hành
 
 **Nghiệm thu Phase 5 = Nghiệm thu toàn dự án:** ✅ **ĐÃ ĐẠT** (Đạt đủ 7 hạng mục ở bảng "Tiêu chí nghiệm thu" mục 11 brief, 117/117 unit tests pass).
+
+---
+
+## Ổn định production sau cutover Railway — 16/09/2026
+
+- [x] Chuyển `VITE_API_URL` production từ backend Vercel sang Railway và lưu mốc rollback frontend
+- [x] Xác nhận Railway kết nối Supabase, CORS, JWT và Google Drive
+- [x] Chuẩn hóa notification `PATCH /notifications/read-all`
+- [x] Dùng chung helper upload/register và thêm JWT cho link tải tệp công việc
+- [x] Tắt mock fallback trên production; thêm contract test 401/404/413 và upload/download
+- [x] Tách các trang lớn bằng `React.lazy`/`Suspense` và thêm error boundary
+- [x] Bỏ HMAC secret hardcode, production fail-closed khi thiếu `JWT_SECRET`
+- [x] Chuẩn hóa Dockerfile Node.js 22 và `npm ci --ignore-scripts`
+- [x] Cập nhật tài liệu theo kiến trúc Vercel → Railway → Supabase + Google Drive
