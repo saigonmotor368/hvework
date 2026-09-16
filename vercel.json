@@ -1,9 +1,0 @@
-﻿{
-  "buildCommand": "cd hve-frontend && npm install && npm run build",
-  "outputDirectory": "hve-frontend/dist",
-  "installCommand": "echo skip-root-install",
-  "framework": null,
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
-  ]
-}
