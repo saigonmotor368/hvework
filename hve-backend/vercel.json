@@ -1,5 +1,6 @@
 {
   "buildCommand": "npm run build",
+  "regions": ["hkg1"],
   "rewrites": [{ "source": "/(.*)", "destination": "/api/index" }],
   "functions": {
     "api/index.js": {
