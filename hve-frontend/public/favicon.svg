@@ -1,14 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
-  <defs>
-    <linearGradient id="hveGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#0A66C2"/>
-      <stop offset="100%" stop-color="#004182"/>
-    </linearGradient>
-  </defs>
-  <!-- Background Rounded Rect -->
-  <rect width="64" height="64" rx="14" fill="url(#hveGrad)"/>
-  
-  <!-- Stylized Education Cap & Book / Letter H Shape -->
-  <path d="M16 20h8v24h-8zM40 20h8v24h-8zM24 30h16v6H24z" fill="#FFFFFF"/>
-  <circle cx="32" cy="18" r="4" fill="#F59E0B"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200" role="img" aria-label="Huy Võ Education">
+  <rect width="200" height="200" rx="42" fill="#F8FAFC"/>
+  <circle cx="100" cy="58" r="11" fill="#FFC631"/>
+  <path d="M66 75 L100 130" fill="none" stroke="#0A66C2" stroke-width="22" stroke-linecap="round"/>
+  <path d="M100 130 L134 75" fill="none" stroke="#20B84D" stroke-width="22" stroke-linecap="round"/>
+  <path d="M68 150 Q100 170 132 150" fill="none" stroke="#1D1D1F" stroke-width="11" stroke-linecap="round"/>
 </svg>

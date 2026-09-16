@@ -1,16 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <defs>
-    <linearGradient id="hve512Grad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#0A66C2"/>
-      <stop offset="100%" stop-color="#002D5A"/>
-    </linearGradient>
-  </defs>
-  <rect width="512" height="512" rx="112" fill="url(#hve512Grad)"/>
-  
-  <!-- HVE Shield Crest -->
-  <path d="M128 140h64v232h-64zM320 140h64v232h-64zM192 236h128v48H192z" fill="#FFFFFF"/>
-  <circle cx="256" cy="130" r="28" fill="#F59E0B"/>
-  <path d="M208 340l48 26 48-26v22l-48 26-48-26z" fill="#E2E8F0"/>
-  
-  <text x="256" y="440" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="34" fill="#FFFFFF" letter-spacing="4">HVE WORK</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Huy Võ Education">
+  <rect width="512" height="512" rx="106" fill="#F8FAFC"/>
+  <circle cx="256" cy="148" r="30" fill="#FFC631"/>
+  <path d="M168 195 L256 336" fill="none" stroke="#0A66C2" stroke-width="56" stroke-linecap="round"/>
+  <path d="M256 336 L344 195" fill="none" stroke="#20B84D" stroke-width="56" stroke-linecap="round"/>
+  <path d="M174 385 Q256 428 338 385" fill="none" stroke="#1D1D1F" stroke-width="28" stroke-linecap="round"/>
 </svg>

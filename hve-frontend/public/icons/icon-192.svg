@@ -1,14 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
-  <defs>
-    <linearGradient id="hve192Grad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#0A66C2"/>
-      <stop offset="100%" stop-color="#003566"/>
-    </linearGradient>
-  </defs>
-  <rect width="192" height="192" rx="42" fill="url(#hve192Grad)"/>
-  
-  <!-- HVE Emblem: Letter H / Academic Shield -->
-  <path d="M48 56h24v80H48zM120 56h24v80h-24zM72 88h48v18H72z" fill="#FFFFFF"/>
-  <circle cx="96" cy="52" r="10" fill="#F59E0B"/>
-  <path d="M78 128l18 10 18-10v8l-18 10-18-10z" fill="#E2E8F0"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192" role="img" aria-label="Huy Võ Education">
+  <rect width="192" height="192" rx="40" fill="#F8FAFC"/>
+  <circle cx="96" cy="56" r="11" fill="#FFC631"/>
+  <path d="M63 73 L96 126" fill="none" stroke="#0A66C2" stroke-width="21" stroke-linecap="round"/>
+  <path d="M96 126 L129 73" fill="none" stroke="#20B84D" stroke-width="21" stroke-linecap="round"/>
+  <path d="M65 145 Q96 164 127 145" fill="none" stroke="#1D1D1F" stroke-width="11" stroke-linecap="round"/>
 </svg>
