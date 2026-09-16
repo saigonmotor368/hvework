@@ -2,6 +2,10 @@ node_modules
 dist
 .env
 prisma/seed.js
+uploads/
+*.db
+*.sqlite
 
 /src/generated/prisma
+
 

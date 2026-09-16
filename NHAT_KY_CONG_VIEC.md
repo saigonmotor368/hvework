@@ -82,18 +82,31 @@
   - Frontend: Xây dựng toàn bộ giao diện hoàn chỉnh trong `App.tsx` (1.472 dòng code) bao gồm Auth, Dashboard, Form tạo hồ sơ, File upload, Danh sách & Chi tiết hồ sơ, Luồng 4 bước duyệt, Modal nhập lý do, Action buttons phân quyền.
   - Frontend Build: `npm run build` đạt chuẩn.
 
-### Phiên 4 (16/09/2026 - Hôm nay) — Rà soát toàn diện, Chuẩn hóa quản lý & Khởi tạo Git
-- **Vấn đề phát hiện**:
-  1. Thư mục dự án chưa từng được khởi tạo Git (`git init`), dẫn đến không thấy lịch sử commit trong Source Control.
-  2. File `03_TASKLIST_DEV.md` chưa được tick `[x]` tương ứng với các task đã làm xong.
-  3. Thiếu cơ chế ghi nhật ký phiên tập trung khiến người dùng mất dấu khi đổi phiên.
-- **Công việc đã xử lý trong phiên**:
-  1. Cập nhật `.gitignore` monorepo chặt chẽ, loại bỏ `node_modules`, `dist`, `.env*`, `uploads/`.
-  2. Khởi tạo Git repo (`git init -b main`) và chuẩn bị commit toàn bộ mã nguồn để lưu vết trong Git log.
-  3. Cập nhật `03_TASKLIST_DEV.md` tích xanh đầy đủ các mục Phase 0 và Phase 1 đã hoàn thành.
-  4. Tạo tài liệu `NHAT_KY_CONG_VIEC.md` làm đầu mối theo dõi tiến độ xuyên suốt.
-  5. Thiết lập workspace rule `.agents/rules/work_continuity.md` quy định bắt buộc ghi log sau mỗi phiên.
-  6. Chạy lại test & build xác nhận chất lượng: Backend 40/40 tests pass, Frontend build sạch sẽ.
+### Phiên 4 (16/09/2026 - Hôm nay) — Rà soát toàn diện, Vá lỗ hổng bảo mật & Refactor Frontend
+- **Vấn đề phát hiện & xử lý**:
+  1. **Lỗ hổng bảo mật upload file (PUT /attachments/upload-storage/:fileKey)**:
+     - Đã thêm `@UseGuards(JwtAuthGuard)` chặn người dùng chưa đăng nhập.
+     - Sinh chữ ký HMAC SHA-256 kèm thời hạn 15 phút tại `generatePresignedUrl`, kiểm tra xác thực khi upload chống gọi tắt.
+     - Lắng nghe stream data, ngắt kết nối (`req.destroy()`) ngay khi luồng dữ liệu vượt 10MB để chống DoS bộ nhớ/ổ đĩa.
+     - Validate lại định dạng phần mở rộng và kích thước buffer trước khi ghi đĩa; chống path traversal bằng `path.basename`.
+  2. **Khắc phục lỗi 404 xem chứng từ**:
+     - Cấu hình serve static `app.useStaticAssets(uploadDir, { prefix: '/uploads/' })` trong `main.ts`.
+     - Thêm endpoint `GET /attachments/file/:fileKey` có guard bảo mật.
+  3. **Sửa bug logic số hiệu bản sửa đổi (`createNewVersion`)**:
+     - Tách độc lập `revision` number với `version` optimistic-lock. Đếm tài liệu có cùng `baseCode` trong DB để tính đúng mã `-v2`, `-v3` kể cả khi `doc.version` của bản ghi gốc là 6.
+     - Bản nháp sửa đổi mới khởi tạo `version: 1` cho khoá lạc quan riêng.
+  4. **Dọn dẹp chất lượng Frontend (Modularization & Config)**:
+     - Tách component `App.tsx` (1.471 dòng) thành 8 component con trong `src/components/` (`LoginPage`, `Sidebar`, `OverviewDashboard`, `DocumentList`, `DocumentDetailModal`, `CreateDocumentForm`, `ActionReasonModal`, `Toast`) và `src/types.ts`.
+     - Thay thế toàn bộ 13 vị trí hardcode `http://localhost:3000` bằng `API_BASE_URL` (thông qua `import.meta.env.VITE_API_URL`).
+     - Tạo sẵn `.env.example` cho backend và frontend.
+     - Thêm `uploads/` và `*.db` vào `.gitignore` của root và backend.
+  5. **Quản lý mã nguồn & Kiểm thử**:
+     - Khởi tạo Git repo (`git init -b main`) và cấu hình theo dõi phiên bản.
+     - Unit tests backend: **47/47 tests pass** (tăng thêm 7 tests mới kiểm tra bảo mật upload, HMAC signature, size limit, path traversal, revision numbering).
+     - Lint backend: **0 warnings, 0 errors**.
+     - Frontend build: **Pass sạch sẽ trong 170ms**.
+     - Nghiệm thu Phase 1: **ĐẠT TOÀN DIỆN** (Xem [05_REVIEW_PHASE1.md](05_REVIEW_PHASE1.md)).
+
 
 ---
 

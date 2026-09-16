@@ -104,34 +104,86 @@ describe('DocumentsService', () => {
   });
 
   describe('createNewVersion', () => {
-    it('should create new version for approved document with status "Nháp"', async () => {
+    it('should create new version (-v2) for approved document even when optimistic-lock version is high (e.g. 6)', async () => {
       prisma.document.findUnique.mockResolvedValue({
         id: 1,
         code: 'DNTT-2026-001',
         title: 'Thanh toán hosting',
         type: 'payment_request',
         status: 'Đã duyệt',
-        version: 1,
+        version: 6, // Optimistic-locking counter tăng sau nhiều bước duyệt
         createdById: 10,
         dataJson: { amount: 5000000 },
       });
+
+      prisma.document.findMany.mockResolvedValue([
+        { code: 'DNTT-2026-001' },
+      ]);
 
       prisma.document.create.mockResolvedValue({
         id: 2,
         code: 'DNTT-2026-001-v2',
         title: 'Thanh toán hosting (Bản sửa đổi v2)',
         status: 'Nháp',
-        version: 2,
+        version: 1, // Bản nháp mới bắt đầu lock version từ 1
         createdById: 10,
       });
 
       const result = await service.createNewVersion(1, 10);
-      expect(result.version).toBe(2);
+      expect(prisma.document.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            code: 'DNTT-2026-001-v2',
+            version: 1,
+            status: 'Nháp',
+          }),
+        }),
+      );
+      expect(result.code).toBe('DNTT-2026-001-v2');
       expect(result.status).toBe('Nháp');
       expect(auditService.logEvent).toHaveBeenCalledWith(
         expect.objectContaining({ action: 'create_new_version' }),
       );
     });
+
+    it('should increment to -v3 when -v2 already exists in database', async () => {
+      prisma.document.findUnique.mockResolvedValue({
+        id: 2,
+        code: 'DNTT-2026-001-v2',
+        title: 'Thanh toán hosting (Bản sửa đổi v2)',
+        type: 'payment_request',
+        status: 'Đã duyệt',
+        version: 4,
+        createdById: 10,
+        dataJson: { amount: 5000000 },
+      });
+
+      prisma.document.findMany.mockResolvedValue([
+        { code: 'DNTT-2026-001' },
+        { code: 'DNTT-2026-001-v2' },
+      ]);
+
+      prisma.document.create.mockResolvedValue({
+        id: 3,
+        code: 'DNTT-2026-001-v3',
+        title: 'Thanh toán hosting (Bản sửa đổi v3)',
+        status: 'Nháp',
+        version: 1,
+        createdById: 10,
+      });
+
+      const result = await service.createNewVersion(2, 10);
+      expect(prisma.document.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            code: 'DNTT-2026-001-v3',
+            version: 1,
+          }),
+        }),
+      );
+      expect(result.code).toBe('DNTT-2026-001-v3');
+    });
+
 
     it('should throw BadRequestException if document is not yet approved', async () => {
       prisma.document.findUnique.mockResolvedValue({

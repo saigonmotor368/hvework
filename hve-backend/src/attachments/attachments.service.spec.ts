@@ -3,6 +3,8 @@ import { AttachmentsService } from './attachments.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { BadRequestException } from '@nestjs/common';
 
+
+
 describe('AttachmentsService', () => {
   let service: AttachmentsService;
   let prisma: any;
@@ -107,4 +109,66 @@ describe('AttachmentsService', () => {
       expect(result.version).toBe(2);
     });
   });
+
+  describe('saveUploadedFile', () => {
+    it('should successfully save file with valid signature and buffer', async () => {
+      const presign = service.generatePresignedUrl(10, {
+        fileName: 'chung_tu.pdf',
+        mimeType: 'application/pdf',
+        size: 1024,
+      });
+
+      const buffer = Buffer.from('fake-pdf-content');
+      const result = await service.saveUploadedFile(
+        presign.fileKey,
+        buffer,
+        10,
+        presign.token,
+        presign.expiresAt,
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.fileUrl).toContain('/uploads/');
+      expect(result.size).toBe(buffer.length);
+    });
+
+    it('should throw ForbiddenException if token signature is invalid', async () => {
+      const buffer = Buffer.from('fake-pdf-content');
+      await expect(
+        service.saveUploadedFile('test.pdf', buffer, 10, 'invalid-signature-hash', Math.floor(Date.now() / 1000) + 600),
+      ).rejects.toThrow('Chữ ký xác thực tải lên không hợp lệ.');
+    });
+
+    it('should throw ForbiddenException if token is expired', async () => {
+      const buffer = Buffer.from('fake-pdf-content');
+      const expiredTime = Math.floor(Date.now() / 1000) - 100; // đã hết hạn
+      const token = service.createSignature('test.pdf', 10, expiredTime);
+
+      await expect(
+        service.saveUploadedFile('test.pdf', buffer, 10, token, expiredTime),
+      ).rejects.toThrow('Pre-signed URL đã hết hạn');
+    });
+
+    it('should throw BadRequestException if buffer exceeds 10MB', async () => {
+      const largeBuffer = Buffer.alloc(11 * 1024 * 1024); // 11MB
+      await expect(
+        service.saveUploadedFile('test.pdf', largeBuffer, 10),
+      ).rejects.toThrow('Dung lượng tệp vượt quá giới hạn 10MB');
+    });
+
+    it('should throw BadRequestException if file extension is not allowed', async () => {
+      const buffer = Buffer.from('malicious-script');
+      await expect(
+        service.saveUploadedFile('malware.exe', buffer, 10),
+      ).rejects.toThrow('Định dạng phần mở rộng tệp không được hỗ trợ');
+    });
+
+    it('should throw BadRequestException on path traversal attempt', async () => {
+      const buffer = Buffer.from('data');
+      await expect(
+        service.saveUploadedFile('../../etc/passwd', buffer, 10),
+      ).rejects.toThrow('Tên tệp tin không hợp lệ.');
+    });
+  });
 });
+

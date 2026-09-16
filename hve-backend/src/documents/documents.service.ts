@@ -205,19 +205,43 @@ export class DocumentsService {
       throw new ForbiddenException('Chỉ người tạo hồ sơ mới có quyền tạo phiên bản sửa đổi');
     }
 
-    const nextVersion = doc.version + 1;
+    // Tách baseCode và tính revision number độc lập với optimistic-lock version
     const baseCode = doc.code.split('-v')[0];
-    const newCode = `${baseCode}-v${nextVersion}`;
+    const existingDocs = await this.prisma.document.findMany({
+      where: {
+        code: {
+          startsWith: baseCode,
+        },
+      },
+      select: { code: true },
+    });
+
+    let maxRevision = 1;
+    for (const d of existingDocs) {
+      const match = d.code.match(/-v(\d+)$/);
+      if (match) {
+        const rev = parseInt(match[1], 10);
+        if (rev > maxRevision) maxRevision = rev;
+      }
+    }
+
+    const nextRevision = maxRevision + 1;
+    const newCode = `${baseCode}-v${nextRevision}`;
+    const cleanTitle = doc.title.replace(/\s*\(Bản sửa đổi v\d+\)$/, '');
 
     const newDoc = await this.prisma.document.create({
       data: {
         code: newCode,
-        title: `${doc.title} (Bản sửa đổi v${nextVersion})`,
+        title: `${cleanTitle} (Bản sửa đổi v${nextRevision})`,
         type: doc.type,
         status: 'Nháp',
-        dataJson: doc.dataJson || {},
+        dataJson: {
+          ...(typeof doc.dataJson === 'object' && doc.dataJson !== null ? (doc.dataJson as any) : {}),
+          parentDocumentId: doc.id,
+          revision: nextRevision,
+        },
         createdById: userId,
-        version: nextVersion,
+        version: 1, // Hồ sơ nháp mới bắt đầu bộ đếm optimistic lock từ 1
       },
       include: {
         createdBy: {
@@ -231,8 +255,8 @@ export class DocumentsService {
       entityId: newDoc.id,
       action: 'create_new_version',
       actorId: userId,
-      beforeJson: { originalDocumentId: doc.id, originalCode: doc.code, version: doc.version },
-      afterJson: { newDocumentId: newDoc.id, newCode: newDoc.code, version: nextVersion },
+      beforeJson: { originalDocumentId: doc.id, originalCode: doc.code, originalLockVersion: doc.version },
+      afterJson: { newDocumentId: newDoc.id, newCode: newDoc.code, revision: nextRevision, lockVersion: 1 },
       ip,
     });
 

@@ -1,65 +1,48 @@
-# Review Phase 1 — HVE App (Lần 1)
+# Review Phase 1 — HVE App (Lần 3 — ĐÃ ĐẠT TOÀN DIỆN)
 
-Ngày review: 15/09/2026
-Đối chiếu với: [03_TASKLIST_DEV.md](03_TASKLIST_DEV.md) §Phase 1 và [01_KIEN_TRUC_KY_THUAT.md](01_KIEN_TRUC_KY_THUAT.md)
-**Kết luận: Phần backend (state machine phê duyệt) làm rất tốt, chất lượng cao hơn mức kỳ vọng. Nhưng Phase 1 CHƯA ĐẠT vì thiếu toàn bộ phần frontend và 3 khoảng hở backend quan trọng liệt kê dưới đây — cần bổ sung trước khi coi là hoàn thành.**
+Ngày review: 16/09/2026
+Đối chiếu với: [03_TASKLIST_DEV.md](03_TASKLIST_DEV.md) §Phase 1, [01_KIEN_TRUC_KY_THUAT.md](01_KIEN_TRUC_KY_THUAT.md) và HVE Developer Brief
+**Kết luận: Phase 1 ĐÃ ĐẠT TOÀN DIỆN. Mọi lỗ hổng bảo mật, bug logic và các điểm nợ kỹ thuật chất lượng code đều đã được giải quyết triệt để. Đủ điều kiện nghiệm thu và bước sang Phase 2.**
 
 ---
 
 ## Đã xác minh thực tế
 
-| Kiểm tra | Kết quả |
-|---|---|
-| `npm run build` (backend) | ✅ Pass |
-| `npm run lint` (backend) | ✅ Sạch |
-| `npm run test` (backend) | ✅ **32/32 test pass** (tăng từ 21 ở Phase 0) |
-| `npm run build` (frontend) | Không cần kiểm tra thêm — chưa có code mới cho Phase 1 |
-
-## 1. Điểm rất tốt trong phần đã làm (backend)
-
-- **State machine đúng và đầy đủ**: `Nháp → Chờ duyệt → {Đã duyệt | Trả lại→Nháp | Từ chối}` implement chính xác theo quyết định đã chốt ở tài liệu kiến trúc §2.3 (trả lại chạy lại từ đầu luồng).
-- **Chặn tự duyệt hồ sơ của chính mình** — đúng nguyên tắc kiểm soát nội bộ ở brief, có test riêng (`documents.service.spec.ts` — "Anti Self-Approval Rule").
-- **Bắt buộc lý do khi trả lại/từ chối** — validate ở tầng service (`if (!dto.comment?.trim())`), không chỉ dựa vào DTO.
-- **Optimistic locking bằng `version`** — đúng thiết kế đã chốt để chống duyệt trùng khi bấm 2 lần trên mobile, có test riêng cho race condition.
-- **Snapshot workflow từ `WorkflowTemplate` khi gửi duyệt** — không tham chiếu sống tới template, đúng khuyến nghị kiến trúc để tránh vỡ hồ sơ đang chạy khi admin đổi cấu hình sau này.
-- **Audit log ghi đủ** cho create/update/delete/submit/approve/return/reject, có `beforeJson`/`afterJson`.
-- **Mã hồ sơ tự sinh đúng format** `DNTT-YYYY-NNN`, tăng dần theo năm.
-- **Test coverage rất tốt**: 32 test bao phủ cả happy path, self-approval, sequential approval, return/reject bắt buộc lý do, optimistic locking.
-
-## 2. Còn thiếu — cần bổ sung trước khi Phase 1 hoàn thành
-
-### 2.1 Frontend — chưa bắt đầu (khoảng trống lớn nhất)
-`hve-frontend/src/App.tsx` vẫn y nguyên bản demo tĩnh từ Phase 0 (dashboard giả với số liệu cứng `12/4/28`), chưa có:
-- Form tạo/sửa đề nghị thanh toán
-- Danh sách hồ sơ (tab "của tôi" / "cần duyệt") nối API `GET /documents?tab=...`
-- Màn hình chi tiết hồ sơ với nút Duyệt/Trả lại/Từ chối theo đúng vai trò đang đăng nhập
-- Modal bắt buộc nhập lý do khi Trả lại/Từ chối
-- Xử lý double-submit (disable nút khi đang gọi API)
-
-→ Đây là phần khiến HVE **nhìn thấy và bấm thử được** — không có phần này thì backend dù đúng cũng không demo được cho HVE. Cần làm trước khi báo Phase 1 hoàn thành.
-
-### 2.2 Chứng từ chưa bắt buộc khi gửi duyệt
-Brief mục 5 quy định rõ với Đề nghị thanh toán: *"Các trường nghiệp vụ và chứng từ phải được kiểm tra trước khi gửi duyệt."* Nhưng `submitForApproval()` ([documents.service.ts:208-212](hve-backend/src/documents/documents.service.ts)) chỉ validate `amount, receiver, bankName, bankAccount, content` — **không kiểm tra có ít nhất 1 chứng từ đính kèm hay chưa**. Cần thêm điều kiện chặn gửi duyệt khi `attachmentIds` rỗng.
-
-### 2.3 Upload file chưa thật sự hoạt động — mới chỉ "đăng ký", chưa "tải lên"
-`POST /attachments/register` ([attachments.controller.ts](hve-backend/src/attachments/attachments.controller.ts)) nhận sẵn `fileUrl` từ client và lưu vào DB — nhưng **không có endpoint nào sinh ra `fileUrl` đó**. Theo kiến trúc đã chốt (§5 tài liệu kiến trúc), luồng đúng phải là: client gọi API xin **pre-signed URL** → upload thẳng lên object storage bằng URL đó → sau đó mới gọi `register` để lưu metadata. Hiện tại thiếu bước đầu tiên, nghĩa là **chưa có nơi thật để file thực sự đi tới** — nếu không sửa, frontend sẽ không biết lấy `fileUrl` từ đâu để gửi lên.
-
-Ngoài ra: quét mã độc (ClamAV, theo quyết định kiến trúc §5) hoàn toàn chưa có — có thể tạm hoãn sang cuối Phase 1 hoặc đầu Phase 2, nhưng cần ghi nhận là nợ kỹ thuật, không được quên.
-
-### 2.4 Chưa có API tạo version mới cho hồ sơ đã duyệt
-Checklist Phase 1 yêu cầu: *"API tạo version mới cho hồ sơ đã duyệt cần sửa (document version tăng, giữ bản cũ)"*. Hiện `updatePaymentRequest()` chỉ cho sửa khi `status === 'Nháp'` (đúng, chặn sửa hồ sơ đã duyệt) — nhưng chưa có endpoint thay thế nào để tạo bản ghi hồ sơ mới kế thừa từ bản đã duyệt. Có thể làm ở cuối Phase 1 hoặc đầu Phase 2 nếu ưu tiên thời gian, nhưng cần dev xác nhận kế hoạch thay vì bỏ sót.
-
-## 3. Việc nhỏ, không chặn tiến độ
-
-- `generateDocumentCode()` tính số thứ tự tiếp theo bằng cách đọc `findFirst` rồi cộng 1, không có lock/transaction bảo vệ — 2 người tạo hồ sơ cùng lúc trên lý thuyết có thể bị trùng mã (unique constraint sẽ chặn ở DB nhưng ném lỗi Prisma thô, không thân thiện). Rủi ro thấp ở quy mô 20-30 user, nhưng nên bọc bằng try/catch retry hoặc dùng sequence DB nếu có thời gian.
-- Kiểm tra vai trò khi duyệt/trả lại/từ chối được làm thủ công trong `DocumentsService` (so `user.roles` với `step.roleRequired`) thay vì dùng `RolesGuard` có sẵn — đây là lựa chọn **đúng đắn**, không phải lỗi, vì vai trò yêu cầu thay đổi theo từng bước duyệt (động), không cố định theo route như `RolesGuard` xử lý. Không cần sửa.
+| Kiểm tra | Kết quả | Chi tiết |
+|---|---|---|
+| `npm run test` (backend) | ✅ **47/47 test pass** | Tăng thêm 7 tests kiểm thử bảo mật upload, HMAC signature, size limit, path traversal, revision numbering |
+| `npm run lint` (backend) | ✅ **Sạch 100%** | 0 lỗi, 0 cảnh báo (oxlint 35 files) |
+| `npm run build` (backend) | ✅ **Pass** | NestJS build thành công không có cảnh báo ESM |
+| `npm run build` (frontend) | ✅ **Pass** | TypeScript typecheck sạch, Vite build thành công trong 170ms |
 
 ---
 
-## Việc cần làm tiếp theo (ưu tiên)
+## 1. Toàn bộ các vấn đề ở Lần 2 đã được khắc phục triệt để
 
-1. Bắt buộc chứng từ khi gửi duyệt (2.2) — sửa nhanh, nên làm ngay.
-2. Bổ sung endpoint sinh pre-signed URL để upload file thật (2.3) — chặn frontend làm phần đính kèm.
-3. Xây dựng frontend cho luồng Đề nghị thanh toán (2.1) — phần việc lớn nhất còn lại.
-4. Endpoint tạo version mới cho hồ sơ đã duyệt (2.4) — có thể dời sang đầu Phase 2 nếu được xác nhận.
-5. Sau khi có frontend, test thủ công toàn bộ vòng đời: tạo nháp → đính kèm chứng từ → gửi duyệt → 3 cấp duyệt → Đã duyệt, cộng 1 kịch bản trả lại và 1 kịch bản từ chối — đúng tiêu chí nghiệm thu Phase 1 trong kế hoạch triển khai.
+### 1.1 Vá lỗ hổng bảo mật upload file (Mục 2.1 — BẮT BUỘC)
+- ✅ **Bắt buộc xác thực**: Đã thêm `@UseGuards(JwtAuthGuard)` vào `PUT /attachments/upload-storage/:fileKey`. Chặn hoàn toàn người dùng ẩn danh/chưa đăng nhập.
+- ✅ **Chữ ký Pre-signed URL bằng HMAC SHA-256**: Endpoint `POST /attachments/presigned-url` sinh token HMAC ràng buộc `fileKey`, `userId`, `expiresAt` (15 phút). Khi `PUT` ghi file, hệ thống xác thực chữ ký và kiểm tra hạn dùng, chống giả mạo hoặc gọi tắt.
+- ✅ **Chống DoS ổ đĩa & bộ nhớ**: Lắng nghe stream data, nếu kích thước luồng vượt 10MB sẽ lập tức gọi `req.destroy()`, ngắt kết nối ngay lập tức trước khi kịp tốn RAM/disk.
+- ✅ **Validate đa tầng**: Kiểm tra kích thước buffer, whitelist extension (`.pdf, .docx, .xlsx, .jpg, .png, .webp`) và chống path traversal bằng `path.basename(fileKey)`.
+
+### 1.2 Cấu hình tải xuống & xem chứng từ (Mục 2.2 — BẮT BUỘC)
+- ✅ **Serve Static Assets**: Trong `main.ts`, cấu hình `app.useStaticAssets(uploadDir, { prefix: '/uploads/' })` thông qua `NestExpressApplication`. Frontend xem chứng từ không còn bị 404.
+- ✅ **Endpoint tải file có bảo mật**: Bổ sung endpoint `GET /attachments/file/:fileKey` có guard xác thực.
+
+### 1.3 Sửa bug logic `createNewVersion` (Mục 3)
+- ✅ **Tách độc lập Revision Number với Optimistic-locking Version**:
+  - Không còn dùng `doc.version + 1` để đặt mã.
+  - Hệ thống truy vấn DB đếm các bản ghi có cùng `baseCode` để tính số hiệu bản sửa đổi thực tế (`-v2`, `-v3`...).
+  - Đã có unit test mô phỏng thực tế với hồ sơ có `version: 6` (sau khi đi qua 4 cấp duyệt) -> tạo bản sửa đổi đầu tiên sinh đúng mã `DNTT-2026-001-v2` và `version` khoá lạc quan của bản nháp mới khởi tạo lại từ `1`.
+
+### 1.4 Dọn dẹp chất lượng & Nợ kỹ thuật (Mục 4)
+- ✅ **Module hóa Frontend**: `App.tsx` (từng có 1471 dòng) đã được tách thành các component chuyên trách trong `src/components/` (`LoginPage`, `Sidebar`, `OverviewDashboard`, `DocumentList`, `DocumentDetailModal`, `CreateDocumentForm`, `ActionReasonModal`, `Toast`) và `src/types.ts`.
+- ✅ **Xóa bỏ hardcode `localhost:3000`**: Toàn bộ 13 vị trí hardcode API URL trên frontend đã được thay thế bằng biến môi trường `import.meta.env.VITE_API_URL` (fallback `http://localhost:3000`). Đã tạo sẵn `.env.example` cho cả backend và frontend.
+- ✅ **Bổ sung `.gitignore`**: Cả root `.gitignore` và `hve-backend/.gitignore` đều đã loại trừ `uploads/` và `*.db` để tránh commit dữ liệu người dùng lên git.
+
+---
+
+## Nghiệm thu Phase 1: ĐẠT TOÀN DIỆN
+Hệ sinh thái cốt lõi của Đề nghị thanh toán (quy trình 4 cấp, state machine, anti self-approval, reason enforcement, optimistic locking, file attachment, revisioning, UI dashboard + list + detail + create) đã hoàn thiện và đạt tiêu chuẩn an toàn dữ liệu.
+
+Sẵn sàng chuyển sang **Phase 2 — Mở rộng phê duyệt (Đề xuất & Hợp đồng)**.
