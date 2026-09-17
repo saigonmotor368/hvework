@@ -129,20 +129,29 @@ async function main() {
     },
   ];
 
-  for (const u of usersToSeed) {
-    const existing = await prisma.user.findUnique({ where: { email: u.email } });
-    if (!existing) {
-      await prisma.user.create({
-        data: {
-          email: u.email,
-          passwordHash: defaultPassword,
-          name: u.name,
-          departmentId: u.departmentId,
-          roles: {
-            connect: u.roleNames.map((r) => ({ id: roles[r].id })),
+  // An toàn production: mặc định KHÔNG tạo lại tài khoản demo/test nữa.
+  // Trước đây seed từng vô tình tạo lại các tài khoản demo (ceo@, tp_it@,
+  // ketoan@...) mà anh Định đã chủ động xóa để chạy live test với người
+  // dùng thật — vì đoạn code này chỉ kiểm tra "chưa có thì tạo", mỗi lần
+  // seed chạy lại (VD: để thêm role mới) sẽ vô tình hồi sinh chúng.
+  // Chỉ bật lại khi cần dựng CSDL mới hoàn toàn cho máy dev local:
+  //   SEED_DEMO_USERS=true npx prisma db seed
+  if (process.env.SEED_DEMO_USERS === 'true') {
+    for (const u of usersToSeed) {
+      const existing = await prisma.user.findUnique({ where: { email: u.email } });
+      if (!existing) {
+        await prisma.user.create({
+          data: {
+            email: u.email,
+            passwordHash: defaultPassword,
+            name: u.name,
+            departmentId: u.departmentId,
+            roles: {
+              connect: u.roleNames.map((r) => ({ id: roles[r].id })),
+            },
           },
-        },
-      });
+        });
+      }
     }
   }
 
