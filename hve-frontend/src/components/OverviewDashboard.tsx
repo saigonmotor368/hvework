@@ -14,6 +14,12 @@ interface OverviewDashboardProps {
   getStatusBadge: (status: string) => React.ReactNode;
   onSelectDoc: (doc: any) => void;
   onSelectTask?: (taskId: number) => void;
+  onOpenDocuments: (status: string) => void;
+  onOpenTasks: (filter: {
+    tab?: 'all' | 'assigned_to_me' | 'assigned_by_me' | 'department';
+    status?: string;
+    isOverdueOnly?: boolean;
+  }) => void;
   onViewAll: () => void;
 }
 
@@ -27,6 +33,8 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
   getStatusBadge,
   onSelectDoc,
   onSelectTask,
+  onOpenDocuments,
+  onOpenTasks,
   onViewAll,
 }) => {
   const [dashboardData, setDashboardData] = useState<any>(null);
@@ -291,57 +299,81 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
 
       {/* KHỐI 2: CÁC THẺ THỐNG KÊ CHÍNH (METRICS SUMMARY) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => onOpenDocuments('Chờ duyệt')}
+          className="group bg-white rounded-2xl p-5 shadow-sm border border-slate-200 flex items-center justify-between text-left transition hover:-translate-y-0.5 hover:border-amber-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-amber-400"
+          aria-label="Xem hồ sơ chờ phê duyệt"
+        >
           <div>
             <span className="text-xs font-bold text-amber-700 uppercase tracking-wider">Hồ sơ chờ phê duyệt</span>
             <p className="mt-2 text-3xl font-extrabold text-amber-900">
               {dashboardData?.metrics?.documents?.pending ?? pendingCount}
             </p>
             <p className="text-xs text-gray-400 mt-1">Cần hoàn tất đúng mốc</p>
+            <span className="mt-2 block text-[11px] font-bold text-amber-700 opacity-80 group-hover:opacity-100">Xem chi tiết →</span>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center text-2xl font-bold shadow-inner">
             ⏳
           </div>
-        </div>
+        </button>
 
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => onOpenDocuments('Đã duyệt')}
+          className="group bg-white rounded-2xl p-5 shadow-sm border border-slate-200 flex items-center justify-between text-left transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-emerald-400"
+          aria-label="Xem hồ sơ đã thông qua"
+        >
           <div>
             <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider">Hồ sơ đã thông qua</span>
             <p className="mt-2 text-3xl font-extrabold text-emerald-900">
               {dashboardData?.metrics?.documents?.approved ?? approvedCount}
             </p>
             <p className="text-xs text-gray-400 mt-1">Đã phê duyệt hoàn tất</p>
+            <span className="mt-2 block text-[11px] font-bold text-emerald-700 opacity-80 group-hover:opacity-100">Xem chi tiết →</span>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-2xl font-bold shadow-inner">
             ✓
           </div>
-        </div>
+        </button>
 
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => onOpenTasks({ status: 'Đang làm' })}
+          className="group bg-white rounded-2xl p-5 shadow-sm border border-slate-200 flex items-center justify-between text-left transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-400"
+          aria-label="Xem công việc đang thực hiện"
+        >
           <div>
             <span className="text-xs font-bold text-blue-700 uppercase tracking-wider">Việc đang thực hiện</span>
             <p className="mt-2 text-3xl font-extrabold text-blue-900">
               {dashboardData?.metrics?.tasks?.inProgress ?? dashboardData?.metrics?.departmentTasks?.inProgress ?? 0}
             </p>
             <p className="text-xs text-gray-400 mt-1">Đang chạy trong tuần</p>
+            <span className="mt-2 block text-[11px] font-bold text-blue-700 opacity-80 group-hover:opacity-100">Xem chi tiết →</span>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-2xl font-bold shadow-inner">
             ⚙️
           </div>
-        </div>
+        </button>
 
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => onOpenTasks({ isOverdueOnly: true })}
+          className="group bg-white rounded-2xl p-5 shadow-sm border border-slate-200 flex items-center justify-between text-left transition hover:-translate-y-0.5 hover:border-rose-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-rose-400"
+          aria-label="Xem công việc quá hạn"
+        >
           <div>
             <span className="text-xs font-bold text-rose-700 uppercase tracking-wider">Việc quá hạn xử lý</span>
             <p className="mt-2 text-3xl font-extrabold text-rose-900">
               {dashboardData?.metrics?.tasks?.overdue ?? dashboardData?.actionRequired?.overdueTasksCount ?? 0}
             </p>
             <p className="text-xs text-gray-400 mt-1">Cần tăng tốc can thiệp</p>
+            <span className="mt-2 block text-[11px] font-bold text-rose-700 opacity-80 group-hover:opacity-100">Xem chi tiết →</span>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center text-2xl font-bold shadow-inner">
             🚨
           </div>
-        </div>
+        </button>
       </div>
 
       {/* KHỐI 3: TIẾN ĐỘ PHÒNG BAN (NẾU LÀ CEO) HOẶC CHI TIẾT TÀI CHÍNH */}

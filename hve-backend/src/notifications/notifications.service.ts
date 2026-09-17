@@ -29,12 +29,17 @@ export class NotificationsService {
 
     if (channels.includes('in_app')) {
       results.in_app = await this.inAppChannel.send(payload);
+      const badgeCount = await this.prisma.notification.count({
+        where: { userId: payload.userId, channel: 'in_app', readAt: null },
+      });
       // Tự động đẩy Web Push Notification thật tới trình duyệt
       this.webPushService
         .sendNotification(payload.userId, {
           title: payload.title || 'HVE Work - Thông báo mới',
           body: payload.content || '',
           url: payload.link || '/',
+          tag: `${payload.eventType}:${payload.entityRef}`,
+          badgeCount,
         })
         .catch((err) =>
           this.logger.warn(`Web push error: ${err.message || err}`),

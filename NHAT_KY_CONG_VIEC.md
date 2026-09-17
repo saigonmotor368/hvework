@@ -386,3 +386,16 @@ Dự án đã hoàn thành toàn bộ các giai đoạn (Phase 0 ➔ Phase 5) v�
 - Chỉ Trưởng bộ phận và CEO được tạo, giao lại hoặc chia việc con; quyền được chặn đồng thời ở frontend, guard và service backend.
 - Thêm board Kanban 4 cột lấy dữ liệu thật từ server; mở thẻ để cập nhật tiến độ, bình luận và @nhắc tên bằng luồng tương tác hiện hữu.
 - Baseline trước phát hành: backend 157/157 test pass, build/lint pass; frontend 9/9 test pass, build/lint không có error.
+
+---
+
+## 10. ỔN ĐỊNH THÔNG BÁO, CÔNG VIỆC MOBILE VÀ PWA (17/09/2026)
+
+- Sửa frontend đọc đúng contract `{ items, unreadCount }` của API thông báo; danh sách và badge giờ đồng bộ, thao tác đọc một/đọc tất cả dùng session refresh và hiển thị lỗi có thể thử lại.
+- Đưa route tĩnh `PATCH /notifications/read-all` lên trước route động `:id/read` để tránh bị ParseIntPipe bắt nhầm.
+- Thêm nút xin quyền thông báo nền từ thao tác người dùng, tự đồng bộ subscription đã cấp, cập nhật badge PWA và làm mới danh sách ngay khi nhận Web Push.
+- Nâng service worker lên cache v2, dùng icon PNG, tag/renotify, rung trên trình duyệt hỗ trợ và chuyển sự kiện push tới app đang mở.
+- Sửa icon 192px bị nền xanh trơn; tạo `apple-touch-icon-v2.png` 180px có logo thật để phá cache icon cũ trên iOS.
+- Công việc trên mobile mặc định mở “Việc tôi làm” với nhân viên; board không còn ép rộng 1040px và ẩn cột rỗng trên mobile nên công việc “Đang làm” hiện ngay.
+- Bốn thẻ số liệu dashboard đã thành nút điều hướng, mở đúng danh sách hồ sơ/công việc và bộ lọc tương ứng.
+- Baseline trước phát hành: backend 157/157 test pass, build/lint pass; frontend 9/9 test pass, build/lint không có error, main chunk 351,90 KB (gzip 98,38 KB).

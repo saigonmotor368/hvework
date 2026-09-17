@@ -55,6 +55,12 @@ export class NotificationsController {
     return this.notificationsService.getUnreadCount(req.user.id);
   }
 
+  @Patch('read-all')
+  @HttpCode(HttpStatus.OK)
+  async markAllAsRead(@Req() req: any) {
+    return this.notificationsService.markAllAsRead(req.user.id);
+  }
+
   @Patch(':id/read')
   @HttpCode(HttpStatus.OK)
   async markAsRead(
@@ -62,12 +68,6 @@ export class NotificationsController {
     @Req() req: any,
   ) {
     return this.notificationsService.markAsRead(req.user.id, id);
-  }
-
-  @Patch('read-all')
-  @HttpCode(HttpStatus.OK)
-  async markAllAsRead(@Req() req: any) {
-    return this.notificationsService.markAllAsRead(req.user.id);
   }
 
   @Post('trigger-reminders')

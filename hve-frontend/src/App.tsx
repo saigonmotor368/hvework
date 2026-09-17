@@ -132,6 +132,12 @@ export default function App() {
   const [parentTaskForCreate, setParentTaskForCreate] = useState<TaskItem | null>(null);
   const [assignableUsers, setAssignableUsers] = useState<any[]>([]);
   const [taskCount, setTaskCount] = useState<number>(0);
+  const [taskNavigationFilter, setTaskNavigationFilter] = useState<{
+    key: number;
+    tab: 'all' | 'assigned_to_me' | 'assigned_by_me' | 'department';
+    status: string;
+    isOverdueOnly: boolean;
+  } | null>(null);
 
   // Filters
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -483,10 +489,11 @@ export default function App() {
     showToast('Đã đăng xuất tài khoản.');
   };
 
-  // Auto-subscribe Web Push when authenticated
+  // Chỉ đồng bộ lại subscription đã được người dùng cấp quyền trước đó.
+  // iOS yêu cầu lần xin quyền đầu tiên phải xuất phát từ thao tác bấm trực tiếp.
   useEffect(() => {
     if (isAuthenticated && user) {
-      subscribeToWebPush(API_BASE_URL);
+      subscribeToWebPush(API_BASE_URL, { requestPermission: false });
     }
   }, [isAuthenticated, user]);
 
@@ -979,7 +986,27 @@ export default function App() {
                 setSelectedTaskId(taskId);
                 setActiveTab('tasks');
               }}
-              onViewAll={() => setActiveTab('documents')}
+              onOpenDocuments={(status) => {
+                setSelectedDoc(null);
+                setTabFilter('all');
+                setTypeFilter('all');
+                setStatusFilter(status);
+                setActiveTab('documents');
+              }}
+              onOpenTasks={(filter) => {
+                setSelectedTaskId(null);
+                setTaskNavigationFilter({
+                  key: Date.now(),
+                  tab: filter.tab || 'all',
+                  status: filter.status || 'all',
+                  isOverdueOnly: Boolean(filter.isOverdueOnly),
+                });
+                setActiveTab('tasks');
+              }}
+              onViewAll={() => {
+                setStatusFilter('all');
+                setActiveTab('documents');
+              }}
             />
           )}
 
@@ -1030,6 +1057,7 @@ export default function App() {
           {/* TAB: TASKS LIST */}
           {activeTab === 'tasks' && (
             <TaskListView
+              key={taskNavigationFilter?.key || 0}
               apiBaseUrl={API_BASE_URL}
               currentUser={user}
               showToast={showToast}
@@ -1038,6 +1066,7 @@ export default function App() {
                 setIsCreateTaskOpen(true);
               }}
               onSelectTask={(task) => setSelectedTaskId(task.id)}
+              navigationFilter={taskNavigationFilter}
             />
           )}
 

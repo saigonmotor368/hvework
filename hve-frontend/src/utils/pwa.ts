@@ -5,9 +5,10 @@
 export function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
   if ('serviceWorker' in navigator && (window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
     return navigator.serviceWorker
-      .register('/sw.js')
+      .register('/sw.js', { updateViaCache: 'none' })
       .then((reg) => {
         console.log('[PWA] Service Worker đăng ký thành công, scope:', reg.scope);
+        void reg.update();
         return reg;
       })
       .catch((err) => {
@@ -29,7 +30,29 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return outputArray;
 }
 
-export async function subscribeToWebPush(apiBaseUrl: string): Promise<boolean> {
+export type WebPushStatus =
+  | 'unsupported'
+  | 'permission-required'
+  | 'denied'
+  | 'ready'
+  | 'subscribed';
+
+export async function getWebPushStatus(): Promise<WebPushStatus> {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
+    return 'unsupported';
+  }
+  if (Notification.permission === 'denied') return 'denied';
+  if (Notification.permission !== 'granted') return 'permission-required';
+
+  const reg = await navigator.serviceWorker.ready;
+  const subscription = await reg.pushManager.getSubscription();
+  return subscription ? 'subscribed' : 'ready';
+}
+
+export async function subscribeToWebPush(
+  apiBaseUrl: string,
+  options: { requestPermission?: boolean } = {},
+): Promise<boolean> {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
     console.info('[WebPush] Trình duyệt không hỗ trợ Push API');
     return false;
@@ -39,7 +62,10 @@ export async function subscribeToWebPush(apiBaseUrl: string): Promise<boolean> {
   if (!token) return false;
 
   try {
-    const permission = await Notification.requestPermission();
+    const permission =
+      Notification.permission === 'default' && options.requestPermission !== false
+        ? await Notification.requestPermission()
+        : Notification.permission;
     if (permission !== 'granted') {
       console.log('[WebPush] Người dùng chưa cấp quyền thông báo');
       return false;

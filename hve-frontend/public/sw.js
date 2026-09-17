@@ -1,16 +1,17 @@
 // ==============================================================================
-// HVE Work - Progressive Web App Service Worker (v1.0.0)
+// HVE Work - Progressive Web App Service Worker (v2.0.0)
 // Hỗ trợ: Offline App Shell Caching, Web Push Notifications, Navigation Fallback
 // ==============================================================================
 
-const CACHE_NAME = 'hve-work-cache-v1';
+const CACHE_NAME = 'hve-work-cache-v2';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/manifest.webmanifest',
   '/favicon.svg',
-  '/icons/icon-192.svg',
-  '/icons/icon-512.svg',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
+  '/icons/apple-touch-icon-v2.png',
 ];
 
 // 1. Install Event: Cache App Shell core assets
@@ -92,9 +93,11 @@ self.addEventListener('push', (event) => {
 
   const options = {
     body: data.body,
-    icon: data.icon || '/icons/icon-192.svg',
-    badge: '/icons/icon-192.svg',
+    icon: data.icon || '/icons/icon-192.png',
+    badge: data.badge || '/icons/icon-192.png',
     vibrate: [200, 100, 200],
+    tag: data.tag || 'hve-work-update',
+    renotify: true,
     data: {
       url: data.url || '/',
     },
@@ -104,7 +107,17 @@ self.addEventListener('push', (event) => {
     ],
   };
 
-  event.waitUntil(self.registration.showNotification(data.title, options));
+  event.waitUntil(
+    Promise.all([
+      self.registration.showNotification(data.title, options),
+      self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+        clients.forEach((client) => client.postMessage({ type: 'HVE_PUSH_RECEIVED' }));
+      }),
+      typeof self.navigator.setAppBadge === 'function' && Number.isFinite(data.badgeCount)
+        ? self.navigator.setAppBadge(data.badgeCount)
+        : Promise.resolve(),
+    ]),
+  );
 });
 
 // 5. Notification Click Event

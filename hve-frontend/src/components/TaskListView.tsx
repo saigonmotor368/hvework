@@ -14,6 +14,12 @@ interface TaskListViewProps {
   showToast: (msg: string, type?: 'success' | 'error') => void;
   onOpenCreate: () => void;
   onSelectTask: (task: TaskItem) => void;
+  navigationFilter?: {
+    key: number;
+    tab: 'all' | 'assigned_to_me' | 'assigned_by_me' | 'department';
+    status: string;
+    isOverdueOnly: boolean;
+  } | null;
 }
 
 export const TaskListView: React.FC<TaskListViewProps> = ({
@@ -22,6 +28,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
   showToast,
   onOpenCreate,
   onSelectTask,
+  navigationFilter,
 }) => {
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -29,10 +36,17 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
   // Tab và bộ lọc
   const [activeTab, setActiveTab] = useState<
     'all' | 'assigned_to_me' | 'assigned_by_me' | 'department'
-  >('all');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  >(
+    navigationFilter?.tab ||
+      (currentUser?.roles?.some((role: string) => role === 'ceo' || role === 'department_head')
+        ? 'all'
+        : 'assigned_to_me'),
+  );
+  const [statusFilter, setStatusFilter] = useState<string>(navigationFilter?.status || 'all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
-  const [isOverdueOnly, setIsOverdueOnly] = useState<boolean>(false);
+  const [isOverdueOnly, setIsOverdueOnly] = useState<boolean>(
+    navigationFilter?.isOverdueOnly || false,
+  );
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [viewMode, setViewMode] = useState<'board' | 'list'>('board');
 
@@ -264,15 +278,15 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
             </p>
           </div>
         ) : viewMode === 'board' ? (
-          <div className="mobile-scroll overflow-x-auto p-3 sm:p-4">
-            <div className="grid min-w-[1040px] grid-cols-4 gap-3 xl:min-w-0">
+          <div className="p-3 sm:p-4 md:mobile-scroll md:overflow-x-auto">
+            <div className="grid grid-cols-1 gap-3 md:min-w-[1040px] md:grid-cols-4 xl:min-w-0">
               {boardColumns.map((column) => {
                 const columnTasks = tasks.filter((task) => task.status === column.status);
 
                 return (
                   <section
                     key={column.status}
-                    className={`min-h-[360px] rounded-2xl border border-slate-200 border-t-4 ${column.accent} bg-slate-50/80 p-3`}
+                    className={`${columnTasks.length === 0 ? 'hidden md:block' : ''} min-h-0 rounded-2xl border border-slate-200 border-t-4 ${column.accent} bg-slate-50/80 p-3 md:min-h-[360px]`}
                   >
                     <div className="mb-3 flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">

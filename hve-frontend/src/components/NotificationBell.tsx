@@ -1,5 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { markAllNotificationsRead } from '../api/client';
+import React, { useCallback, useState, useEffect, useRef } from 'react';
+import { fetchWithSession, markAllNotificationsRead } from '../api/client';
+import {
+  getWebPushStatus,
+  subscribeToWebPush,
+  type WebPushStatus,
+} from '../utils/pwa';
 
 interface NotificationItem {
   id: number;
@@ -22,32 +27,60 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ apiBaseUrl, 
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [pushStatus, setPushStatus] = useState<WebPushStatus>('permission-required');
+  const [isEnablingPush, setIsEnablingPush] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const fetchNotifications = async () => {
+  const syncAppBadge = (count: number) => {
+    const badgeNavigator = navigator as Navigator & {
+      setAppBadge?: (value?: number) => Promise<void>;
+      clearAppBadge?: () => Promise<void>;
+    };
+    if (count > 0) void badgeNavigator.setAppBadge?.(count);
+    else void badgeNavigator.clearAppBadge?.();
+  };
+
+  const fetchNotifications = useCallback(async () => {
     const token = localStorage.getItem('access_token');
     if (!token) return;
 
     try {
-      const res = await fetch(`${apiBaseUrl}/notifications?limit=20`, {
+      const res = await fetchWithSession(`${apiBaseUrl}/notifications?limit=20`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.ok) {
-        const data = await res.json();
-        setNotifications(data.notifications || []);
-        setUnreadCount(data.unreadCount || 0);
-      }
-    } catch {
-      // ignore
+      if (!res.ok) throw new Error('Không thể tải thông báo');
+      const data = await res.json();
+      const items = Array.isArray(data.items)
+        ? data.items
+        : Array.isArray(data.notifications)
+          ? data.notifications
+          : [];
+      const nextUnreadCount = Number(data.unreadCount) || 0;
+      setNotifications(items);
+      setUnreadCount(nextUnreadCount);
+      syncAppBadge(nextUnreadCount);
+      setLoadError(null);
+    } catch (error: any) {
+      setLoadError(error.message || 'Không thể tải thông báo');
     }
-  };
+  }, [apiBaseUrl]);
 
   useEffect(() => {
-    fetchNotifications();
+    void fetchNotifications();
+    void getWebPushStatus().then(setPushStatus);
     // Poll notifications every 30s
     const interval = setInterval(fetchNotifications, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchNotifications]);
+
+  useEffect(() => {
+    const handlePushMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'HVE_PUSH_RECEIVED') void fetchNotifications();
+    };
+    navigator.serviceWorker?.addEventListener('message', handlePushMessage);
+    return () => navigator.serviceWorker?.removeEventListener('message', handlePushMessage);
+  }, [fetchNotifications]);
 
   // Close dropdown on click outside
   useEffect(() => {
@@ -63,16 +96,24 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ apiBaseUrl, 
   const markAsRead = async (id: number, link?: string) => {
     const token = localStorage.getItem('access_token');
     try {
-      await fetch(`${apiBaseUrl}/notifications/${id}/read`, {
+      const res = await fetchWithSession(`${apiBaseUrl}/notifications/${id}/read`, {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${token}` },
       });
+      if (!res.ok) throw new Error('Không thể đánh dấu đã đọc');
+      const wasUnread = notifications.some((n) => n.id === id && !n.readAt);
       setNotifications((prev) =>
         prev.map((n) => (n.id === id ? { ...n, readAt: new Date().toISOString() } : n)),
       );
-      setUnreadCount((prev) => Math.max(0, prev - 1));
-    } catch {
-      // ignore
+      if (wasUnread) {
+        setUnreadCount((prev) => {
+          const next = Math.max(0, prev - 1);
+          syncAppBadge(next);
+          return next;
+        });
+      }
+    } catch (error: any) {
+      setLoadError(error.message || 'Không thể cập nhật thông báo');
     }
 
     if (link) {
@@ -94,11 +135,34 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ apiBaseUrl, 
         prev.map((n) => ({ ...n, readAt: n.readAt || new Date().toISOString() })),
       );
       setUnreadCount(0);
+      syncAppBadge(0);
     } catch (error) {
       console.warn('[Notifications] Không thể đánh dấu tất cả là đã đọc:', error);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const enablePush = async () => {
+    setIsEnablingPush(true);
+    try {
+      const enabled = await subscribeToWebPush(apiBaseUrl, { requestPermission: true });
+      setPushStatus(await getWebPushStatus());
+      if (!enabled && Notification.permission === 'denied') {
+        setLoadError('Quyền thông báo đang bị chặn. Hãy bật lại trong Cài đặt của thiết bị.');
+      } else if (!enabled) {
+        setLoadError('Thiết bị chưa bật được thông báo nền. Trên iPhone, hãy cài HVE Work vào Màn hình chính trước.');
+      } else {
+        setLoadError(null);
+      }
+    } finally {
+      setIsEnablingPush(false);
+    }
+  };
+
+  const toggleOpen = () => {
+    if (!isOpen) void fetchNotifications();
+    setIsOpen((open) => !open);
   };
 
   const formatTime = (isoString: string) => {
@@ -145,7 +209,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ apiBaseUrl, 
   return (
     <div className="relative" ref={dropdownRef}>
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={toggleOpen}
         className="relative p-2 rounded-xl text-gray-500 hover:text-gray-700 hover:bg-slate-100 transition-colors focus:outline-none"
         title="Thông báo"
       >
@@ -182,7 +246,15 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ apiBaseUrl, 
 
           {/* List */}
           <div className="mobile-scroll max-h-[min(60dvh,380px)] overflow-y-auto divide-y divide-slate-100">
-            {notifications.length === 0 ? (
+            {loadError && notifications.length === 0 ? (
+              <div className="px-5 py-7 text-center text-xs text-red-600">
+                <span className="mb-2 block text-2xl">⚠️</span>
+                {loadError}
+                <button type="button" onClick={() => fetchNotifications()} className="mt-3 block w-full font-bold text-[#0A66C2]">
+                  Thử tải lại
+                </button>
+              </div>
+            ) : notifications.length === 0 ? (
               <div className="py-8 text-center text-sm text-gray-400">
                 <span className="text-2xl block mb-1">🎉</span>
                 Không có thông báo nào mới
@@ -217,8 +289,23 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ apiBaseUrl, 
           </div>
 
           {/* Footer */}
-          <div className="p-2.5 text-center border-t border-slate-100 bg-slate-50/50">
-            <span className="text-[11px] text-gray-400">Tự động cập nhật tức thời theo luồng duyệt</span>
+          <div className="border-t border-slate-100 bg-slate-50/50 p-2.5 text-center">
+            {pushStatus === 'subscribed' ? (
+              <span className="text-[11px] font-semibold text-emerald-700">● Thông báo nền đã bật trên thiết bị này</span>
+            ) : pushStatus === 'denied' ? (
+              <span className="text-[11px] font-semibold text-red-600">Thông báo đang bị chặn trong Cài đặt thiết bị</span>
+            ) : pushStatus === 'unsupported' ? (
+              <span className="text-[11px] text-gray-500">Trên iPhone, hãy cài HVE Work vào Màn hình chính để bật thông báo nền</span>
+            ) : (
+              <button
+                type="button"
+                onClick={enablePush}
+                disabled={isEnablingPush}
+                className="w-full rounded-lg bg-blue-50 px-3 py-2 text-[11px] font-bold text-[#0A66C2] hover:bg-blue-100 disabled:opacity-60"
+              >
+                {isEnablingPush ? 'Đang bật...' : '🔔 Bật thông báo nền trên thiết bị này'}
+              </button>
+            )}
           </div>
         </div>
       )}

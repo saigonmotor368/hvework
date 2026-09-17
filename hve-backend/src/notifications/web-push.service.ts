@@ -64,7 +64,14 @@ export class WebPushService {
 
   async sendNotification(
     userId: number,
-    payload: { title: string; body: string; url?: string; icon?: string },
+    payload: {
+      title: string;
+      body: string;
+      url?: string;
+      icon?: string;
+      tag?: string;
+      badgeCount?: number;
+    },
   ) {
     const subscriptions = await this.prisma.pushSubscription.findMany({
       where: { userId },
@@ -78,8 +85,10 @@ export class WebPushService {
       title: payload.title,
       body: payload.body,
       url: payload.url || '/',
-      icon: payload.icon || '/icons/icon-192.svg',
-      badge: '/icons/icon-192.svg',
+      icon: payload.icon || '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
+      tag: payload.tag,
+      badgeCount: payload.badgeCount,
       timestamp: Date.now(),
     });
 
