@@ -226,7 +226,7 @@ Bám theo [02_KE_HOACH_TRIEN_KHAI.md](02_KE_HOACH_TRIEN_KHAI.md) và [01_KIEN_TR
 - [x] Bỏ tải sẵn dữ liệu nặng sau đăng nhập; chỉ tải theo tab/quyền thực tế
 - [x] Giảm polling thông báo, cache đồng bộ Web Push và mở VAPID key không cần JWT
 - [x] Backend 178/178 test, build/lint pass; frontend 10/10 test và build pass
-- [x] Railway deployment cuối `b41eb9e6-61c8-4c24-9a29-e0a9967a32b0` đạt `SUCCESS`
+- [x] Railway deployment tối ưu `b41eb9e6-61c8-4c24-9a29-e0a9967a32b0` và redeploy cuối có healthcheck `/` `a54de5aa-08b9-44c7-828a-2ddf99749001` đạt `SUCCESS`
 - [x] Vercel deployment `dpl_8w8H2e1aviWgGpyor7dk4LzZrh6U` đạt `READY`, alias production đúng
 - [x] Đo 7 vòng authenticated warm: median dashboard 189 ms; documents 282 ms; tasks 270 ms; projects 272 ms; notifications 271 ms; không có 5xx
 - [ ] Tùy chọn đợt sau: lập kế hoạch migrate Supabase Tokyo sang cùng vùng Singapore nếu cần giảm thêm cold latency/outlier
