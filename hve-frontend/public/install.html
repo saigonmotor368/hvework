@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Cài đặt HVE Work</title>
+    <meta name="description" content="Cài đặt Hệ Thống Quản Lý Công Việc lên điện thoại và bật thông báo công việc." />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#0A66C2" />
+    <link rel="icon" type="image/png" href="/icons/icon-192.png" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        background: linear-gradient(160deg, #0A66C2 0%, #0d3d75 100%);
+        min-height: 100vh;
+        color: #1D1D1F;
+      }
+      .wrap {
+        max-width: 440px;
+        margin: 0 auto;
+        padding: 32px 20px 48px;
+      }
+      .card {
+        background: #fff;
+        border-radius: 24px;
+        padding: 28px 24px;
+        box-shadow: 0 20px 50px rgba(0,0,0,0.25);
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 8px;
+      }
+      .brand img { width: 56px; height: 56px; border-radius: 16px; }
+      h1 {
+        text-align: center;
+        font-size: 19px;
+        font-weight: 800;
+        margin: 8px 0 2px;
+        color: #0A66C2;
+      }
+      .sub {
+        text-align: center;
+        font-size: 13px;
+        color: #6b7280;
+        margin: 0 0 22px;
+        line-height: 1.5;
+      }
+      #installBtn {
+        display: block;
+        width: 100%;
+        padding: 14px;
+        border: none;
+        border-radius: 14px;
+        background: #0A66C2;
+        color: #fff;
+        font-size: 15px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      #installBtn:active { transform: scale(0.98); }
+      #installBtn.secondary {
+        background: #eef2f7;
+        color: #0A66C2;
+      }
+      .steps {
+        margin-top: 18px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        padding: 16px;
+        display: none;
+      }
+      .steps.show { display: block; }
+      .step {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+        font-size: 13px;
+        line-height: 1.5;
+        margin-bottom: 12px;
+        color: #374151;
+      }
+      .step:last-child { margin-bottom: 0; }
+      .step b {
+        flex: none;
+        width: 22px;
+        height: 22px;
+        border-radius: 999px;
+        background: #0A66C2;
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+      }
+      .divider {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 24px 0;
+        color: #9ca3af;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      .divider::before, .divider::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: #e5e7eb;
+      }
+      .qr-box {
+        text-align: center;
+      }
+      .qr-box img {
+        width: 170px;
+        height: 170px;
+        border-radius: 12px;
+        border: 1px solid #e5e7eb;
+        padding: 8px;
+        background: #fff;
+      }
+      .qr-box p {
+        font-size: 12px;
+        color: #6b7280;
+        margin-top: 10px;
+      }
+      .link-box {
+        margin-top: 14px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 10px 12px;
+        font-size: 12px;
+        color: #0A66C2;
+        font-weight: 600;
+        text-align: center;
+        word-break: break-all;
+      }
+      .status {
+        margin-top: 16px;
+        text-align: center;
+        font-size: 12.5px;
+        font-weight: 600;
+        padding: 10px 12px;
+        border-radius: 12px;
+        display: none;
+      }
+      .status.show { display: block; }
+      .status.success { background: #ecfdf5; color: #047857; }
+      .status.info { background: #eff6ff; color: #1e40af; }
+      .footer-note {
+        text-align: center;
+        font-size: 11.5px;
+        color: rgba(255,255,255,0.75);
+        margin-top: 20px;
+        line-height: 1.6;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="card">
+        <div class="brand"><img src="/icons/icon-192.png" alt="HVE Work" /></div>
+        <h1>Cài đặt HVE Work</h1>
+        <p class="sub">
+          Cài ứng dụng lên máy để mở nhanh như app thật và không bỏ lỡ thông báo công việc cần xử lý.
+        </p>
+
+        <button id="installBtn" onclick="handleInstallClick()">📲 Cài đặt ngay</button>
+
+        <div id="androidSteps" class="steps">
+          <div class="step"><b>1</b><span>Bấm nút <strong>"Cài đặt"</strong> ở popup vừa hiện lên.</span></div>
+          <div class="step"><b>2</b><span>Xong! Mở app HVE Work từ màn hình chính điện thoại.</span></div>
+        </div>
+
+        <div id="iosSteps" class="steps">
+          <div class="step"><b>1</b><span>Bấm biểu tượng <strong>Chia sẻ</strong> (hình ô vuông mũi tên hướng lên ⬆️) ở thanh dưới màn hình Safari.</span></div>
+          <div class="step"><b>2</b><span>Cuộn xuống, chọn <strong>"Thêm vào Màn hình chính"</strong> (Add to Home Screen).</span></div>
+          <div class="step"><b>3</b><span>Bấm <strong>"Thêm"</strong> ở góc trên bên phải.</span></div>
+          <div class="step"><b>4</b><span>Mở app HVE Work từ icon vừa xuất hiện trên màn hình chính (không mở qua Safari) — bước này rất quan trọng để nhận được thông báo.</span></div>
+        </div>
+
+        <div id="statusBox" class="status"></div>
+
+        <div class="divider">Hoặc quét mã QR</div>
+        <div class="qr-box">
+          <img src="/qr-install.png" alt="Mã QR cài đặt HVE Work" />
+          <p>Mở camera điện thoại, quét mã này để vào trang cài đặt.</p>
+        </div>
+        <div class="link-box">https://work.huyvoeducation.vn/install.html</div>
+      </div>
+
+      <p class="footer-note">
+        Sau khi cài đặt, hãy mở app và <strong>bấm "Cho phép" khi được hỏi về thông báo</strong> — đây là bước bắt buộc để nhận được cảnh báo công việc/hồ sơ cần xử lý ngay cả khi không mở app.
+      </p>
+    </div>
+
+    <script>
+      let deferredPrompt = null;
+      const ua = navigator.userAgent.toLowerCase();
+      const isIos = /iphone|ipad|ipod/.test(ua);
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js').catch(() => {});
+      }
+
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+      });
+
+      window.addEventListener('appinstalled', () => {
+        showStatus('success', '✅ Đã cài đặt thành công! Mở app từ màn hình chính và đăng nhập nhé.');
+      });
+
+      function showStatus(type, message) {
+        const box = document.getElementById('statusBox');
+        box.textContent = message;
+        box.className = 'status show ' + type;
+      }
+
+      async function handleInstallClick() {
+        if (isStandalone) {
+          showStatus('info', 'Bạn đang mở app đã cài rồi — vào màn hình đăng nhập luôn nhé!');
+          return;
+        }
+        if (isIos) {
+          document.getElementById('iosSteps').classList.add('show');
+          document.getElementById('androidSteps').classList.remove('show');
+          return;
+        }
+        if (deferredPrompt) {
+          deferredPrompt.prompt();
+          const { outcome } = await deferredPrompt.userChoice;
+          deferredPrompt = null;
+          if (outcome === 'accepted') {
+            showStatus('success', '✅ Đang cài đặt... vài giây nữa app sẽ xuất hiện trên màn hình chính.');
+          }
+        } else {
+          document.getElementById('androidSteps').classList.add('show');
+          showStatus('info', 'Nếu chưa thấy popup cài đặt, hãy mở menu trình duyệt (⋮) và chọn "Cài đặt ứng dụng" / "Thêm vào màn hình chính".');
+        }
+      }
+    </script>
+  </body>
+</html>

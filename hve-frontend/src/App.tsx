@@ -8,6 +8,7 @@ import { DocumentList } from './components/DocumentList';
 import { DocumentDetailModal } from './components/DocumentDetailModal';
 import { CreateDocumentForm, type CreateFormData } from './components/CreateDocumentForm';
 import { ActionReasonModal } from './components/ActionReasonModal';
+import { EnableNotificationsPrompt } from './components/EnableNotificationsPrompt';
 import { ApprovalPinModal } from './components/ApprovalPinModal';
 import { SetApprovalPinModal } from './components/SetApprovalPinModal';
 import { CreateTaskModal } from './components/CreateTaskModal';
@@ -1262,6 +1263,8 @@ export default function App() {
         onChangeComment={(comment) => setModalAction({ ...modalAction, comment })}
         onConfirm={handleConfirmActionModal}
       />
+
+      {isAuthenticated && user && <EnableNotificationsPrompt apiBaseUrl={API_BASE_URL} />}
 
       {pinModal.isOpen && (
         <ApprovalPinModal

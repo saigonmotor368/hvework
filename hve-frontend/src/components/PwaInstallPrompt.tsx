@@ -81,7 +81,7 @@ export const PwaInstallPrompt: React.FC = () => {
           <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-in fade-in zoom-in duration-150">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <div className="flex items-center space-x-2">
-                <img src="/icons/icon-192.svg" alt="HVE" className="w-7 h-7 rounded-lg" />
+                <img src="/icons/icon-192.png" alt="HVE" className="w-7 h-7 rounded-lg" />
                 <h3 className="font-black text-gray-900 text-sm">Cài đặt Hệ Thống Quản Lý Công Việc</h3>
               </div>
               <button
