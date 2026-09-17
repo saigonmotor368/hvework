@@ -1,23 +1,32 @@
-import { lazy, Suspense, useState, useEffect } from 'react';
-import { type DocumentItem, type ApprovalStep, type ProjectItem, type TaskItem, ROLE_LABELS } from './types';
+import { lazy, Suspense, useState, useEffect } from "react";
+import {
+  type DocumentItem,
+  type ApprovalStep,
+  type ProjectItem,
+  type TaskItem,
+  ROLE_LABELS,
+} from "./types";
 
-import { Toast } from './components/Toast';
-import { LoginPage } from './components/LoginPage';
-import { Sidebar } from './components/Sidebar';
-import { DocumentList } from './components/DocumentList';
-import { DocumentDetailModal } from './components/DocumentDetailModal';
-import { CreateDocumentForm, type CreateFormData } from './components/CreateDocumentForm';
-import { ActionReasonModal } from './components/ActionReasonModal';
-import { EnableNotificationsPrompt } from './components/EnableNotificationsPrompt';
-import { ApprovalPinModal } from './components/ApprovalPinModal';
-import { SetApprovalPinModal } from './components/SetApprovalPinModal';
-import { CreateTaskModal } from './components/CreateTaskModal';
-import { TaskDetailModal } from './components/TaskDetailModal';
-import { NotificationBell } from './components/NotificationBell';
-import { OfflineBanner } from './components/OfflineBanner';
-import { ViewErrorBoundary } from './components/ViewErrorBoundary';
-import { BrandLoader } from './components/BrandLoader';
-import { subscribeToWebPush } from './utils/pwa';
+import { Toast } from "./components/Toast";
+import { LoginPage } from "./components/LoginPage";
+import { Sidebar } from "./components/Sidebar";
+import { DocumentList } from "./components/DocumentList";
+import { DocumentDetailModal } from "./components/DocumentDetailModal";
+import {
+  CreateDocumentForm,
+  type CreateFormData,
+} from "./components/CreateDocumentForm";
+import { ActionReasonModal } from "./components/ActionReasonModal";
+import { EnableNotificationsPrompt } from "./components/EnableNotificationsPrompt";
+import { ApprovalPinModal } from "./components/ApprovalPinModal";
+import { SetApprovalPinModal } from "./components/SetApprovalPinModal";
+import { CreateTaskModal } from "./components/CreateTaskModal";
+import { TaskDetailModal } from "./components/TaskDetailModal";
+import { NotificationBell } from "./components/NotificationBell";
+import { OfflineBanner } from "./components/OfflineBanner";
+import { ViewErrorBoundary } from "./components/ViewErrorBoundary";
+import { BrandLoader } from "./components/BrandLoader";
+import { subscribeToWebPush } from "./utils/pwa";
 import {
   consumeSessionExpiredMessage,
   currentDeviceName,
@@ -25,47 +34,62 @@ import {
   getOrCreateDeviceId,
   SESSION_EXPIRED_EVENT,
   uploadAttachment,
-} from './api/client';
-import { ENABLE_MOCK_DATA } from './config';
-import {
-  MOCK_USERS,
-  MOCK_DOCUMENTS,
-} from './mockData';
+} from "./api/client";
+import { ENABLE_MOCK_DATA } from "./config";
+import { MOCK_USERS, MOCK_DOCUMENTS } from "./mockData";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 const OverviewDashboard = lazy(() =>
-  import('./components/OverviewDashboard').then((module) => ({ default: module.OverviewDashboard })),
+  import("./components/OverviewDashboard").then((module) => ({
+    default: module.OverviewDashboard,
+  })),
 );
 const TaskListView = lazy(() =>
-  import('./components/TaskListView').then((module) => ({ default: module.TaskListView })),
+  import("./components/TaskListView").then((module) => ({
+    default: module.TaskListView,
+  })),
 );
 const ReportsView = lazy(() =>
-  import('./components/ReportsView').then((module) => ({ default: module.ReportsView })),
+  import("./components/ReportsView").then((module) => ({
+    default: module.ReportsView,
+  })),
 );
 const AdminWorkflowView = lazy(() =>
-  import('./components/AdminWorkflowView').then((module) => ({ default: module.AdminWorkflowView })),
+  import("./components/AdminWorkflowView").then((module) => ({
+    default: module.AdminWorkflowView,
+  })),
 );
 const AdminUserView = lazy(() =>
-  import('./components/AdminUserView').then((module) => ({ default: module.AdminUserView })),
+  import("./components/AdminUserView").then((module) => ({
+    default: module.AdminUserView,
+  })),
 );
 const AdminProjectsView = lazy(() =>
-  import('./components/AdminProjectsView').then((module) => ({ default: module.AdminProjectsView })),
+  import("./components/AdminProjectsView").then((module) => ({
+    default: module.AdminProjectsView,
+  })),
 );
 const ProjectBoardView = lazy(() =>
-  import('./components/ProjectBoardView').then((module) => ({ default: module.ProjectBoardView })),
+  import("./components/ProjectBoardView").then((module) => ({
+    default: module.ProjectBoardView,
+  })),
 );
 
 export default function App() {
   // Auth state
   const [user, setUser] = useState<any>(() => {
-    const saved = localStorage.getItem('user');
+    const saved = localStorage.getItem("user");
     return saved ? JSON.parse(saved) : null;
   });
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    return !!localStorage.getItem('access_token') && !!localStorage.getItem('user');
+    return (
+      !!localStorage.getItem("access_token") && !!localStorage.getItem("user")
+    );
   });
-  const [authError, setAuthError] = useState<string>(() => consumeSessionExpiredMessage());
+  const [authError, setAuthError] = useState<string>(() =>
+    consumeSessionExpiredMessage(),
+  );
   const [emailChallenge, setEmailChallenge] = useState<{
     id: string;
     maskedEmail: string;
@@ -87,40 +111,47 @@ export default function App() {
       setUser(null);
       setIsAuthenticated(false);
       setEmailChallenge(null);
-      setAuthError(message || 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+      setAuthError(
+        message || "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.",
+      );
     };
 
     window.addEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
-    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
+    return () =>
+      window.removeEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
   }, []);
 
   // Check URL params on initial load for direct demo/screenshot routing
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const viewParam = params.get('view');
-    if (viewParam === 'login') {
+    const viewParam = params.get("view");
+    if (viewParam === "login") {
       setIsAuthenticated(false);
       setUser(null);
       return;
     }
-    const roleParam = params.get('role');
+    const roleParam = params.get("role");
     if (ENABLE_MOCK_DATA && roleParam) {
       let targetUser: any = MOCK_USERS.employee;
-      if (roleParam === 'ceo') targetUser = MOCK_USERS.ceo;
-      else if (roleParam === 'dept_head' || roleParam === 'tp_it') targetUser = MOCK_USERS.dept_head;
-      else if (roleParam === 'accountant' || roleParam === 'ketoan') targetUser = MOCK_USERS.accountant;
-      else if (roleParam === 'legal' || roleParam === 'phapche') targetUser = MOCK_USERS.legal;
-      else if (roleParam === 'it_admin' || roleParam === 'admin') targetUser = MOCK_USERS.it_admin;
+      if (roleParam === "ceo") targetUser = MOCK_USERS.ceo;
+      else if (roleParam === "dept_head" || roleParam === "tp_it")
+        targetUser = MOCK_USERS.dept_head;
+      else if (roleParam === "accountant" || roleParam === "ketoan")
+        targetUser = MOCK_USERS.accountant;
+      else if (roleParam === "legal" || roleParam === "phapche")
+        targetUser = MOCK_USERS.legal;
+      else if (roleParam === "it_admin" || roleParam === "admin")
+        targetUser = MOCK_USERS.it_admin;
 
       setUser(targetUser);
       setIsAuthenticated(true);
       setDocuments(MOCK_DOCUMENTS);
     }
-    const tabParam = params.get('tab') as any;
+    const tabParam = params.get("tab") as any;
     if (tabParam) {
       setActiveTab(tabParam);
     }
-    const docIdParam = params.get('docId');
+    const docIdParam = params.get("docId");
     if (ENABLE_MOCK_DATA && docIdParam) {
       const found = MOCK_DOCUMENTS.find((d) => d.id === Number(docIdParam));
       if (found) setSelectedDoc(found);
@@ -129,16 +160,16 @@ export default function App() {
 
   // Main navigation & document state
   const [activeTab, setActiveTab] = useState<
-    | 'overview'
-    | 'documents'
-    | 'create'
-    | 'tasks'
-    | 'reports'
-    | 'admin_workflows'
-    | 'admin_users'
-    | 'admin_projects'
-    | 'project_board'
-  >('overview');
+    | "overview"
+    | "documents"
+    | "create"
+    | "tasks"
+    | "reports"
+    | "admin_workflows"
+    | "admin_users"
+    | "admin_projects"
+    | "project_board"
+  >("overview");
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [selectedDoc, setSelectedDoc] = useState<DocumentItem | null>(null);
@@ -146,72 +177,84 @@ export default function App() {
   // Task management state
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [isCreateTaskOpen, setIsCreateTaskOpen] = useState<boolean>(false);
-  const [parentTaskForCreate, setParentTaskForCreate] = useState<TaskItem | null>(null);
+  const [parentTaskForCreate, setParentTaskForCreate] =
+    useState<TaskItem | null>(null);
   const [assignableUsers, setAssignableUsers] = useState<any[]>([]);
   const [taskCount, setTaskCount] = useState<number>(0);
+  const [dashboardPendingCount, setDashboardPendingCount] = useState<
+    number | null
+  >(null);
   const [taskNavigationFilter, setTaskNavigationFilter] = useState<{
     key: number;
-    tab: 'all' | 'assigned_to_me' | 'assigned_by_me' | 'department';
+    tab: "all" | "assigned_to_me" | "assigned_by_me" | "department";
     status: string;
     isOverdueOnly: boolean;
   } | null>(null);
 
   // Filters
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [typeFilter, setTypeFilter] = useState<string>('all');
-  const [tabFilter, setTabFilter] = useState<'all' | 'my' | 'to_review'>('all');
-  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [tabFilter, setTabFilter] = useState<"all" | "my" | "to_review">("all");
+  const [searchQuery, setSearchQuery] = useState<string>("");
 
   // Feedback & Action state
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [toast, setToast] = useState<{
+    message: string;
+    type: "success" | "error";
+  } | null>(null);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
   // Modal Reason state (for Return / Reject)
   const [modalAction, setModalAction] = useState<{
     isOpen: boolean;
-    type: 'return' | 'reject';
+    type: "return" | "reject";
     stepId: number;
     docId: number;
     comment: string;
   }>({
     isOpen: false,
-    type: 'return',
+    type: "return",
     stepId: 0,
     docId: 0,
-    comment: '',
+    comment: "",
   });
 
   // Create form state
   const initialFormState: CreateFormData = {
-    type: 'payment_request',
-    title: '',
-    amount: '',
-    receiver: '',
-    bankName: '',
-    bankAccount: '',
-    content: '',
-    deadline: '',
-    partner: '',
-    value: '',
-    startDate: '',
-    endDate: '',
-    manager: '',
-    notes: '',
+    type: "payment_request",
+    title: "",
+    amount: "",
+    receiver: "",
+    bankName: "",
+    bankAccount: "",
+    content: "",
+    deadline: "",
+    partner: "",
+    value: "",
+    startDate: "",
+    endDate: "",
+    manager: "",
+    notes: "",
     selectedFile: null,
-    projectId: '',
+    projectId: "",
     linkedProjectIds: [],
   };
 
-  const [createForm, setCreateForm] = useState<CreateFormData>(initialFormState);
-  const canUseEveryProject = user?.roles?.some((role: string) => ['ceo', 'it_admin'].includes(role));
-  const ownProjectIds = new Set<number>((user?.projects || []).map((project: ProjectItem) => project.id));
+  const [createForm, setCreateForm] =
+    useState<CreateFormData>(initialFormState);
+  const canUseEveryProject = user?.roles?.some((role: string) =>
+    ["ceo", "it_admin"].includes(role),
+  );
+  const ownProjectIds = new Set<number>(
+    (user?.projects || []).map((project: ProjectItem) => project.id),
+  );
   const primaryProjects = canUseEveryProject
     ? projects
     : projects.filter((project) => ownProjectIds.has(project.id));
   // Bảng tin dự án: CEO/BGĐ/IT Admin xem được bảng tin của mọi dự án (đúng
   // quyền "xem toàn bộ"), người khác chỉ thấy bảng tin dự án mình tham gia.
   const canBrowseEveryBoard = user?.roles?.some((role: string) =>
-    ['ceo', 'bgd', 'it_admin'].includes(role),
+    ["ceo", "bgd", "it_admin"].includes(role),
   );
   const boardProjects = canBrowseEveryBoard
     ? projects
@@ -219,7 +262,10 @@ export default function App() {
 
   useEffect(() => {
     if (!createForm.projectId && primaryProjects.length === 1) {
-      setCreateForm((current) => ({ ...current, projectId: String(primaryProjects[0].id) }));
+      setCreateForm((current) => ({
+        ...current,
+        projectId: String(primaryProjects[0].id),
+      }));
     }
   }, [primaryProjects.length, createForm.projectId]);
 
@@ -228,30 +274,43 @@ export default function App() {
     isOpen: boolean;
     doc: DocumentItem | null;
     step: ApprovalStep | null;
-    action: 'step' | 'direct';
+    action: "step" | "direct";
     errorMessage: string | null;
-  }>({ isOpen: false, doc: null, step: null, action: 'step', errorMessage: null });
+  }>({
+    isOpen: false,
+    doc: null,
+    step: null,
+    action: "step",
+    errorMessage: null,
+  });
   const [isSetPinOpen, setIsSetPinOpen] = useState<boolean>(false);
-  const [pinStatus, setPinStatus] = useState<{ hasPin: boolean; enabled: boolean } | null>(null);
-  const [showFirstLoginPinPrompt, setShowFirstLoginPinPrompt] = useState<boolean>(false);
+  const [pinStatus, setPinStatus] = useState<{
+    hasPin: boolean;
+    enabled: boolean;
+  } | null>(null);
+  const [showFirstLoginPinPrompt, setShowFirstLoginPinPrompt] =
+    useState<boolean>(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
-  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+  const showToast = (
+    message: string,
+    type: "success" | "error" = "success",
+  ) => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 4000);
   };
 
   // Fetch documents from backend
   const fetchDocuments = async () => {
-    const token = localStorage.getItem('access_token');
+    const token = localStorage.getItem("access_token");
     if (!token) return;
 
     try {
       let url = `${API_BASE_URL}/documents?tab=${tabFilter}`;
-      if (statusFilter !== 'all') {
+      if (statusFilter !== "all") {
         url += `&status=${encodeURIComponent(statusFilter)}`;
       }
-      if (typeFilter !== 'all') {
+      if (typeFilter !== "all") {
         url += `&type=${encodeURIComponent(typeFilter)}`;
       }
       const res = await fetch(url, {
@@ -265,24 +324,27 @@ export default function App() {
           if (fresh) setSelectedDoc(fresh);
         }
       } else {
-        throw new Error('Không thể tải danh sách hồ sơ');
+        throw new Error("Không thể tải danh sách hồ sơ");
       }
     } catch (error: any) {
       if (!ENABLE_MOCK_DATA) {
         setDocuments([]);
-        showToast(error.message || 'Không thể tải danh sách hồ sơ', 'error');
+        showToast(error.message || "Không thể tải danh sách hồ sơ", "error");
         return;
       }
       let mock = [...MOCK_DOCUMENTS];
-      if (tabFilter === 'my') {
-        mock = mock.filter((d) => d.createdBy?.id === user?.id || d.createdBy?.email === user?.email);
-      } else if (tabFilter === 'to_review') {
-        mock = mock.filter((d) => d.status === 'Chờ duyệt');
+      if (tabFilter === "my") {
+        mock = mock.filter(
+          (d) =>
+            d.createdBy?.id === user?.id || d.createdBy?.email === user?.email,
+        );
+      } else if (tabFilter === "to_review") {
+        mock = mock.filter((d) => d.status === "Chờ duyệt");
       }
-      if (statusFilter !== 'all') {
+      if (statusFilter !== "all") {
         mock = mock.filter((d) => d.status === statusFilter);
       }
-      if (typeFilter !== 'all') {
+      if (typeFilter !== "all") {
         mock = mock.filter((d) => d.type === typeFilter);
       }
       setDocuments(mock);
@@ -294,20 +356,23 @@ export default function App() {
   };
 
   const refreshDocumentDetail = async (documentId: number) => {
-    const token = localStorage.getItem('access_token');
+    const token = localStorage.getItem("access_token");
     if (!token) return;
-    const response = await fetchWithSession(`${API_BASE_URL}/documents/${documentId}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!response.ok) throw new Error('Không thể tải lại chi tiết hồ sơ');
+    const response = await fetchWithSession(
+      `${API_BASE_URL}/documents/${documentId}`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      },
+    );
+    if (!response.ok) throw new Error("Không thể tải lại chi tiết hồ sơ");
     setSelectedDoc(await response.json());
   };
 
   const fetchAssignableUsers = async () => {
-    const token = localStorage.getItem('access_token');
+    const token = localStorage.getItem("access_token");
     if (!token) return;
     const roles: string[] = user?.roles || [];
-    if (!roles.includes('ceo') && !roles.includes('department_head')) {
+    if (!roles.includes("ceo") && !roles.includes("department_head")) {
       setAssignableUsers([]);
       return;
     }
@@ -315,40 +380,43 @@ export default function App() {
       const res = await fetch(`${API_BASE_URL}/tasks/users`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) throw new Error('Không thể tải danh sách nhân sự');
+      if (!res.ok) throw new Error("Không thể tải danh sách nhân sự");
       const data = await res.json();
       setAssignableUsers(data);
     } catch (error: any) {
       setAssignableUsers(ENABLE_MOCK_DATA ? Object.values(MOCK_USERS) : []);
-      if (!ENABLE_MOCK_DATA) showToast(error.message || 'Không thể tải danh sách nhân sự', 'error');
+      if (!ENABLE_MOCK_DATA)
+        showToast(error.message || "Không thể tải danh sách nhân sự", "error");
     }
   };
 
   const fetchProjects = async () => {
-    const token = localStorage.getItem('access_token');
+    const token = localStorage.getItem("access_token");
     if (!token) return;
     try {
       const response = await fetchWithSession(`${API_BASE_URL}/projects`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!response.ok) throw new Error('Không thể tải danh sách dự án');
+      if (!response.ok) throw new Error("Không thể tải danh sách dự án");
       setProjects(await response.json());
     } catch (error: any) {
       setProjects([]);
-      showToast(error.message || 'Không thể tải danh sách dự án', 'error');
+      showToast(error.message || "Không thể tải danh sách dự án", "error");
     }
   };
 
   const fetchTaskCount = async () => {
-    const token = localStorage.getItem('access_token');
+    const token = localStorage.getItem("access_token");
     if (!token) return;
     try {
       const res = await fetch(`${API_BASE_URL}/tasks?tab=assigned_to_me`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) throw new Error('Không thể tải số công việc cần xử lý');
+      if (!res.ok) throw new Error("Không thể tải số công việc cần xử lý");
       const data = await res.json();
-      const pending = data.filter((t: any) => t.status === 'Chờ duyệt' || t.isOverdue);
+      const pending = data.filter(
+        (t: any) => t.status === "Chờ duyệt" || t.isOverdue,
+      );
       setTaskCount(pending.length);
     } catch {
       setTaskCount(ENABLE_MOCK_DATA ? 2 : 0);
@@ -358,16 +426,16 @@ export default function App() {
   const handleNotificationNavigate = async (link?: string) => {
     if (!link) return;
     try {
-      if (link.startsWith('/documents')) {
-        const url = new URL(link, 'http://localhost');
-        const idStr = url.searchParams.get('id');
+      if (link.startsWith("/documents")) {
+        const url = new URL(link, "http://localhost");
+        const idStr = url.searchParams.get("id");
         if (idStr) {
           const docId = parseInt(idStr, 10);
           const found = documents.find((d) => d.id === docId);
           if (found) {
             setSelectedDoc(found);
           } else {
-            const token = localStorage.getItem('access_token');
+            const token = localStorage.getItem("access_token");
             const res = await fetch(`${API_BASE_URL}/documents/${docId}`, {
               headers: { Authorization: `Bearer ${token}` },
             });
@@ -376,37 +444,57 @@ export default function App() {
               setSelectedDoc(d);
             }
           }
-          setActiveTab('documents');
+          setActiveTab("documents");
         } else {
-          setActiveTab('documents');
+          setActiveTab("documents");
         }
-      } else if (link.startsWith('/tasks')) {
-        const url = new URL(link, 'http://localhost');
-        const idStr = url.searchParams.get('id');
+      } else if (link.startsWith("/tasks")) {
+        const url = new URL(link, "http://localhost");
+        const idStr = url.searchParams.get("id");
         if (idStr) {
           setSelectedTaskId(parseInt(idStr, 10));
         }
-        setActiveTab('tasks');
+        setActiveTab("tasks");
       }
     } catch {
       // ignore
     }
   };
 
+  // Chỉ tải dữ liệu của màn hình đang mở. Trước đây mỗi lần đăng nhập hoặc
+  // đổi bộ lọc hồ sơ đều gọi đồng thời hồ sơ, công việc, nhân sự và dự án,
+  // khiến các truy vấn xác thực/DB tranh nhau connection pool.
   useEffect(() => {
-    if (isAuthenticated) {
-      fetchDocuments();
-      fetchAssignableUsers();
-      fetchTaskCount();
-      fetchProjects();
+    if (isAuthenticated && activeTab === "documents") void fetchDocuments();
+  }, [isAuthenticated, activeTab, tabFilter, statusFilter, typeFilter]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const tabsUsingProjects = new Set([
+      "documents",
+      "create",
+      "tasks",
+      "reports",
+      "admin_projects",
+      "project_board",
+    ]);
+    if (tabsUsingProjects.has(activeTab)) void fetchProjects();
+  }, [isAuthenticated, activeTab]);
+
+  useEffect(() => {
+    if (
+      isAuthenticated &&
+      (activeTab === "tasks" || isCreateTaskOpen || selectedTaskId !== null)
+    ) {
+      void fetchAssignableUsers();
     }
-  }, [isAuthenticated, tabFilter, statusFilter, typeFilter]);
+  }, [isAuthenticated, activeTab, isCreateTaskOpen, selectedTaskId, user?.id]);
 
   // Trạng thái bật/tắt mã PIN xác nhận duyệt — chỉ liên quan tới CEO, dùng để
   // quyết định frontend có cần hỏi PIN trước khi gọi API duyệt bước cuối hay
   // không (backend vẫn là nơi enforce thật sự, đây chỉ là UX).
   const fetchPinStatus = async () => {
-    const token = localStorage.getItem('access_token');
+    const token = localStorage.getItem("access_token");
     if (!token) return;
     try {
       const res = await fetch(`${API_BASE_URL}/auth/approval-pin-status`, {
@@ -429,17 +517,26 @@ export default function App() {
 
   useEffect(() => {
     const roles: string[] = user?.roles || [];
-    if (isAuthenticated && roles.includes('ceo')) {
-      fetchPinStatus();
+    if (isAuthenticated && roles.includes("ceo")) {
+      if (user?.approvalPinStatus) {
+        setPinStatus(user.approvalPinStatus);
+        if (!user.approvalPinStatus.hasPin && !user.approvalPinStatus.enabled) {
+          const dismissKey = `pinPromptDismissed_${user?.id}`;
+          if (!localStorage.getItem(dismissKey))
+            setShowFirstLoginPinPrompt(true);
+        }
+      } else {
+        void fetchPinStatus();
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, user?.id]);
 
   // Handle Login
   const completeLogin = (data: any) => {
-    localStorage.setItem('access_token', data.access_token);
-    localStorage.setItem('refresh_token', data.refresh_token);
-    localStorage.setItem('user', JSON.stringify(data.user));
+    localStorage.setItem("access_token", data.access_token);
+    localStorage.setItem("refresh_token", data.refresh_token);
+    localStorage.setItem("user", JSON.stringify(data.user));
     setEmailChallenge(null);
     setUser(data.user);
     setIsAuthenticated(true);
@@ -448,17 +545,19 @@ export default function App() {
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setAuthError('');
+    setAuthError("");
     setIsProcessing(true);
 
     const formData = new FormData(e.currentTarget);
-    const email = String(formData.get('email') || '').trim().toLowerCase();
-    const password = formData.get('password') as string;
+    const email = String(formData.get("email") || "")
+      .trim()
+      .toLowerCase();
+    const password = formData.get("password") as string;
 
     try {
       const response = await fetch(`${API_BASE_URL}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email,
           password,
@@ -470,20 +569,26 @@ export default function App() {
       const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        showToast(data.message || 'Email hoặc mật khẩu không chính xác', 'error');
+        showToast(
+          data.message || "Email hoặc mật khẩu không chính xác",
+          "error",
+        );
         return;
       }
 
       if (data.requiresEmailVerification) {
-        setEmailChallenge({ id: data.challengeId, maskedEmail: data.maskedEmail });
+        setEmailChallenge({
+          id: data.challengeId,
+          maskedEmail: data.maskedEmail,
+        });
         setResendCooldown(data.resendCooldownSeconds || 60);
-        showToast(data.message || 'Đã gửi mã xác minh tới email công việc.');
+        showToast(data.message || "Đã gửi mã xác minh tới email công việc.");
         return;
       }
 
       completeLogin(data);
     } catch (err: any) {
-      showToast(err.message || 'Không thể kết nối đến máy chủ', 'error');
+      showToast(err.message || "Không thể kết nối đến máy chủ", "error");
     } finally {
       setIsProcessing(false);
     }
@@ -492,14 +597,14 @@ export default function App() {
   const handleVerifyEmail = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!emailChallenge) return;
-    setAuthError('');
+    setAuthError("");
     setIsProcessing(true);
-    const code = String(new FormData(e.currentTarget).get('code') || '').trim();
+    const code = String(new FormData(e.currentTarget).get("code") || "").trim();
 
     try {
       const response = await fetch(`${API_BASE_URL}/auth/verify-login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           challengeId: emailChallenge.id,
           code,
@@ -508,12 +613,14 @@ export default function App() {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setAuthError(data.message || 'Mã xác minh không chính xác hoặc đã hết hạn');
+        setAuthError(
+          data.message || "Mã xác minh không chính xác hoặc đã hết hạn",
+        );
         return;
       }
       completeLogin(data);
     } catch (err: any) {
-      setAuthError(err.message || 'Không thể kết nối đến máy chủ');
+      setAuthError(err.message || "Không thể kết nối đến máy chủ");
     } finally {
       setIsProcessing(false);
     }
@@ -521,12 +628,12 @@ export default function App() {
 
   const handleResendEmail = async () => {
     if (!emailChallenge || resendCooldown > 0 || isProcessing) return;
-    setAuthError('');
+    setAuthError("");
     setIsProcessing(true);
     try {
       const response = await fetch(`${API_BASE_URL}/auth/resend-login-code`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           challengeId: emailChallenge.id,
           deviceId: getOrCreateDeviceId(),
@@ -534,28 +641,30 @@ export default function App() {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setAuthError(data.message || 'Không thể gửi lại mã xác minh');
+        setAuthError(data.message || "Không thể gửi lại mã xác minh");
         return;
       }
-      setEmailChallenge({ id: data.challengeId, maskedEmail: data.maskedEmail });
+      setEmailChallenge({
+        id: data.challengeId,
+        maskedEmail: data.maskedEmail,
+      });
       setResendCooldown(data.resendCooldownSeconds || 60);
-      showToast(data.message || 'Đã gửi lại mã xác minh mới.');
+      showToast(data.message || "Đã gửi lại mã xác minh mới.");
     } catch (err: any) {
-      setAuthError(err.message || 'Không thể kết nối đến máy chủ');
+      setAuthError(err.message || "Không thể kết nối đến máy chủ");
     } finally {
       setIsProcessing(false);
     }
   };
 
-
   const handleLogout = () => {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    localStorage.removeItem('user');
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
+    localStorage.removeItem("user");
     setUser(null);
     setIsAuthenticated(false);
     setSelectedDoc(null);
-    showToast('Đã đăng xuất tài khoản.');
+    showToast("Đã đăng xuất tài khoản.");
   };
 
   // Chỉ đồng bộ lại subscription đã được người dùng cấp quyền trước đó.
@@ -568,56 +677,90 @@ export default function App() {
 
   // Upload Attachment via Presigned URL
   const uploadAttachmentReal = async (file: File): Promise<number | null> => {
-    const token = localStorage.getItem('access_token');
+    const token = localStorage.getItem("access_token");
     if (!token) {
-      showToast('Phiên đăng nhập đã hết hạn', 'error');
+      showToast("Phiên đăng nhập đã hết hạn", "error");
       return null;
     }
     try {
       return await uploadAttachment(API_BASE_URL, token, file);
     } catch (err: any) {
-      showToast(err.message || 'Lỗi tải lên tệp đính kèm', 'error');
+      showToast(err.message || "Lỗi tải lên tệp đính kèm", "error");
       return null;
     }
   };
 
   // Create Document (Payment Request, Proposal, or Contract)
-  const handleCreateDocument = async (e: React.FormEvent, submitNow: boolean = false) => {
+  const handleCreateDocument = async (
+    e: React.FormEvent,
+    submitNow: boolean = false,
+  ) => {
     e.preventDefault();
     if (isProcessing) return;
 
     // Validate by type
-    if (createForm.type === 'payment_request') {
-      if (!createForm.title || !createForm.amount || !createForm.receiver || !createForm.bankName || !createForm.bankAccount) {
-        showToast('Vui lòng điền đầy đủ các thông tin thanh toán bắt buộc!', 'error');
+    if (createForm.type === "payment_request") {
+      if (
+        !createForm.title ||
+        !createForm.amount ||
+        !createForm.receiver ||
+        !createForm.bankName ||
+        !createForm.bankAccount
+      ) {
+        showToast(
+          "Vui lòng điền đầy đủ các thông tin thanh toán bắt buộc!",
+          "error",
+        );
         return;
       }
       if (submitNow && !createForm.selectedFile) {
-        showToast('Quy định HVE: Bắt buộc đính kèm ít nhất 1 chứng từ / hóa đơn trước khi gửi duyệt!', 'error');
+        showToast(
+          "Quy định HVE: Bắt buộc đính kèm ít nhất 1 chứng từ / hóa đơn trước khi gửi duyệt!",
+          "error",
+        );
         return;
       }
-    } else if (createForm.type === 'proposal') {
+    } else if (createForm.type === "proposal") {
       if (!createForm.title || !createForm.content.trim()) {
-        showToast('Vui lòng nhập tiêu đề và nội dung đề xuất chi tiết!', 'error');
+        showToast(
+          "Vui lòng nhập tiêu đề và nội dung đề xuất chi tiết!",
+          "error",
+        );
         return;
       }
-    } else if (createForm.type === 'contract') {
-      if (!createForm.title || !createForm.partner || !createForm.value || !createForm.startDate || !createForm.endDate || !createForm.manager) {
-        showToast('Vui lòng điền đầy đủ các thông tin hợp đồng bắt buộc!', 'error');
+    } else if (createForm.type === "contract") {
+      if (
+        !createForm.title ||
+        !createForm.partner ||
+        !createForm.value ||
+        !createForm.startDate ||
+        !createForm.endDate ||
+        !createForm.manager
+      ) {
+        showToast(
+          "Vui lòng điền đầy đủ các thông tin hợp đồng bắt buộc!",
+          "error",
+        );
         return;
       }
       if (new Date(createForm.endDate) < new Date(createForm.startDate)) {
-        showToast('Ngày hết hạn hợp đồng không được trước ngày hiệu lực!', 'error');
+        showToast(
+          "Ngày hết hạn hợp đồng không được trước ngày hiệu lực!",
+          "error",
+        );
         return;
       }
       if (submitNow && !createForm.selectedFile) {
-        showToast('Quy định HVE: Bắt buộc đính kèm tệp hợp đồng trước khi gửi duyệt!', 'error');
+        showToast(
+          "Quy định HVE: Bắt buộc đính kèm tệp hợp đồng trước khi gửi duyệt!",
+          "error",
+        );
         return;
       }
     }
 
     setIsProcessing(true);
-    const token = localStorage.getItem('access_token');
+    const token = localStorage.getItem("access_token");
 
     try {
       const attachmentIds: number[] = [];
@@ -626,14 +769,14 @@ export default function App() {
         if (attId) {
           attachmentIds.push(attId);
         } else {
-          throw new Error('Không thể tải tệp lên. Vui lòng thử lại.');
+          throw new Error("Không thể tải tệp lên. Vui lòng thử lại.");
         }
       }
 
       let endpoint = `${API_BASE_URL}/documents/payment-requests`;
       let payload: any = {};
 
-      if (createForm.type === 'payment_request') {
+      if (createForm.type === "payment_request") {
         endpoint = `${API_BASE_URL}/documents/payment-requests`;
         payload = {
           title: createForm.title,
@@ -642,21 +785,26 @@ export default function App() {
           bankName: createForm.bankName,
           bankAccount: createForm.bankAccount,
           content: createForm.content,
-          deadline: createForm.deadline || new Date().toISOString().split('T')[0],
+          deadline:
+            createForm.deadline || new Date().toISOString().split("T")[0],
           attachmentIds,
-          projectId: createForm.projectId ? Number(createForm.projectId) : undefined,
+          projectId: createForm.projectId
+            ? Number(createForm.projectId)
+            : undefined,
           linkedProjectIds: createForm.linkedProjectIds,
         };
-      } else if (createForm.type === 'proposal') {
+      } else if (createForm.type === "proposal") {
         endpoint = `${API_BASE_URL}/documents/proposals`;
         payload = {
           title: createForm.title,
           content: createForm.content,
           attachmentIds,
-          projectId: createForm.projectId ? Number(createForm.projectId) : undefined,
+          projectId: createForm.projectId
+            ? Number(createForm.projectId)
+            : undefined,
           linkedProjectIds: createForm.linkedProjectIds,
         };
-      } else if (createForm.type === 'contract') {
+      } else if (createForm.type === "contract") {
         endpoint = `${API_BASE_URL}/documents/contracts`;
         payload = {
           title: createForm.title,
@@ -667,45 +815,53 @@ export default function App() {
           manager: createForm.manager,
           notes: createForm.notes,
           attachmentIds,
-          projectId: createForm.projectId ? Number(createForm.projectId) : undefined,
+          projectId: createForm.projectId
+            ? Number(createForm.projectId)
+            : undefined,
           linkedProjectIds: createForm.linkedProjectIds,
         };
       }
 
       const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify(payload),
       });
 
       const doc = await res.json();
       if (!res.ok) {
-        throw new Error(doc.message || 'Tạo hồ sơ thất bại');
+        throw new Error(doc.message || "Tạo hồ sơ thất bại");
       }
 
       // If user chose "Gửi duyệt ngay"
       if (submitNow) {
-        const submitRes = await fetch(`${API_BASE_URL}/documents/${doc.id}/submit`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const submitRes = await fetch(
+          `${API_BASE_URL}/documents/${doc.id}/submit`,
+          {
+            method: "POST",
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        );
         const submitted = await submitRes.json();
         if (!submitRes.ok) {
-          throw new Error(submitted.message || 'Gửi duyệt thất bại');
+          throw new Error(submitted.message || "Gửi duyệt thất bại");
         }
         setSelectedDoc(submitted);
-        showToast('Đã tạo và gửi hồ sơ phê duyệt thành công!');
+        showToast("Đã tạo và gửi hồ sơ phê duyệt thành công!");
       } else {
         setSelectedDoc(doc);
-        showToast('Đã lưu bản nháp thành công!');
+        showToast("Đã lưu bản nháp thành công!");
       }
 
       // Reset form
       setCreateForm(initialFormState);
-      setActiveTab('documents');
+      setActiveTab("documents");
       fetchDocuments();
     } catch (err: any) {
-      showToast(err.message || 'Thao tác thất bại', 'error');
+      showToast(err.message || "Thao tác thất bại", "error");
     } finally {
       setIsProcessing(false);
     }
@@ -714,54 +870,74 @@ export default function App() {
   // Submit Draft
   const handleSubmitDraft = async (doc: DocumentItem) => {
     setIsProcessing(true);
-    const token = localStorage.getItem('access_token');
+    const token = localStorage.getItem("access_token");
     try {
       const res = await fetch(`${API_BASE_URL}/documents/${doc.id}/submit`, {
-        method: 'POST',
+        method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.message || 'Gửi duyệt thất bại');
+        throw new Error(data.message || "Gửi duyệt thất bại");
       }
       setSelectedDoc(data);
-      showToast('Đã gửi hồ sơ đi phê duyệt thành công!');
+      showToast("Đã gửi hồ sơ đi phê duyệt thành công!");
       fetchDocuments();
     } catch (err: any) {
-      showToast(err.message || 'Lỗi gửi duyệt', 'error');
+      showToast(err.message || "Lỗi gửi duyệt", "error");
     } finally {
       setIsProcessing(false);
     }
   };
 
   // Approve Step
-  const handleApproveStep = async (doc: DocumentItem, step: ApprovalStep, pin?: string, comment?: string) => {
+  const handleApproveStep = async (
+    doc: DocumentItem,
+    step: ApprovalStep,
+    pin?: string,
+    comment?: string,
+  ) => {
     setIsProcessing(true);
-    const token = localStorage.getItem('access_token');
+    const token = localStorage.getItem("access_token");
     try {
       const res = await fetch(
         `${API_BASE_URL}/documents/${doc.id}/steps/${step.id}/approve?version=${doc.version}`,
         {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ comment: comment || 'Đồng ý phê duyệt', ...(pin ? { pin } : {}) }),
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            comment: comment || "Đồng ý phê duyệt",
+            ...(pin ? { pin } : {}),
+          }),
         },
       );
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.message || 'Phê duyệt thất bại');
+        throw new Error(data.message || "Phê duyệt thất bại");
       }
       setSelectedDoc(data);
-      showToast('Đã phê duyệt bước thành công!');
+      showToast("Đã phê duyệt bước thành công!");
       fetchDocuments();
       if (pinModal.isOpen) {
-        setPinModal({ isOpen: false, doc: null, step: null, action: 'step', errorMessage: null });
+        setPinModal({
+          isOpen: false,
+          doc: null,
+          step: null,
+          action: "step",
+          errorMessage: null,
+        });
       }
     } catch (err: any) {
       if (pinModal.isOpen) {
-        setPinModal({ ...pinModal, errorMessage: err.message || 'Lỗi phê duyệt' });
+        setPinModal({
+          ...pinModal,
+          errorMessage: err.message || "Lỗi phê duyệt",
+        });
       } else {
-        showToast(err.message || 'Lỗi phê duyệt', 'error');
+        showToast(err.message || "Lỗi phê duyệt", "error");
       }
     } finally {
       setIsProcessing(false);
@@ -774,12 +950,22 @@ export default function App() {
     const steps = doc.steps || [];
     if (steps.length === 0) return false;
     const maxStepOrder = Math.max(...steps.map((s) => s.stepOrder));
-    return step.roleRequired === 'ceo' && step.stepOrder === maxStepOrder;
+    return step.roleRequired === "ceo" && step.stepOrder === maxStepOrder;
   };
 
-  const handleApproveStepClick = (doc: DocumentItem, step: ApprovalStep, comment?: string) => {
+  const handleApproveStepClick = (
+    doc: DocumentItem,
+    step: ApprovalStep,
+    comment?: string,
+  ) => {
     if (isFinalCeoStep(doc, step) && pinStatus?.enabled) {
-      setPinModal({ isOpen: true, doc, step, action: 'step', errorMessage: null });
+      setPinModal({
+        isOpen: true,
+        doc,
+        step,
+        action: "step",
+        errorMessage: null,
+      });
       return;
     }
     handleApproveStep(doc, step, undefined, comment);
@@ -787,7 +973,7 @@ export default function App() {
 
   const handleConfirmPinModal = (pin: string) => {
     if (!pinModal.doc) return;
-    if (pinModal.action === 'direct') {
+    if (pinModal.action === "direct") {
       handleApproveDirect(pinModal.doc, pin);
       return;
     }
@@ -796,30 +982,43 @@ export default function App() {
 
   const handleApproveDirect = async (doc: DocumentItem, pin?: string) => {
     setIsProcessing(true);
-    const token = localStorage.getItem('access_token');
+    const token = localStorage.getItem("access_token");
     try {
       const res = await fetchWithSession(
         `${API_BASE_URL}/documents/${doc.id}/approve-direct?version=${doc.version}`,
         {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
           body: JSON.stringify({
-            comment: 'CEO duyệt thẳng toàn bộ quy trình',
+            comment: "CEO duyệt thẳng toàn bộ quy trình",
             ...(pin ? { pin } : {}),
           }),
         },
       );
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.message || 'Duyệt thẳng hồ sơ thất bại');
+      if (!res.ok)
+        throw new Error(data.message || "Duyệt thẳng hồ sơ thất bại");
       setSelectedDoc(data);
-      setPinModal({ isOpen: false, doc: null, step: null, action: 'step', errorMessage: null });
-      showToast('CEO đã duyệt thẳng và hoàn tất hồ sơ!');
+      setPinModal({
+        isOpen: false,
+        doc: null,
+        step: null,
+        action: "step",
+        errorMessage: null,
+      });
+      showToast("CEO đã duyệt thẳng và hoàn tất hồ sơ!");
       fetchDocuments();
     } catch (err: any) {
       if (pinModal.isOpen) {
-        setPinModal({ ...pinModal, errorMessage: err.message || 'Lỗi duyệt thẳng hồ sơ' });
+        setPinModal({
+          ...pinModal,
+          errorMessage: err.message || "Lỗi duyệt thẳng hồ sơ",
+        });
       } else {
-        showToast(err.message || 'Lỗi duyệt thẳng hồ sơ', 'error');
+        showToast(err.message || "Lỗi duyệt thẳng hồ sơ", "error");
       }
     } finally {
       setIsProcessing(false);
@@ -828,7 +1027,13 @@ export default function App() {
 
   const handleApproveDirectClick = (doc: DocumentItem) => {
     if (pinStatus?.enabled) {
-      setPinModal({ isOpen: true, doc, step: null, action: 'direct', errorMessage: null });
+      setPinModal({
+        isOpen: true,
+        doc,
+        step: null,
+        action: "direct",
+        errorMessage: null,
+      });
       return;
     }
     handleApproveDirect(doc);
@@ -837,21 +1042,24 @@ export default function App() {
   // Create New Version
   const handleCreateNewVersion = async (doc: DocumentItem) => {
     setIsProcessing(true);
-    const token = localStorage.getItem('access_token');
+    const token = localStorage.getItem("access_token");
     try {
-      const res = await fetch(`${API_BASE_URL}/documents/${doc.id}/new-version`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetch(
+        `${API_BASE_URL}/documents/${doc.id}/new-version`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.message || 'Tạo phiên bản sửa đổi thất bại');
+        throw new Error(data.message || "Tạo phiên bản sửa đổi thất bại");
       }
       setSelectedDoc(data);
       showToast(`Đã tạo bản nháp sửa đổi mới: ${data.code}!`);
       fetchDocuments();
     } catch (err: any) {
-      showToast(err.message || 'Lỗi tạo phiên bản sửa đổi', 'error');
+      showToast(err.message || "Lỗi tạo phiên bản sửa đổi", "error");
     } finally {
       setIsProcessing(false);
     }
@@ -860,39 +1068,42 @@ export default function App() {
   // Confirm Modal Action (Return / Reject)
   const handleConfirmActionModal = async () => {
     if (!modalAction.comment.trim()) {
-      showToast('Bắt buộc phải nhập lý do khi Trả lại hoặc Từ chối!', 'error');
+      showToast("Bắt buộc phải nhập lý do khi Trả lại hoặc Từ chối!", "error");
       return;
     }
 
     setIsProcessing(true);
-    const token = localStorage.getItem('access_token');
+    const token = localStorage.getItem("access_token");
     const endpoint =
-      modalAction.type === 'return'
+      modalAction.type === "return"
         ? `${API_BASE_URL}/documents/${modalAction.docId}/steps/${modalAction.stepId}/return`
         : `${API_BASE_URL}/documents/${modalAction.docId}/steps/${modalAction.stepId}/reject`;
 
     try {
       const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({ comment: modalAction.comment }),
       });
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.message || 'Thao tác thất bại');
+        throw new Error(data.message || "Thao tác thất bại");
       }
 
-      setModalAction({ ...modalAction, isOpen: false, comment: '' });
+      setModalAction({ ...modalAction, isOpen: false, comment: "" });
       setSelectedDoc(data);
       showToast(
-        modalAction.type === 'return'
-          ? 'Đã trả lại hồ sơ về cho người tạo chỉnh sửa!'
-          : 'Đã từ chối hồ sơ phê duyệt!',
+        modalAction.type === "return"
+          ? "Đã trả lại hồ sơ về cho người tạo chỉnh sửa!"
+          : "Đã từ chối hồ sơ phê duyệt!",
       );
       fetchDocuments();
     } catch (err: any) {
-      showToast(err.message || 'Lỗi xử lý hồ sơ', 'error');
+      showToast(err.message || "Lỗi xử lý hồ sơ", "error");
     } finally {
       setIsProcessing(false);
     }
@@ -901,25 +1112,25 @@ export default function App() {
   // Status Badge Helper
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'Đã duyệt':
+      case "Đã duyệt":
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
             ● Đã duyệt
           </span>
         );
-      case 'Chờ duyệt':
+      case "Chờ duyệt":
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200 animate-pulse">
             ● Chờ duyệt
           </span>
         );
-      case 'Trả lại':
+      case "Trả lại":
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-orange-100 text-orange-800 border border-orange-200">
             ↩ Trả lại
           </span>
         );
-      case 'Từ chối':
+      case "Từ chối":
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-800 border border-red-200">
             ✕ Từ chối
@@ -939,16 +1150,20 @@ export default function App() {
     const matchSearch =
       doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       doc.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (doc.dataJson?.receiver && doc.dataJson.receiver.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (doc.dataJson?.partner && doc.dataJson.partner.toLowerCase().includes(searchQuery.toLowerCase()));
+      (doc.dataJson?.receiver &&
+        doc.dataJson.receiver
+          .toLowerCase()
+          .includes(searchQuery.toLowerCase())) ||
+      (doc.dataJson?.partner &&
+        doc.dataJson.partner.toLowerCase().includes(searchQuery.toLowerCase()));
 
-    const matchType = typeFilter === 'all' || doc.type === typeFilter;
+    const matchType = typeFilter === "all" || doc.type === typeFilter;
     return matchSearch && matchType;
   });
 
-  const pendingCount = documents.filter((d) => d.status === 'Chờ duyệt').length;
-  const approvedCount = documents.filter((d) => d.status === 'Đã duyệt').length;
-  const draftCount = documents.filter((d) => d.status === 'Nháp').length;
+  const pendingCount = documents.filter((d) => d.status === "Chờ duyệt").length;
+  const approvedCount = documents.filter((d) => d.status === "Đã duyệt").length;
+  const draftCount = documents.filter((d) => d.status === "Nháp").length;
 
   // Unauthenticated view
   if (!isAuthenticated) {
@@ -966,7 +1181,7 @@ export default function App() {
           onCancelVerification={() => {
             setEmailChallenge(null);
             setResendCooldown(0);
-            setAuthError('');
+            setAuthError("");
           }}
         />
       </>
@@ -981,7 +1196,7 @@ export default function App() {
       {/* Left Sidebar */}
       <Sidebar
         activeTab={activeTab}
-        pendingCount={pendingCount}
+        pendingCount={dashboardPendingCount ?? pendingCount}
         taskCount={taskCount}
         user={user}
         isMobileOpen={isMobileMenuOpen}
@@ -1008,23 +1223,37 @@ export default function App() {
               onClick={() => setIsMobileMenuOpen(true)}
               aria-label="Mở menu"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 6h16M4 12h16M4 18h16"
+                />
               </svg>
             </button>
             <h2 className="min-w-0 text-sm md:text-base font-bold text-gray-900 truncate">
-              {activeTab === 'overview' && 'Tổng quan điều hành'}
-              {activeTab === 'documents' && 'Danh sách hồ sơ phê duyệt'}
-              {activeTab === 'tasks' && 'Quản lý công việc & Giao nhiệm vụ'}
-              {activeTab === 'reports' && 'Báo cáo & Thống kê điều hành'}
-              {activeTab === 'project_board' && 'Bảng tin dự án'}
-              {activeTab === 'create' && 'Khởi tạo hồ sơ phê duyệt mới'}
-              {activeTab === 'admin_workflows' && 'Cấu hình quy trình (Quản trị IT)'}
-              {activeTab === 'admin_users' && 'Quản lý người dùng (Quản trị IT)'}
-              {activeTab === 'admin_projects' && 'Quản lý dự án'}
+              {activeTab === "overview" && "Tổng quan điều hành"}
+              {activeTab === "documents" && "Danh sách hồ sơ phê duyệt"}
+              {activeTab === "tasks" && "Quản lý công việc & Giao nhiệm vụ"}
+              {activeTab === "reports" && "Báo cáo & Thống kê điều hành"}
+              {activeTab === "project_board" && "Bảng tin dự án"}
+              {activeTab === "create" && "Khởi tạo hồ sơ phê duyệt mới"}
+              {activeTab === "admin_workflows" &&
+                "Cấu hình quy trình (Quản trị IT)"}
+              {activeTab === "admin_users" &&
+                "Quản lý người dùng (Quản trị IT)"}
+              {activeTab === "admin_projects" && "Quản lý dự án"}
             </h2>
             {selectedDoc && (
-              <span className="hidden sm:inline text-sm text-gray-400 font-medium">/ Chi tiết {selectedDoc.code}</span>
+              <span className="hidden sm:inline text-sm text-gray-400 font-medium">
+                / Chi tiết {selectedDoc.code}
+              </span>
             )}
           </div>
 
@@ -1036,7 +1265,14 @@ export default function App() {
             <div className="hidden sm:block h-5 w-px bg-slate-200" />
             <span className="hidden sm:block text-xs text-gray-500">
               <strong className="text-gray-800">{user?.name}</strong>
-              <span className="hidden md:inline"> ({user?.roles?.map((r: string) => ROLE_LABELS[r] || r).join(', ')})</span>
+              <span className="hidden md:inline">
+                {" "}
+                (
+                {user?.roles
+                  ?.map((r: string) => ROLE_LABELS[r] || r)
+                  .join(", ")}
+                )
+              </span>
             </span>
           </div>
         </header>
@@ -1044,174 +1280,204 @@ export default function App() {
         {/* Tab Body */}
         <div className="flex-1 min-w-0 overflow-x-hidden overflow-y-auto overscroll-contain p-3 sm:p-4 md:p-8 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           <ViewErrorBoundary key={activeTab}>
-          <Suspense fallback={<BrandLoader label="Đang tải màn hình HVE Work..." />}>
-          {/* TAB 1: OVERVIEW */}
-          {activeTab === 'overview' && (
-            <OverviewDashboard
-              apiBaseUrl={API_BASE_URL}
-              user={user}
-              pendingCount={pendingCount}
-              approvedCount={approvedCount}
-              draftCount={draftCount}
-              documents={documents}
-              getStatusBadge={getStatusBadge}
-              onSelectDoc={(doc) => {
-                setSelectedDoc(doc);
-                setActiveTab('documents');
-              }}
-              onSelectTask={(taskId) => {
-                setSelectedTaskId(taskId);
-                setActiveTab('tasks');
-              }}
-              onOpenDocuments={(status) => {
-                setSelectedDoc(null);
-                setTabFilter('all');
-                setTypeFilter('all');
-                setStatusFilter(status);
-                setActiveTab('documents');
-              }}
-              onOpenTasks={(filter) => {
-                setSelectedTaskId(null);
-                setTaskNavigationFilter({
-                  key: Date.now(),
-                  tab: filter.tab || 'all',
-                  status: filter.status || 'all',
-                  isOverdueOnly: Boolean(filter.isOverdueOnly),
-                });
-                setActiveTab('tasks');
-              }}
-              onViewAll={() => {
-                setStatusFilter('all');
-                setActiveTab('documents');
-              }}
-            />
-          )}
-
-          {/* TAB 2: DOCUMENTS LIST & DETAIL */}
-          {activeTab === 'documents' && (
-            <div>
-              {!selectedDoc ? (
-                <DocumentList
-                  filteredDocuments={filteredDocuments}
-                  tabFilter={tabFilter}
-                  setTabFilter={setTabFilter}
-                  typeFilter={typeFilter}
-                  setTypeFilter={setTypeFilter}
-                  statusFilter={statusFilter}
-                  setStatusFilter={setStatusFilter}
-                  searchQuery={searchQuery}
-                  setSearchQuery={setSearchQuery}
-                  getStatusBadge={getStatusBadge}
-                  onSelectDoc={(doc) => setSelectedDoc(doc)}
-                  onCreateNew={() => setActiveTab('create')}
-                />
-              ) : (
-                <DocumentDetailModal
-                  selectedDoc={selectedDoc}
-                  user={user}
-                  isProcessing={isProcessing}
+            <Suspense
+              fallback={<BrandLoader label="Đang tải màn hình HVE Work..." />}
+            >
+              {/* TAB 1: OVERVIEW */}
+              {activeTab === "overview" && (
+                <OverviewDashboard
                   apiBaseUrl={API_BASE_URL}
+                  user={user}
+                  pendingCount={pendingCount}
+                  approvedCount={approvedCount}
+                  draftCount={draftCount}
+                  documents={documents}
                   getStatusBadge={getStatusBadge}
-                  onBack={() => setSelectedDoc(null)}
-                  onSubmitDraft={handleSubmitDraft}
-                  onCreateNewVersion={handleCreateNewVersion}
-                  onApproveStep={handleApproveStepClick}
-                  onApproveDirect={handleApproveDirectClick}
-                  projects={projects}
-                  onAttachmentUploaded={() => {
-                    refreshDocumentDetail(selectedDoc.id).catch((error) =>
-                      showToast(error.message || 'Không thể tải lại chứng từ', 'error'),
+                  onSelectDoc={(doc) => {
+                    setSelectedDoc(doc);
+                    setActiveTab("documents");
+                    void refreshDocumentDetail(doc.id).catch((error) =>
+                      showToast(
+                        error.message || "Không thể tải chi tiết hồ sơ",
+                        "error",
+                      ),
                     );
                   }}
-                  showToast={showToast}
-                  onOpenModalAction={(type, stepId, docId) => {
-                    setModalAction({
-                      isOpen: true,
-                      type,
-                      stepId,
-                      docId,
-                      comment: '',
+                  onSelectTask={(taskId) => {
+                    setSelectedTaskId(taskId);
+                    setActiveTab("tasks");
+                  }}
+                  onOpenDocuments={(status) => {
+                    setSelectedDoc(null);
+                    setTabFilter("all");
+                    setTypeFilter("all");
+                    setStatusFilter(status);
+                    setActiveTab("documents");
+                  }}
+                  onOpenTasks={(filter) => {
+                    setSelectedTaskId(null);
+                    setTaskNavigationFilter({
+                      key: Date.now(),
+                      tab: filter.tab || "all",
+                      status: filter.status || "all",
+                      isOverdueOnly: Boolean(filter.isOverdueOnly),
                     });
+                    setActiveTab("tasks");
+                  }}
+                  onViewAll={() => {
+                    setStatusFilter("all");
+                    setActiveTab("documents");
+                  }}
+                  onDashboardLoaded={(data) => {
+                    setDashboardPendingCount(
+                      Number(data?.metrics?.documents?.pending) || 0,
+                    );
+                    setTaskCount(
+                      (Number(data?.metrics?.tasks?.pendingReview) || 0) +
+                        (Number(data?.metrics?.tasks?.overdue) || 0),
+                    );
                   }}
                 />
               )}
-            </div>
-          )}
 
-          {/* TAB: TASKS LIST */}
-          {activeTab === 'tasks' && (
-            <TaskListView
-              key={taskNavigationFilter?.key || 0}
-              apiBaseUrl={API_BASE_URL}
-              currentUser={user}
-              showToast={showToast}
-              projects={projects}
-              onOpenCreate={() => {
-                setParentTaskForCreate(null);
-                setIsCreateTaskOpen(true);
-              }}
-              onSelectTask={(task) => setSelectedTaskId(task.id)}
-              navigationFilter={taskNavigationFilter}
-            />
-          )}
+              {/* TAB 2: DOCUMENTS LIST & DETAIL */}
+              {activeTab === "documents" && (
+                <div>
+                  {!selectedDoc ? (
+                    <DocumentList
+                      filteredDocuments={filteredDocuments}
+                      tabFilter={tabFilter}
+                      setTabFilter={setTabFilter}
+                      typeFilter={typeFilter}
+                      setTypeFilter={setTypeFilter}
+                      statusFilter={statusFilter}
+                      setStatusFilter={setStatusFilter}
+                      searchQuery={searchQuery}
+                      setSearchQuery={setSearchQuery}
+                      getStatusBadge={getStatusBadge}
+                      onSelectDoc={(doc) => setSelectedDoc(doc)}
+                      onCreateNew={() => setActiveTab("create")}
+                    />
+                  ) : (
+                    <DocumentDetailModal
+                      selectedDoc={selectedDoc}
+                      user={user}
+                      isProcessing={isProcessing}
+                      apiBaseUrl={API_BASE_URL}
+                      getStatusBadge={getStatusBadge}
+                      onBack={() => setSelectedDoc(null)}
+                      onSubmitDraft={handleSubmitDraft}
+                      onCreateNewVersion={handleCreateNewVersion}
+                      onApproveStep={handleApproveStepClick}
+                      onApproveDirect={handleApproveDirectClick}
+                      projects={projects}
+                      onAttachmentUploaded={() => {
+                        refreshDocumentDetail(selectedDoc.id).catch((error) =>
+                          showToast(
+                            error.message || "Không thể tải lại chứng từ",
+                            "error",
+                          ),
+                        );
+                      }}
+                      showToast={showToast}
+                      onOpenModalAction={(type, stepId, docId) => {
+                        setModalAction({
+                          isOpen: true,
+                          type,
+                          stepId,
+                          docId,
+                          comment: "",
+                        });
+                      }}
+                    />
+                  )}
+                </div>
+              )}
 
-          {/* TAB: REPORTS */}
-          {activeTab === 'reports' && (
-            <ReportsView
-              apiBaseUrl={API_BASE_URL}
-              currentUser={user}
-              showToast={showToast}
-              projects={projects}
-              onSelectDoc={(id) => {
-                const found = documents.find((d) => d.id === id);
-                if (found) {
-                  setSelectedDoc(found);
-                  setActiveTab('documents');
-                }
-              }}
-              onSelectTask={(taskId) => {
-                setSelectedTaskId(taskId);
-                setActiveTab('tasks');
-              }}
-            />
-          )}
+              {/* TAB: TASKS LIST */}
+              {activeTab === "tasks" && (
+                <TaskListView
+                  key={taskNavigationFilter?.key || 0}
+                  apiBaseUrl={API_BASE_URL}
+                  currentUser={user}
+                  showToast={showToast}
+                  projects={projects}
+                  onOpenCreate={() => {
+                    setParentTaskForCreate(null);
+                    setIsCreateTaskOpen(true);
+                  }}
+                  onSelectTask={(task) => setSelectedTaskId(task.id)}
+                  navigationFilter={taskNavigationFilter}
+                />
+              )}
 
-          {/* TAB 3: CREATE FORM */}
-          {activeTab === 'create' && (
-            <CreateDocumentForm
-              createForm={createForm}
-              setCreateForm={setCreateForm}
-              isProcessing={isProcessing}
-              onSubmit={handleCreateDocument}
-              onCancel={() => setActiveTab('documents')}
-              projects={projects}
-              primaryProjects={primaryProjects}
-            />
-          )}
+              {/* TAB: REPORTS */}
+              {activeTab === "reports" && (
+                <ReportsView
+                  apiBaseUrl={API_BASE_URL}
+                  currentUser={user}
+                  showToast={showToast}
+                  projects={projects}
+                  onSelectDoc={(id) => {
+                    const found = documents.find((d) => d.id === id);
+                    if (found) {
+                      setSelectedDoc(found);
+                      setActiveTab("documents");
+                    }
+                  }}
+                  onSelectTask={(taskId) => {
+                    setSelectedTaskId(taskId);
+                    setActiveTab("tasks");
+                  }}
+                />
+              )}
 
-          {/* TAB 4: IT ADMIN WORKFLOW CONFIG */}
-          {activeTab === 'admin_workflows' && (
-            <AdminWorkflowView apiBaseUrl={API_BASE_URL} showToast={showToast} />
-          )}
+              {/* TAB 3: CREATE FORM */}
+              {activeTab === "create" && (
+                <CreateDocumentForm
+                  createForm={createForm}
+                  setCreateForm={setCreateForm}
+                  isProcessing={isProcessing}
+                  onSubmit={handleCreateDocument}
+                  onCancel={() => setActiveTab("documents")}
+                  projects={projects}
+                  primaryProjects={primaryProjects}
+                />
+              )}
 
-          {/* TAB 5: IT ADMIN USER MANAGEMENT */}
-          {activeTab === 'admin_users' && (
-            <AdminUserView apiBaseUrl={API_BASE_URL} currentUser={user} showToast={showToast} />
-          )}
+              {/* TAB 4: IT ADMIN WORKFLOW CONFIG */}
+              {activeTab === "admin_workflows" && (
+                <AdminWorkflowView
+                  apiBaseUrl={API_BASE_URL}
+                  showToast={showToast}
+                />
+              )}
 
-          {activeTab === 'admin_projects' && (
-            <AdminProjectsView apiBaseUrl={API_BASE_URL} showToast={showToast} />
-          )}
+              {/* TAB 5: IT ADMIN USER MANAGEMENT */}
+              {activeTab === "admin_users" && (
+                <AdminUserView
+                  apiBaseUrl={API_BASE_URL}
+                  currentUser={user}
+                  showToast={showToast}
+                />
+              )}
 
-          {activeTab === 'project_board' && (
-            <ProjectBoardView
-              apiBaseUrl={API_BASE_URL}
-              projects={boardProjects}
-              currentUser={user}
-              showToast={showToast}
-            />
-          )}
-          </Suspense>
+              {activeTab === "admin_projects" && (
+                <AdminProjectsView
+                  apiBaseUrl={API_BASE_URL}
+                  showToast={showToast}
+                />
+              )}
+
+              {activeTab === "project_board" && (
+                <ProjectBoardView
+                  apiBaseUrl={API_BASE_URL}
+                  projects={boardProjects}
+                  currentUser={user}
+                  showToast={showToast}
+                />
+              )}
+            </Suspense>
           </ViewErrorBoundary>
         </div>
       </main>
@@ -1260,11 +1526,15 @@ export default function App() {
         modalAction={modalAction}
         isProcessing={isProcessing}
         onClose={() => setModalAction({ ...modalAction, isOpen: false })}
-        onChangeComment={(comment) => setModalAction({ ...modalAction, comment })}
+        onChangeComment={(comment) =>
+          setModalAction({ ...modalAction, comment })
+        }
         onConfirm={handleConfirmActionModal}
       />
 
-      {isAuthenticated && user && <EnableNotificationsPrompt apiBaseUrl={API_BASE_URL} />}
+      {isAuthenticated && user && (
+        <EnableNotificationsPrompt apiBaseUrl={API_BASE_URL} />
+      )}
 
       {pinModal.isOpen && (
         <ApprovalPinModal
@@ -1275,7 +1545,7 @@ export default function App() {
               isOpen: false,
               doc: null,
               step: null,
-              action: 'step',
+              action: "step",
               errorMessage: null,
             })
           }
@@ -1297,16 +1567,18 @@ export default function App() {
       {showFirstLoginPinPrompt && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
-            <h3 className="text-base font-bold text-gray-900 mb-1">Bảo vệ bước duyệt cuối cùng?</h3>
+            <h3 className="text-base font-bold text-gray-900 mb-1">
+              Bảo vệ bước duyệt cuối cùng?
+            </h3>
             <p className="text-xs text-gray-500 mb-5">
-              Bạn có thể bật yêu cầu nhập mã PIN 6 số xác nhận riêng cho bước phê duyệt cuối cùng
-              của mình, độc lập với mật khẩu đăng nhập. Có thể bật/tắt lại bất cứ lúc nào trong Hồ
-              sơ cá nhân.
+              Bạn có thể bật yêu cầu nhập mã PIN 6 số xác nhận riêng cho bước
+              phê duyệt cuối cùng của mình, độc lập với mật khẩu đăng nhập. Có
+              thể bật/tắt lại bất cứ lúc nào trong Hồ sơ cá nhân.
             </p>
             <div className="flex items-center justify-end space-x-2">
               <button
                 onClick={() => {
-                  localStorage.setItem(`pinPromptDismissed_${user?.id}`, '1');
+                  localStorage.setItem(`pinPromptDismissed_${user?.id}`, "1");
                   setShowFirstLoginPinPrompt(false);
                 }}
                 className="px-4 py-2 rounded-xl text-xs font-bold text-gray-600 hover:bg-slate-100 transition-all"
@@ -1315,7 +1587,7 @@ export default function App() {
               </button>
               <button
                 onClick={() => {
-                  localStorage.setItem(`pinPromptDismissed_${user?.id}`, '1');
+                  localStorage.setItem(`pinPromptDismissed_${user?.id}`, "1");
                   setShowFirstLoginPinPrompt(false);
                   setIsSetPinOpen(true);
                 }}

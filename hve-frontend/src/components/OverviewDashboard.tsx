@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import type { DocumentItem } from '../types';
-import { MOCK_DASHBOARD_DATA } from '../mockData';
-import { ENABLE_MOCK_DATA } from '../config';
-import { fetchWithSession } from '../api/client';
-import { BrandLoader } from './BrandLoader';
+import React, { useState, useEffect } from "react";
+import type { DocumentItem } from "../types";
+import { MOCK_DASHBOARD_DATA } from "../mockData";
+import { ENABLE_MOCK_DATA } from "../config";
+import { fetchWithSession } from "../api/client";
+import { BrandLoader } from "./BrandLoader";
 
 interface OverviewDashboardProps {
   apiBaseUrl: string;
@@ -17,11 +17,12 @@ interface OverviewDashboardProps {
   onSelectTask?: (taskId: number) => void;
   onOpenDocuments: (status: string) => void;
   onOpenTasks: (filter: {
-    tab?: 'all' | 'assigned_to_me' | 'assigned_by_me' | 'department';
+    tab?: "all" | "assigned_to_me" | "assigned_by_me" | "department";
     status?: string;
     isOverdueOnly?: boolean;
   }) => void;
   onViewAll: () => void;
+  onDashboardLoaded?: (data: any) => void;
 }
 
 export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
@@ -37,6 +38,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
   onOpenDocuments,
   onOpenTasks,
   onViewAll,
+  onDashboardLoaded,
 }) => {
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -44,10 +46,10 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
 
   const fetchDashboard = async (clearCache = false) => {
-    const token = localStorage.getItem('access_token');
+    const token = localStorage.getItem("access_token");
     if (!token) {
       setDashboardData(ENABLE_MOCK_DATA ? MOCK_DASHBOARD_DATA : null);
-      if (!ENABLE_MOCK_DATA) setLoadError('Phiên đăng nhập đã hết hạn.');
+      if (!ENABLE_MOCK_DATA) setLoadError("Phiên đăng nhập đã hết hạn.");
       setIsLoading(false);
       return;
     }
@@ -57,7 +59,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
       if (clearCache) {
         setIsRefreshing(true);
         await fetchWithSession(`${apiBaseUrl}/dashboard/clear-cache`, {
-          method: 'POST',
+          method: "POST",
           headers: { Authorization: `Bearer ${token}` },
         });
       }
@@ -66,12 +68,14 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (!res.ok) throw new Error('Không thể tải dữ liệu tổng quan');
+      if (!res.ok) throw new Error("Không thể tải dữ liệu tổng quan");
       const data = await res.json();
       setDashboardData(data);
+      onDashboardLoaded?.(data);
     } catch (error: any) {
       setDashboardData(ENABLE_MOCK_DATA ? MOCK_DASHBOARD_DATA : null);
-      if (!ENABLE_MOCK_DATA) setLoadError(error.message || 'Không thể tải dữ liệu tổng quan');
+      if (!ENABLE_MOCK_DATA)
+        setLoadError(error.message || "Không thể tải dữ liệu tổng quan");
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -83,13 +87,18 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
   }, [user]);
 
   const userRoles: string[] = user?.roles || [];
-  const isCeo = userRoles.includes('ceo') || userRoles.includes('bgd');
-  const isDeptHead = userRoles.includes('department_head');
+  const isCeo = userRoles.includes("ceo") || userRoles.includes("bgd");
+  const isDeptHead = userRoles.includes("department_head");
   const capabilities = dashboardData?.capabilities || {};
-  const scopeLabel = dashboardData?.scope?.label ||
-    (isCeo ? 'Toàn công ty' : isDeptHead ? 'Phòng ban' : 'Dữ liệu của tôi');
-  const pendingActionCount = dashboardData?.actionRequired?.pendingApprovalsCount || 0;
-  const returnedActionCount = dashboardData?.actionRequired?.returnedDocumentsCount || 0;
+  const scopeLabel =
+    dashboardData?.scope?.label ||
+    (isCeo ? "Toàn công ty" : isDeptHead ? "Phòng ban" : "Dữ liệu của tôi");
+  const pendingActionCount =
+    dashboardData?.actionRequired?.pendingApprovalsCount || 0;
+  const returnedActionCount =
+    dashboardData?.actionRequired?.returnedDocumentsCount || 0;
+  const recentDocuments: DocumentItem[] =
+    dashboardData?.recentDocuments || documents;
 
   if (isLoading && !dashboardData) {
     return <BrandLoader label="Đang tổng hợp dữ liệu điều hành..." />;
@@ -112,7 +121,8 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
             Tổng quan điều hành
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            Phạm vi dữ liệu: <strong className="text-gray-800">{scopeLabel}</strong>
+            Phạm vi dữ liệu:{" "}
+            <strong className="text-gray-800">{scopeLabel}</strong>
             {userRoles.length > 1 && (
               <span className="ml-2 text-xs text-violet-700 bg-violet-50 px-2 py-0.5 rounded-full font-semibold">
                 Đã gộp {userRoles.length} vai trò
@@ -132,8 +142,10 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
             disabled={isRefreshing}
             className="inline-flex w-full sm:w-auto items-center justify-center px-3.5 py-2 text-xs font-semibold text-gray-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors shadow-sm disabled:opacity-50"
           >
-            <span className={`mr-1.5 ${isRefreshing ? 'animate-spin' : ''}`}>🔄</span>
-            {isRefreshing ? 'Đang làm mới...' : 'Làm mới dữ liệu'}
+            <span className={`mr-1.5 ${isRefreshing ? "animate-spin" : ""}`}>
+              🔄
+            </span>
+            {isRefreshing ? "Đang làm mới..." : "Làm mới dữ liệu"}
           </button>
         </div>
       </div>
@@ -153,7 +165,9 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
               </span>
             </h2>
           </div>
-          <span className="hidden text-xs text-gray-500 sm:block">Tự động quét theo chu kỳ kiểm soát nội bộ</span>
+          <span className="hidden text-xs text-gray-500 sm:block">
+            Tự động quét theo chu kỳ kiểm soát nội bộ
+          </span>
         </div>
 
         {/* Action Items according to Role */}
@@ -162,7 +176,9 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
           <div className="bg-white rounded-2xl p-4 border border-rose-100 shadow-sm">
             <div className="flex flex-wrap items-start justify-between gap-2 pb-2 border-b border-slate-100">
               <span className="text-xs font-bold text-gray-600 uppercase tracking-wider">
-                {pendingActionCount > 0 ? 'Hồ sơ đang chờ bạn xử lý' : 'Hồ sơ của bạn cần bổ sung'}
+                {pendingActionCount > 0
+                  ? "Hồ sơ đang chờ bạn xử lý"
+                  : "Hồ sơ của bạn cần bổ sung"}
               </span>
               <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-amber-100 text-amber-800">
                 {pendingActionCount || returnedActionCount} hồ sơ
@@ -170,32 +186,44 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
             </div>
 
             <div className="mt-3 divide-y divide-slate-100 max-h-48 overflow-y-auto">
-              {(dashboardData?.actionRequired?.pendingDocuments?.length || 0) === 0 &&
-              (dashboardData?.actionRequired?.returnedDocuments?.length || 0) === 0 ? (
+              {(dashboardData?.actionRequired?.pendingDocuments?.length ||
+                0) === 0 &&
+              (dashboardData?.actionRequired?.returnedDocuments?.length ||
+                0) === 0 ? (
                 <p className="text-xs text-emerald-600 font-medium py-3 text-center">
                   ✓ Không có hồ sơ nào đang bị nghẽn ở bước này.
                 </p>
               ) : (
-                (dashboardData?.actionRequired?.pendingDocuments || dashboardData?.actionRequired?.returnedDocuments || []).slice(0, 3).map((doc: any) => (
-                  <div
-                    key={doc.id}
-                    onClick={() => onSelectDoc(doc)}
-                    className="py-2 flex items-center justify-between hover:bg-slate-50 cursor-pointer px-2 rounded transition-colors"
-                  >
-                    <div>
-                      <div className="flex items-center space-x-2">
-                        <span className="text-xs font-bold text-[#0A66C2]">{doc.code}</span>
-                        <span className="text-xs font-semibold text-gray-800 truncate max-w-[180px]">{doc.title}</span>
+                (
+                  dashboardData?.actionRequired?.pendingDocuments ||
+                  dashboardData?.actionRequired?.returnedDocuments ||
+                  []
+                )
+                  .slice(0, 3)
+                  .map((doc: any) => (
+                    <div
+                      key={doc.id}
+                      onClick={() => onSelectDoc(doc)}
+                      className="py-2 flex items-center justify-between hover:bg-slate-50 cursor-pointer px-2 rounded transition-colors"
+                    >
+                      <div>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-xs font-bold text-[#0A66C2]">
+                            {doc.code}
+                          </span>
+                          <span className="text-xs font-semibold text-gray-800 truncate max-w-[180px]">
+                            {doc.title}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-gray-400 mt-0.5">
+                          Người tạo: {doc.createdBy?.name || "Tôi"}
+                        </p>
                       </div>
-                      <p className="text-[11px] text-gray-400 mt-0.5">
-                        Người tạo: {doc.createdBy?.name || 'Tôi'}
-                      </p>
+                      <button className="text-xs font-semibold text-[#0A66C2] hover:underline whitespace-nowrap ml-2">
+                        Xử lý →
+                      </button>
                     </div>
-                    <button className="text-xs font-semibold text-[#0A66C2] hover:underline whitespace-nowrap ml-2">
-                      Xử lý →
-                    </button>
-                  </div>
-                ))
+                  ))
               )}
             </div>
           </div>
@@ -205,22 +233,27 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
             <div className="flex flex-wrap items-start justify-between gap-2 pb-2 border-b border-slate-100">
               <span className="text-xs font-bold text-gray-600 uppercase tracking-wider">
                 {capabilities.canViewCompany
-                  ? 'Việc quá hạn leo thang CEO (≥3 ngày)'
+                  ? "Việc quá hạn leo thang CEO (≥3 ngày)"
                   : capabilities.canViewDepartment
-                  ? 'Việc quá hạn trong phòng ban'
-                  : 'Nhiệm vụ đến hạn hôm nay / quá hạn'}
+                    ? "Việc quá hạn trong phòng ban"
+                    : "Nhiệm vụ đến hạn hôm nay / quá hạn"}
               </span>
               <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-rose-100 text-rose-800">
-                {`${capabilities.canViewCompany
-                  ? dashboardData?.actionRequired?.escalatedTasksCount ?? 0
-                  : dashboardData?.actionRequired?.overdueTasksCount ?? dashboardData?.actionRequired?.urgentTasksCount ?? 0} việc`}
+                {`${
+                  capabilities.canViewCompany
+                    ? (dashboardData?.actionRequired?.escalatedTasksCount ?? 0)
+                    : (dashboardData?.actionRequired?.overdueTasksCount ??
+                      dashboardData?.actionRequired?.urgentTasksCount ??
+                      0)
+                } việc`}
               </span>
             </div>
 
             <div className="mt-3 divide-y divide-slate-100 max-h-48 overflow-y-auto">
               {(() => {
                 const tasks =
-                  (capabilities.canViewCompany && dashboardData?.actionRequired?.escalatedTasks) ||
+                  (capabilities.canViewCompany &&
+                    dashboardData?.actionRequired?.escalatedTasks) ||
                   dashboardData?.actionRequired?.overdueTasks ||
                   dashboardData?.actionRequired?.urgentTasks ||
                   [];
@@ -241,15 +274,23 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                   >
                     <div>
                       <div className="flex items-center space-x-2">
-                        <span className="text-xs font-bold text-red-600">{t.code}</span>
-                        <span className="text-xs font-semibold text-gray-800 truncate max-w-[180px]">{t.title}</span>
+                        <span className="text-xs font-bold text-red-600">
+                          {t.code}
+                        </span>
+                        <span className="text-xs font-semibold text-gray-800 truncate max-w-[180px]">
+                          {t.title}
+                        </span>
                       </div>
                       <p className="text-[11px] text-gray-400 mt-0.5">
-                        Phụ trách: {t.assignee?.name || 'N/A'}{' '}
-                        {t.assignee?.department ? `(${t.assignee.department.name})` : ''}
+                        Phụ trách: {t.assignee?.name || "N/A"}{" "}
+                        {t.assignee?.department
+                          ? `(${t.assignee.department.name})`
+                          : ""}
                       </p>
                     </div>
-                    <span className="text-xs font-semibold text-red-600">Đôn đốc →</span>
+                    <span className="text-xs font-semibold text-red-600">
+                      Đôn đốc →
+                    </span>
                   </div>
                 ));
               })()}
@@ -262,17 +303,21 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <button
           type="button"
-          onClick={() => onOpenDocuments('Chờ duyệt')}
+          onClick={() => onOpenDocuments("Chờ duyệt")}
           className="group bg-white rounded-2xl p-5 shadow-sm border border-slate-200 flex items-center justify-between text-left transition hover:-translate-y-0.5 hover:border-amber-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-amber-400"
           aria-label="Xem hồ sơ chờ phê duyệt"
         >
           <div>
-            <span className="text-xs font-bold text-amber-700 uppercase tracking-wider">Hồ sơ chờ phê duyệt</span>
+            <span className="text-xs font-bold text-amber-700 uppercase tracking-wider">
+              Hồ sơ chờ phê duyệt
+            </span>
             <p className="mt-2 text-3xl font-extrabold text-amber-900">
               {dashboardData?.metrics?.documents?.pending ?? pendingCount}
             </p>
             <p className="text-xs text-gray-400 mt-1">Cần hoàn tất đúng mốc</p>
-            <span className="mt-2 block text-[11px] font-bold text-amber-700 opacity-80 group-hover:opacity-100">Xem chi tiết →</span>
+            <span className="mt-2 block text-[11px] font-bold text-amber-700 opacity-80 group-hover:opacity-100">
+              Xem chi tiết →
+            </span>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center text-2xl font-bold shadow-inner">
             ⏳
@@ -281,17 +326,21 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
 
         <button
           type="button"
-          onClick={() => onOpenDocuments('Đã duyệt')}
+          onClick={() => onOpenDocuments("Đã duyệt")}
           className="group bg-white rounded-2xl p-5 shadow-sm border border-slate-200 flex items-center justify-between text-left transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-emerald-400"
           aria-label="Xem hồ sơ đã thông qua"
         >
           <div>
-            <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider">Hồ sơ đã thông qua</span>
+            <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider">
+              Hồ sơ đã thông qua
+            </span>
             <p className="mt-2 text-3xl font-extrabold text-emerald-900">
               {dashboardData?.metrics?.documents?.approved ?? approvedCount}
             </p>
             <p className="text-xs text-gray-400 mt-1">Đã phê duyệt hoàn tất</p>
-            <span className="mt-2 block text-[11px] font-bold text-emerald-700 opacity-80 group-hover:opacity-100">Xem chi tiết →</span>
+            <span className="mt-2 block text-[11px] font-bold text-emerald-700 opacity-80 group-hover:opacity-100">
+              Xem chi tiết →
+            </span>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-2xl font-bold shadow-inner">
             ✓
@@ -300,17 +349,23 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
 
         <button
           type="button"
-          onClick={() => onOpenTasks({ status: 'Đang làm' })}
+          onClick={() => onOpenTasks({ status: "Đang làm" })}
           className="group bg-white rounded-2xl p-5 shadow-sm border border-slate-200 flex items-center justify-between text-left transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-400"
           aria-label="Xem công việc đang thực hiện"
         >
           <div>
-            <span className="text-xs font-bold text-blue-700 uppercase tracking-wider">Việc đang thực hiện</span>
+            <span className="text-xs font-bold text-blue-700 uppercase tracking-wider">
+              Việc đang thực hiện
+            </span>
             <p className="mt-2 text-3xl font-extrabold text-blue-900">
-              {dashboardData?.metrics?.tasks?.inProgress ?? dashboardData?.metrics?.departmentTasks?.inProgress ?? 0}
+              {dashboardData?.metrics?.tasks?.inProgress ??
+                dashboardData?.metrics?.departmentTasks?.inProgress ??
+                0}
             </p>
             <p className="text-xs text-gray-400 mt-1">Đang chạy trong tuần</p>
-            <span className="mt-2 block text-[11px] font-bold text-blue-700 opacity-80 group-hover:opacity-100">Xem chi tiết →</span>
+            <span className="mt-2 block text-[11px] font-bold text-blue-700 opacity-80 group-hover:opacity-100">
+              Xem chi tiết →
+            </span>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-2xl font-bold shadow-inner">
             ⚙️
@@ -324,12 +379,18 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
           aria-label="Xem công việc quá hạn"
         >
           <div>
-            <span className="text-xs font-bold text-rose-700 uppercase tracking-wider">Việc quá hạn xử lý</span>
+            <span className="text-xs font-bold text-rose-700 uppercase tracking-wider">
+              Việc quá hạn xử lý
+            </span>
             <p className="mt-2 text-3xl font-extrabold text-rose-900">
-              {dashboardData?.metrics?.tasks?.overdue ?? dashboardData?.actionRequired?.overdueTasksCount ?? 0}
+              {dashboardData?.metrics?.tasks?.overdue ??
+                dashboardData?.actionRequired?.overdueTasksCount ??
+                0}
             </p>
             <p className="text-xs text-gray-400 mt-1">Cần tăng tốc can thiệp</p>
-            <span className="mt-2 block text-[11px] font-bold text-rose-700 opacity-80 group-hover:opacity-100">Xem chi tiết →</span>
+            <span className="mt-2 block text-[11px] font-bold text-rose-700 opacity-80 group-hover:opacity-100">
+              Xem chi tiết →
+            </span>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center text-2xl font-bold shadow-inner">
             🚨
@@ -341,27 +402,37 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {capabilities.canViewFinancials && (
             <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5">
-              <p className="text-xs font-bold uppercase tracking-wider text-emerald-700">Nghiệp vụ kế toán</p>
+              <p className="text-xs font-bold uppercase tracking-wider text-emerald-700">
+                Nghiệp vụ kế toán
+              </p>
               <p className="mt-2 text-2xl font-black text-emerald-900">
-                {Number(dashboardData?.metrics?.financials?.totalApprovedAmount || 0).toLocaleString('vi-VN')} ₫
+                {Number(
+                  dashboardData?.metrics?.financials?.totalApprovedAmount || 0,
+                ).toLocaleString("vi-VN")}{" "}
+                ₫
               </p>
               <p className="mt-1 text-xs text-emerald-700">
-                {dashboardData?.metrics?.financials?.approvedPayments || 0} đề nghị thanh toán đã duyệt trong phạm vi được xem
+                {dashboardData?.metrics?.financials?.approvedPayments || 0} đề
+                nghị thanh toán đã duyệt trong phạm vi được xem
               </p>
             </div>
           )}
           {capabilities.canViewLegal && (
             <button
               type="button"
-              onClick={() => onOpenDocuments('all')}
+              onClick={() => onOpenDocuments("all")}
               className="rounded-2xl border border-violet-200 bg-violet-50/60 p-5 text-left transition hover:border-violet-400"
             >
-              <p className="text-xs font-bold uppercase tracking-wider text-violet-700">Nghiệp vụ pháp chế</p>
+              <p className="text-xs font-bold uppercase tracking-wider text-violet-700">
+                Nghiệp vụ pháp chế
+              </p>
               <p className="mt-2 text-2xl font-black text-violet-900">
-                {dashboardData?.metrics?.legal?.expiringSoon || 0} hợp đồng sắp hết hạn
+                {dashboardData?.metrics?.legal?.expiringSoon || 0} hợp đồng sắp
+                hết hạn
               </p>
               <p className="mt-1 text-xs text-violet-700">
-                Tổng {dashboardData?.metrics?.legal?.totalContracts || 0} hợp đồng trong phạm vi được xem · Xem chi tiết →
+                Tổng {dashboardData?.metrics?.legal?.totalContracts || 0} hợp
+                đồng trong phạm vi được xem · Xem chi tiết →
               </p>
             </button>
           )}
@@ -372,23 +443,34 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
       {capabilities.canViewCompany && dashboardData?.departmentStats && (
         <div className="bg-white rounded-2xl p-4 md:p-6 shadow-sm border border-slate-200">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-            <h3 className="text-base font-bold text-gray-900">Tỷ lệ hoàn thành công việc theo Phòng ban</h3>
-            <span className="text-xs text-gray-400 font-medium">Cập nhật tự động</span>
+            <h3 className="text-base font-bold text-gray-900">
+              Tỷ lệ hoàn thành công việc theo Phòng ban
+            </h3>
+            <span className="text-xs text-gray-400 font-medium">
+              Cập nhật tự động
+            </span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {dashboardData.departmentStats.map((dept: any) => (
-              <div key={dept.id} className="p-4 rounded-xl border border-slate-100 bg-slate-50/50">
+              <div
+                key={dept.id}
+                className="p-4 rounded-xl border border-slate-100 bg-slate-50/50"
+              >
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-bold text-gray-800">{dept.name}</span>
+                  <span className="text-sm font-bold text-gray-800">
+                    {dept.name}
+                  </span>
                   <span
                     className={`text-xs font-extrabold px-2 py-0.5 rounded-md ${
                       dept.totalTasks === 0
-                        ? 'text-gray-400 bg-gray-100'
-                        : 'text-[#0A66C2] bg-blue-50'
+                        ? "text-gray-400 bg-gray-100"
+                        : "text-[#0A66C2] bg-blue-50"
                     }`}
                   >
-                    {dept.totalTasks === 0 ? 'Chưa có việc' : `${dept.completionRate}%`}
+                    {dept.totalTasks === 0
+                      ? "Chưa có việc"
+                      : `${dept.completionRate}%`}
                   </span>
                 </div>
                 <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden mb-2">
@@ -412,20 +494,26 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
       {/* KHỐI 4: HỒ SƠ GẦN ĐÂY */}
       <div className="bg-white rounded-2xl p-4 md:p-6 shadow-sm border border-slate-200">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-          <h3 className="text-base font-bold text-gray-900">Hồ sơ luân chuyển gần đây</h3>
+          <h3 className="text-base font-bold text-gray-900">
+            Hồ sơ luân chuyển gần đây
+          </h3>
           <button
             onClick={onViewAll}
             className="text-xs font-semibold text-[#0A66C2] hover:underline"
           >
-            Xem tất cả ({documents.length}) →
+            Xem tất cả (
+            {dashboardData?.metrics?.documents?.total ?? recentDocuments.length}
+            ) →
           </button>
         </div>
 
         <div className="divide-y divide-slate-100">
-          {documents.length === 0 ? (
-            <p className="text-sm text-gray-400 py-6 text-center">Chưa có hồ sơ nào.</p>
+          {recentDocuments.length === 0 ? (
+            <p className="text-sm text-gray-400 py-6 text-center">
+              Chưa có hồ sơ nào.
+            </p>
           ) : (
-            documents.slice(0, 5).map((doc) => (
+            recentDocuments.slice(0, 5).map((doc) => (
               <div
                 key={doc.id}
                 onClick={() => onSelectDoc(doc)}
@@ -433,16 +521,38 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
               >
                 <div>
                   <div className="flex items-center space-x-2">
-                    <span className="text-xs font-bold text-[#0A66C2]">{doc.code}</span>
-                    <span className="text-sm font-semibold text-gray-800">{doc.title}</span>
+                    <span className="text-xs font-bold text-[#0A66C2]">
+                      {doc.code}
+                    </span>
+                    <span className="text-sm font-semibold text-gray-800">
+                      {doc.title}
+                    </span>
                   </div>
                   <p className="text-xs text-gray-400 mt-0.5">
-                    {doc.type === 'payment_request' && doc.dataJson?.amount ? (
-                      <>Số tiền: <strong className="text-gray-700">{Number(doc.dataJson.amount).toLocaleString('vi-VN')} VND</strong> — Người nhận: {doc.dataJson.receiver}</>
-                    ) : doc.type === 'contract' ? (
-                      <>Đối tác: <strong className="text-gray-700">{doc.dataJson?.partner}</strong> — Hạn: {doc.dataJson?.endDate}</>
+                    {doc.type === "payment_request" && doc.dataJson?.amount ? (
+                      <>
+                        Số tiền:{" "}
+                        <strong className="text-gray-700">
+                          {Number(doc.dataJson.amount).toLocaleString("vi-VN")}{" "}
+                          VND
+                        </strong>{" "}
+                        — Người nhận: {doc.dataJson.receiver}
+                      </>
+                    ) : doc.type === "contract" ? (
+                      <>
+                        Đối tác:{" "}
+                        <strong className="text-gray-700">
+                          {doc.dataJson?.partner}
+                        </strong>{" "}
+                        — Hạn: {doc.dataJson?.endDate}
+                      </>
                     ) : (
-                      <>Người lập: <strong className="text-gray-700">{doc.createdBy?.name}</strong></>
+                      <>
+                        Người lập:{" "}
+                        <strong className="text-gray-700">
+                          {doc.createdBy?.name}
+                        </strong>
+                      </>
                     )}
                   </p>
                 </div>

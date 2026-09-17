@@ -5,6 +5,13 @@ import { PrismaService } from '../prisma/prisma.service.js';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
+  private readonly userCache = new Map<
+    number,
+    { user: any; expiresAt: number }
+  >();
+  private readonly inFlightLoads = new Map<number, Promise<any>>();
+  private readonly cacheTtlMs: number;
+
   constructor(private prisma: PrismaService) {
     const secret = process.env.JWT_SECRET;
     if (!secret) {
@@ -20,30 +27,74 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       ignoreExpiration: false,
       secretOrKey: secret,
     });
+
+    const configuredTtl = Number(
+      process.env.AUTH_CONTEXT_CACHE_TTL_MS || 30000,
+    );
+    this.cacheTtlMs = Number.isFinite(configuredTtl)
+      ? Math.min(Math.max(configuredTtl, 0), 5 * 60 * 1000)
+      : 30000;
+  }
+
+  private async loadUser(userId: number) {
+    const now = Date.now();
+    const cached = this.userCache.get(userId);
+    if (cached && cached.expiresAt > now) return cached.user;
+    if (cached) this.userCache.delete(userId);
+
+    const existingLoad = this.inFlightLoads.get(userId);
+    if (existingLoad) return existingLoad;
+
+    const load = this.prisma.user
+      .findUnique({
+        where: { id: userId },
+        include: {
+          roles: true,
+          department: true,
+          ledProjects: {
+            where: { isActive: true },
+            select: { id: true, name: true, isActive: true },
+          },
+          projectMemberships: {
+            include: {
+              project: { select: { id: true, name: true, isActive: true } },
+            },
+          },
+        },
+      })
+      .then((user) => {
+        if (this.cacheTtlMs > 0) {
+          this.userCache.set(userId, {
+            user,
+            expiresAt: Date.now() + this.cacheTtlMs,
+          });
+          if (this.userCache.size > 500) {
+            const oldestKey = this.userCache.keys().next().value;
+            if (oldestKey !== undefined) this.userCache.delete(oldestKey);
+          }
+        }
+        return user;
+      })
+      .finally(() => {
+        this.inFlightLoads.delete(userId);
+      });
+
+    this.inFlightLoads.set(userId, load);
+    return load;
   }
 
   async validate(payload: any) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: payload.sub },
-      include: {
-        roles: true,
-        department: true,
-        ledProjects: {
-          where: { isActive: true },
-          select: { id: true, name: true, isActive: true },
-        },
-        projectMemberships: {
-          include: {
-            project: { select: { id: true, name: true, isActive: true } },
-          },
-        },
-      },
-    });
-    
+    const userId = Number(payload?.sub);
+    if (!Number.isInteger(userId) || userId <= 0) {
+      throw new UnauthorizedException();
+    }
+
+    const user = await this.loadUser(userId);
+
     if (!user || user.status !== 'active') {
       throw new UnauthorizedException();
     }
-    
+
     return user;
   }
 }

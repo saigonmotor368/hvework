@@ -42,15 +42,25 @@ export class DashboardService {
     return data;
   }
 
-  private async getScopedDashboard(user: any, scope: ReturnType<typeof describeBusinessScope>) {
+  private async getScopedDashboard(
+    user: any,
+    scope: ReturnType<typeof describeBusinessScope>,
+  ) {
     const now = new Date();
-    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+    const endOfToday = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      23,
+      59,
+      59,
+    );
     const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
     const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
     const documentScope = buildDocumentAccessWhere(user);
     const taskScope = buildTaskAccessWhere(user);
-    const actionableRoles = scope.roles.filter((role) =>
-      !['employee', 'it_admin'].includes(role),
+    const actionableRoles = scope.roles.filter(
+      (role) => !['employee', 'it_admin'].includes(role),
     );
     const pendingStepConditions: any[] = [];
     if (scope.roles.includes('ceo')) {
@@ -63,7 +73,9 @@ export class DashboardService {
           document: { createdBy: { departmentId: scope.departmentId } },
         });
       }
-      const nonDepartmentRoles = actionableRoles.filter((role) => role !== 'department_head');
+      const nonDepartmentRoles = actionableRoles.filter(
+        (role) => role !== 'department_head',
+      );
       if (nonDepartmentRoles.length > 0) {
         pendingStepConditions.push({
           status: 'pending',
@@ -81,6 +93,7 @@ export class DashboardService {
       dataJson: true,
       createdAt: true,
       updatedAt: true,
+      version: true,
       createdBy: {
         select: {
           id: true,
@@ -110,69 +123,77 @@ export class DashboardService {
       createdBy: { select: { id: true, name: true, departmentId: true } },
     } as const;
 
-    const [documents, tasks, pendingDocuments, returnedDocuments, departments] = await Promise.all([
-      this.prisma.document.findMany({
-        where: documentScope,
-        select: documentSelect,
-        orderBy: { createdAt: 'desc' },
-      }),
-      this.prisma.task.findMany({
-        where: { AND: [taskScope, { parentTaskId: null }] },
-        select: taskSelect,
-        orderBy: { createdAt: 'desc' },
-      }),
-      pendingStepConditions.length > 0
-        ? this.prisma.document.findMany({
-            where: {
-              AND: [
-                documentScope,
-                { status: 'Chờ duyệt' },
-                {
-                  steps: {
-                    some: pendingStepConditions.length === 1
-                      ? pendingStepConditions[0]
-                      : { OR: pendingStepConditions },
+    const [documents, tasks, pendingDocuments, returnedDocuments, departments] =
+      await Promise.all([
+        this.prisma.document.findMany({
+          where: documentScope,
+          select: documentSelect,
+          orderBy: { createdAt: 'desc' },
+        }),
+        this.prisma.task.findMany({
+          where: { AND: [taskScope, { parentTaskId: null }] },
+          select: taskSelect,
+          orderBy: { createdAt: 'desc' },
+        }),
+        pendingStepConditions.length > 0
+          ? this.prisma.document.findMany({
+              where: {
+                AND: [
+                  documentScope,
+                  { status: 'Chờ duyệt' },
+                  {
+                    steps: {
+                      some:
+                        pendingStepConditions.length === 1
+                          ? pendingStepConditions[0]
+                          : { OR: pendingStepConditions },
+                    },
                   },
-                },
-              ],
-            },
-            select: documentSelect,
-            orderBy: { createdAt: 'asc' },
-          })
-        : Promise.resolve([]),
-      this.prisma.document.findMany({
-        where: {
-          createdById: user.id,
-          status: { in: ['Nháp', 'Trả lại'] },
-          steps: { some: { status: 'returned' } },
-        },
-        select: documentSelect,
-        orderBy: { updatedAt: 'desc' },
-      }),
-      scope.capabilities.canViewCompany
-        ? this.prisma.department.findMany({
-            include: {
-              users: {
-                select: {
-                  assignedTasks: {
-                    where: { parentTaskId: null },
-                    select: { status: true },
+                ],
+              },
+              select: documentSelect,
+              orderBy: { createdAt: 'asc' },
+            })
+          : Promise.resolve([]),
+        this.prisma.document.findMany({
+          where: {
+            createdById: user.id,
+            status: { in: ['Nháp', 'Trả lại'] },
+            steps: { some: { status: 'returned' } },
+          },
+          select: documentSelect,
+          orderBy: { updatedAt: 'desc' },
+        }),
+        scope.capabilities.canViewCompany
+          ? this.prisma.department.findMany({
+              include: {
+                users: {
+                  select: {
+                    assignedTasks: {
+                      where: { parentTaskId: null },
+                      select: { status: true },
+                    },
                   },
                 },
               },
-            },
-          })
-        : Promise.resolve([]),
-    ]);
+            })
+          : Promise.resolve([]),
+      ]);
 
-    const overdueTasks = tasks.filter((task: any) =>
-      task.status !== 'Hoàn thành' && task.dueDate && new Date(task.dueDate) < now,
+    const overdueTasks = tasks.filter(
+      (task: any) =>
+        task.status !== 'Hoàn thành' &&
+        task.dueDate &&
+        new Date(task.dueDate) < now,
     );
-    const urgentTasks = tasks.filter((task: any) =>
-      task.status !== 'Hoàn thành' && task.dueDate && new Date(task.dueDate) <= endOfToday,
+    const urgentTasks = tasks.filter(
+      (task: any) =>
+        task.status !== 'Hoàn thành' &&
+        task.dueDate &&
+        new Date(task.dueDate) <= endOfToday,
     );
-    const escalatedTasks = overdueTasks.filter((task: any) =>
-      task.dueDate && new Date(task.dueDate) < threeDaysAgo,
+    const escalatedTasks = overdueTasks.filter(
+      (task: any) => task.dueDate && new Date(task.dueDate) < threeDaysAgo,
     );
 
     const contracts = documents.filter((doc: any) => doc.type === 'contract');
@@ -182,32 +203,37 @@ export class DashboardService {
       const end = new Date(endDate);
       return end >= now && end <= in30Days;
     });
-    const approvedPayments = documents.filter((doc: any) =>
-      doc.type === 'payment_request' && doc.status === 'Đã duyệt',
+    const approvedPayments = documents.filter(
+      (doc: any) => doc.type === 'payment_request' && doc.status === 'Đã duyệt',
     );
     const totalApprovedAmount = approvedPayments.reduce(
-      (sum: number, doc: any) => sum + (Number((doc.dataJson as any)?.amount) || 0),
+      (sum: number, doc: any) =>
+        sum + (Number((doc.dataJson as any)?.amount) || 0),
       0,
     );
 
     const departmentStats = departments.map((department: any) => {
-      const departmentTasks = department.users.flatMap((member: any) => member.assignedTasks);
-      const completed = departmentTasks.filter((task: any) => task.status === 'Hoàn thành').length;
+      const departmentTasks = department.users.flatMap(
+        (member: any) => member.assignedTasks,
+      );
+      const completed = departmentTasks.filter(
+        (task: any) => task.status === 'Hoàn thành',
+      ).length;
       return {
         id: department.id,
         name: department.name,
         code: department.code,
         totalTasks: departmentTasks.length,
         completedTasks: completed,
-        completionRate: departmentTasks.length > 0
-          ? Math.round((completed / departmentTasks.length) * 100)
-          : 0,
+        completionRate:
+          departmentTasks.length > 0
+            ? Math.round((completed / departmentTasks.length) * 100)
+            : 0,
       };
     });
 
-    const visibleActionDocuments = pendingDocuments.length > 0
-      ? pendingDocuments
-      : returnedDocuments;
+    const visibleActionDocuments =
+      pendingDocuments.length > 0 ? pendingDocuments : returnedDocuments;
 
     return {
       role: scope.level,
@@ -235,26 +261,40 @@ export class DashboardService {
       metrics: {
         documents: {
           total: documents.length,
-          pending: documents.filter((doc: any) => doc.status === 'Chờ duyệt').length,
-          approved: documents.filter((doc: any) => doc.status === 'Đã duyệt').length,
+          pending: documents.filter((doc: any) => doc.status === 'Chờ duyệt')
+            .length,
+          approved: documents.filter((doc: any) => doc.status === 'Đã duyệt')
+            .length,
           draft: documents.filter((doc: any) => doc.status === 'Nháp').length,
-          rejected: documents.filter((doc: any) => ['Từ chối', 'Trả lại'].includes(doc.status)).length,
+          rejected: documents.filter((doc: any) =>
+            ['Từ chối', 'Trả lại'].includes(doc.status),
+          ).length,
         },
         tasks: {
           total: tasks.length,
-          completed: tasks.filter((task: any) => task.status === 'Hoàn thành').length,
-          inProgress: tasks.filter((task: any) => task.status === 'Đang làm').length,
-          pendingReview: tasks.filter((task: any) => task.status === 'Chờ duyệt').length,
+          completed: tasks.filter((task: any) => task.status === 'Hoàn thành')
+            .length,
+          inProgress: tasks.filter((task: any) => task.status === 'Đang làm')
+            .length,
+          pendingReview: tasks.filter(
+            (task: any) => task.status === 'Chờ duyệt',
+          ).length,
           overdue: overdueTasks.length,
         },
         financials: scope.capabilities.canViewFinancials
           ? { approvedPayments: approvedPayments.length, totalApprovedAmount }
           : null,
         legal: scope.capabilities.canViewLegal
-          ? { totalContracts: contracts.length, expiringSoon: expiringContracts.length }
+          ? {
+              totalContracts: contracts.length,
+              expiringSoon: expiringContracts.length,
+            }
           : null,
       },
-      departmentStats: scope.capabilities.canViewCompany ? departmentStats : undefined,
+      recentDocuments: documents.slice(0, 5),
+      departmentStats: scope.capabilities.canViewCompany
+        ? departmentStats
+        : undefined,
     };
   }
 }

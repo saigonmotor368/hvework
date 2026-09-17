@@ -123,6 +123,8 @@ model Document {
   updatedAt DateTime @updatedAt
 
   @@index([projectId])
+  @@index([createdById, status])
+  @@index([type, status])
 }
 
 model DocumentApprovalStep {
@@ -143,6 +145,7 @@ model DocumentApprovalStep {
   updatedAt DateTime @updatedAt
 
   @@unique([documentId, stepOrder])
+  @@index([status, roleRequired, documentId])
 }
 
 model WorkflowTemplate {
@@ -202,6 +205,10 @@ model Task {
   updatedAt DateTime @updatedAt
 
   @@index([projectId])
+  @@index([assigneeId, status, dueDate])
+  @@index([createdById])
+  @@index([status, dueDate])
+  @@index([parentTaskId])
 }
 
 model Project {
@@ -246,6 +253,9 @@ model Attachment {
 
   uploadedById Int
   uploadedAt   DateTime @default(now())
+
+  @@index([entityType, entityId, uploadedAt])
+  @@index([uploadedById, entityId])
 }
 
 model Comment {
@@ -257,6 +267,8 @@ model Comment {
   mentions   Json? // array of user ids
 
   createdAt DateTime @default(now())
+
+  @@index([entityType, entityId, createdAt])
 }
 
 model Notification {
@@ -272,6 +284,9 @@ model Notification {
   readAt    DateTime?
 
   sentAt DateTime @default(now())
+
+  @@index([userId, channel, sentAt])
+  @@index([userId, channel, readAt])
 }
 
 model ReminderRule {
@@ -299,6 +314,9 @@ model AuditLog {
   device     String?
 
   createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([entityType, entityId])
 }
 
 model PushSubscription {
@@ -309,4 +327,6 @@ model PushSubscription {
   p256dh    String
   auth      String
   createdAt DateTime @default(now())
+
+  @@index([userId])
 }
