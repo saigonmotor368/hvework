@@ -16,17 +16,47 @@ describe('business access scopes', () => {
     expect(adminScope.capabilities.canViewCompany).toBe(false);
   });
 
-  it('gives department heads department task and document scope', () => {
+  it('keeps project-less legacy data in the department fallback scope', () => {
     const user = { id: 3, departmentId: 8, roles: ['employee', 'department_head'] };
     expect(buildTaskAccessWhere(user)).toEqual({
       OR: [
-        { assignee: { departmentId: 8 } },
-        { createdBy: { departmentId: 8 } },
+        { assigneeId: 3 },
+        { createdById: 3 },
+        {
+          AND: [
+            { projectId: null },
+            {
+              OR: [
+                { assignee: { departmentId: 8 } },
+                { createdBy: { departmentId: 8 } },
+              ],
+            },
+          ],
+        },
       ],
     });
     expect(buildDocumentAccessWhere(user).OR).toContainEqual({
-      createdBy: { departmentId: 8 },
+      AND: [{ projectId: null }, { createdBy: { departmentId: 8 } }],
     });
+  });
+
+  it('limits project heads to their own and explicitly linked projects', () => {
+    const user = {
+      id: 7,
+      departmentId: 8,
+      roles: ['department_head'],
+      ledProjects: [{ id: 11, name: 'Alpha', isActive: true }],
+      projectMemberships: [{ projectId: 12, project: { id: 12, name: 'Beta', isActive: true } }],
+    };
+
+    const documentScope = buildDocumentAccessWhere(user);
+    expect(documentScope.OR).toContainEqual({ projectId: { in: [11, 12] } });
+    expect(documentScope.OR).toContainEqual({ linkedProjectIds: { array_contains: [11] } });
+    expect(documentScope.OR).not.toContainEqual({ projectId: 99 });
+
+    const taskScope = buildTaskAccessWhere(user);
+    expect(taskScope.OR).toContainEqual({ projectId: { in: [11, 12] } });
+    expect(taskScope.OR).not.toContainEqual({ projectId: { in: [99] } });
   });
 
   it('merges functional document roles into one OR scope', () => {
@@ -43,5 +73,19 @@ describe('business access scopes', () => {
     expect(buildTaskAccessWhere({ id: 5, departmentId: 9, roles: ['employee'] })).toEqual({
       OR: [{ assigneeId: 5 }, { createdById: 5 }],
     });
+  });
+
+  it('gives BGĐ (Board) company-wide view scope like CEO, but no execute capability', () => {
+    expect(buildTaskAccessWhere({ id: 6, roles: ['bgd'] })).toEqual({});
+    expect(buildDocumentAccessWhere({ id: 6, roles: ['bgd'] })).toEqual({});
+
+    const scope = describeBusinessScope({ id: 6, roles: ['bgd'] });
+    expect(scope.level).toBe('company');
+    expect(scope.label).toBe('Toàn công ty');
+    expect(scope.capabilities.canViewCompany).toBe(true);
+    // BGĐ chỉ được xem, không được thực thi — không có quyền gán việc hay
+    // quản trị hệ thống dù xem được toàn bộ dữ liệu như CEO.
+    expect(scope.capabilities.canAssignTasks).toBe(false);
+    expect(scope.capabilities.canManageSystem).toBe(false);
   });
 });

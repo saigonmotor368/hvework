@@ -26,6 +26,7 @@ describe('TasksService', () => {
         updateMany: vi.fn(),
       },
       attachment: {
+        count: vi.fn(),
         updateMany: vi.fn(),
         findMany: vi.fn(),
       },
@@ -38,10 +39,12 @@ describe('TasksService', () => {
       },
       user: {
         findFirst: vi.fn(),
+        findUnique: vi.fn(),
         findMany: vi.fn(),
       },
       $transaction: vi.fn((cb) => cb(prisma)),
     };
+    prisma.task.findFirst.mockImplementation((args: any) => prisma.task.findUnique(args));
 
     auditService = {
       logEvent: vi.fn().mockResolvedValue({ id: 1 }),
@@ -420,12 +423,21 @@ describe('TasksService', () => {
         expect.objectContaining({
           where: expect.objectContaining({
             AND: expect.arrayContaining([
-              {
-                OR: [
-                  { assignee: { departmentId: 2 } },
-                  { createdBy: { departmentId: 2 } },
-                ],
-              },
+              expect.objectContaining({
+                OR: expect.arrayContaining([
+                  {
+                    AND: [
+                      { projectId: null },
+                      {
+                        OR: [
+                          { assignee: { departmentId: 2 } },
+                          { createdBy: { departmentId: 2 } },
+                        ],
+                      },
+                    ],
+                  },
+                ]),
+              }),
             ]),
           }),
         }),

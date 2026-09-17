@@ -51,6 +51,7 @@ async function main() {
     { name: 'legal', description: 'Pháp chế' },
     { name: 'ceo', description: 'CEO' },
     { name: 'it_admin', description: 'IT Admin' },
+    { name: 'bgd', description: 'Ban Giám Đốc — xem toàn bộ, không thực thi lệnh' },
   ];
 
   const roles: Record<string, any> = {};

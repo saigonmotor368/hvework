@@ -3,6 +3,7 @@ import {
   TASK_PRIORITY_LABELS,
   TASK_STATUS_LABELS,
   type TaskItem,
+  type ProjectItem,
 } from '../types';
 import { MOCK_TASKS } from '../mockData';
 import { ENABLE_MOCK_DATA } from '../config';
@@ -21,6 +22,7 @@ interface TaskListViewProps {
     status: string;
     isOverdueOnly: boolean;
   } | null;
+  projects: ProjectItem[];
 }
 
 export const TaskListView: React.FC<TaskListViewProps> = ({
@@ -30,6 +32,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
   onOpenCreate,
   onSelectTask,
   navigationFilter,
+  projects,
 }) => {
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -39,7 +42,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
     'all' | 'assigned_to_me' | 'assigned_by_me' | 'department'
   >(
     navigationFilter?.tab ||
-      (currentUser?.roles?.some((role: string) => role === 'ceo' || role === 'department_head')
+      (currentUser?.roles?.some((role: string) => ['ceo', 'bgd', 'department_head'].includes(role))
         ? 'all'
         : 'assigned_to_me'),
   );
@@ -50,6 +53,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
   );
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [viewMode, setViewMode] = useState<'board' | 'list'>('board');
+  const [projectFilter, setProjectFilter] = useState('');
 
   // Expandable subtasks state
   const [expandedTaskIds, setExpandedTaskIds] = useState<number[]>([]);
@@ -69,6 +73,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
       if (priorityFilter !== 'all') params.append('priority', priorityFilter);
       if (isOverdueOnly) params.append('isOverdue', 'true');
       if (searchQuery.trim()) params.append('search', searchQuery.trim());
+      if (projectFilter) params.append('projectId', projectFilter);
 
       const res = await fetchWithSession(`${apiBaseUrl}/tasks?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -98,7 +103,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
 
   useEffect(() => {
     fetchTasks();
-  }, [activeTab, statusFilter, priorityFilter, isOverdueOnly]);
+  }, [activeTab, statusFilter, priorityFilter, isOverdueOnly, projectFilter]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,7 +123,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
   const pendingCount = tasks.filter((t) => t.status === 'Chờ duyệt').length;
   const canCreateTask =
     currentUser?.roles?.includes('department_head') || currentUser?.roles?.includes('ceo');
-  const isCeo = currentUser?.roles?.includes('ceo');
+  const isCeo = currentUser?.roles?.includes('ceo') || currentUser?.roles?.includes('bgd');
   const isDepartmentHead = currentUser?.roles?.includes('department_head');
   const availableTabs: Array<{
     id: 'all' | 'assigned_to_me' | 'assigned_by_me' | 'department';
@@ -158,7 +163,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
             {isCeo
               ? 'Theo dõi công việc toàn công ty'
               : isDepartmentHead
-                ? 'Theo dõi công việc thuộc phòng ban của bạn'
+                ? 'Theo dõi công việc thuộc các dự án bạn phụ trách'
                 : 'Chỉ hiển thị công việc được giao hoặc liên quan trực tiếp đến bạn'}
           </p>
         </div>
@@ -255,6 +260,18 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
               <option value="normal">Bình thường</option>
               <option value="high">Cao</option>
               <option value="urgent">Khẩn cấp</option>
+            </select>
+
+            {/* Checkbox quá hạn */}
+            <select
+              value={projectFilter}
+              onChange={(e) => setProjectFilter(e.target.value)}
+              className="col-span-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-gray-700 sm:w-auto"
+            >
+              <option value="">Tất cả dự án</option>
+              {projects.filter((project) => project.isActive).map((project) => (
+                <option key={project.id} value={project.id}>{project.code} — {project.name}</option>
+              ))}
             </select>
 
             {/* Checkbox quá hạn */}

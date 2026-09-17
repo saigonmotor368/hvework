@@ -1,5 +1,5 @@
 import { lazy, Suspense, useState, useEffect } from 'react';
-import { type DocumentItem, type ApprovalStep, type TaskItem, ROLE_LABELS } from './types';
+import { type DocumentItem, type ApprovalStep, type ProjectItem, type TaskItem, ROLE_LABELS } from './types';
 
 import { Toast } from './components/Toast';
 import { LoginPage } from './components/LoginPage';
@@ -47,6 +47,12 @@ const AdminWorkflowView = lazy(() =>
 );
 const AdminUserView = lazy(() =>
   import('./components/AdminUserView').then((module) => ({ default: module.AdminUserView })),
+);
+const AdminProjectsView = lazy(() =>
+  import('./components/AdminProjectsView').then((module) => ({ default: module.AdminProjectsView })),
+);
+const ProjectBoardView = lazy(() =>
+  import('./components/ProjectBoardView').then((module) => ({ default: module.ProjectBoardView })),
 );
 
 export default function App() {
@@ -122,9 +128,18 @@ export default function App() {
 
   // Main navigation & document state
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'documents' | 'create' | 'tasks' | 'reports' | 'admin_workflows' | 'admin_users'
+    | 'overview'
+    | 'documents'
+    | 'create'
+    | 'tasks'
+    | 'reports'
+    | 'admin_workflows'
+    | 'admin_users'
+    | 'admin_projects'
+    | 'project_board'
   >('overview');
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
+  const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [selectedDoc, setSelectedDoc] = useState<DocumentItem | null>(null);
 
   // Task management state
@@ -182,9 +197,30 @@ export default function App() {
     manager: '',
     notes: '',
     selectedFile: null,
+    projectId: '',
+    linkedProjectIds: [],
   };
 
   const [createForm, setCreateForm] = useState<CreateFormData>(initialFormState);
+  const canUseEveryProject = user?.roles?.some((role: string) => ['ceo', 'it_admin'].includes(role));
+  const ownProjectIds = new Set<number>((user?.projects || []).map((project: ProjectItem) => project.id));
+  const primaryProjects = canUseEveryProject
+    ? projects
+    : projects.filter((project) => ownProjectIds.has(project.id));
+  // Bảng tin dự án: CEO/BGĐ/IT Admin xem được bảng tin của mọi dự án (đúng
+  // quyền "xem toàn bộ"), người khác chỉ thấy bảng tin dự án mình tham gia.
+  const canBrowseEveryBoard = user?.roles?.some((role: string) =>
+    ['ceo', 'bgd', 'it_admin'].includes(role),
+  );
+  const boardProjects = canBrowseEveryBoard
+    ? projects
+    : projects.filter((project) => ownProjectIds.has(project.id));
+
+  useEffect(() => {
+    if (!createForm.projectId && primaryProjects.length === 1) {
+      setCreateForm((current) => ({ ...current, projectId: String(primaryProjects[0].id) }));
+    }
+  }, [primaryProjects.length, createForm.projectId]);
 
   // Approval PIN modal state (bắt buộc cho bước duyệt cuối cùng của CEO)
   const [pinModal, setPinModal] = useState<{
@@ -256,6 +292,16 @@ export default function App() {
     }
   };
 
+  const refreshDocumentDetail = async (documentId: number) => {
+    const token = localStorage.getItem('access_token');
+    if (!token) return;
+    const response = await fetchWithSession(`${API_BASE_URL}/documents/${documentId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) throw new Error('Không thể tải lại chi tiết hồ sơ');
+    setSelectedDoc(await response.json());
+  };
+
   const fetchAssignableUsers = async () => {
     const token = localStorage.getItem('access_token');
     if (!token) return;
@@ -274,6 +320,21 @@ export default function App() {
     } catch (error: any) {
       setAssignableUsers(ENABLE_MOCK_DATA ? Object.values(MOCK_USERS) : []);
       if (!ENABLE_MOCK_DATA) showToast(error.message || 'Không thể tải danh sách nhân sự', 'error');
+    }
+  };
+
+  const fetchProjects = async () => {
+    const token = localStorage.getItem('access_token');
+    if (!token) return;
+    try {
+      const response = await fetchWithSession(`${API_BASE_URL}/projects`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error('Không thể tải danh sách dự án');
+      setProjects(await response.json());
+    } catch (error: any) {
+      setProjects([]);
+      showToast(error.message || 'Không thể tải danh sách dự án', 'error');
     }
   };
 
@@ -336,6 +397,7 @@ export default function App() {
       fetchDocuments();
       fetchAssignableUsers();
       fetchTaskCount();
+      fetchProjects();
     }
   }, [isAuthenticated, tabFilter, statusFilter, typeFilter]);
 
@@ -581,6 +643,8 @@ export default function App() {
           content: createForm.content,
           deadline: createForm.deadline || new Date().toISOString().split('T')[0],
           attachmentIds,
+          projectId: createForm.projectId ? Number(createForm.projectId) : undefined,
+          linkedProjectIds: createForm.linkedProjectIds,
         };
       } else if (createForm.type === 'proposal') {
         endpoint = `${API_BASE_URL}/documents/proposals`;
@@ -588,6 +652,8 @@ export default function App() {
           title: createForm.title,
           content: createForm.content,
           attachmentIds,
+          projectId: createForm.projectId ? Number(createForm.projectId) : undefined,
+          linkedProjectIds: createForm.linkedProjectIds,
         };
       } else if (createForm.type === 'contract') {
         endpoint = `${API_BASE_URL}/documents/contracts`;
@@ -600,6 +666,8 @@ export default function App() {
           manager: createForm.manager,
           notes: createForm.notes,
           attachmentIds,
+          projectId: createForm.projectId ? Number(createForm.projectId) : undefined,
+          linkedProjectIds: createForm.linkedProjectIds,
         };
       }
 
@@ -666,7 +734,7 @@ export default function App() {
   };
 
   // Approve Step
-  const handleApproveStep = async (doc: DocumentItem, step: ApprovalStep, pin?: string) => {
+  const handleApproveStep = async (doc: DocumentItem, step: ApprovalStep, pin?: string, comment?: string) => {
     setIsProcessing(true);
     const token = localStorage.getItem('access_token');
     try {
@@ -675,7 +743,7 @@ export default function App() {
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ comment: 'Đồng ý phê duyệt', ...(pin ? { pin } : {}) }),
+          body: JSON.stringify({ comment: comment || 'Đồng ý phê duyệt', ...(pin ? { pin } : {}) }),
         },
       );
       const data = await res.json();
@@ -708,12 +776,12 @@ export default function App() {
     return step.roleRequired === 'ceo' && step.stepOrder === maxStepOrder;
   };
 
-  const handleApproveStepClick = (doc: DocumentItem, step: ApprovalStep) => {
+  const handleApproveStepClick = (doc: DocumentItem, step: ApprovalStep, comment?: string) => {
     if (isFinalCeoStep(doc, step) && pinStatus?.enabled) {
       setPinModal({ isOpen: true, doc, step, action: 'step', errorMessage: null });
       return;
     }
-    handleApproveStep(doc, step);
+    handleApproveStep(doc, step, undefined, comment);
   };
 
   const handleConfirmPinModal = (pin: string) => {
@@ -948,9 +1016,11 @@ export default function App() {
               {activeTab === 'documents' && 'Danh sách hồ sơ phê duyệt'}
               {activeTab === 'tasks' && 'Quản lý công việc & Giao nhiệm vụ'}
               {activeTab === 'reports' && 'Báo cáo & Thống kê điều hành'}
+              {activeTab === 'project_board' && 'Bảng tin dự án'}
               {activeTab === 'create' && 'Khởi tạo hồ sơ phê duyệt mới'}
               {activeTab === 'admin_workflows' && 'Cấu hình quy trình (Quản trị IT)'}
               {activeTab === 'admin_users' && 'Quản lý người dùng (Quản trị IT)'}
+              {activeTab === 'admin_projects' && 'Quản lý dự án'}
             </h2>
             {selectedDoc && (
               <span className="hidden sm:inline text-sm text-gray-400 font-medium">/ Chi tiết {selectedDoc.code}</span>
@@ -1046,6 +1116,13 @@ export default function App() {
                   onCreateNewVersion={handleCreateNewVersion}
                   onApproveStep={handleApproveStepClick}
                   onApproveDirect={handleApproveDirectClick}
+                  projects={projects}
+                  onAttachmentUploaded={() => {
+                    refreshDocumentDetail(selectedDoc.id).catch((error) =>
+                      showToast(error.message || 'Không thể tải lại chứng từ', 'error'),
+                    );
+                  }}
+                  showToast={showToast}
                   onOpenModalAction={(type, stepId, docId) => {
                     setModalAction({
                       isOpen: true,
@@ -1067,6 +1144,7 @@ export default function App() {
               apiBaseUrl={API_BASE_URL}
               currentUser={user}
               showToast={showToast}
+              projects={projects}
               onOpenCreate={() => {
                 setParentTaskForCreate(null);
                 setIsCreateTaskOpen(true);
@@ -1082,6 +1160,7 @@ export default function App() {
               apiBaseUrl={API_BASE_URL}
               currentUser={user}
               showToast={showToast}
+              projects={projects}
               onSelectDoc={(id) => {
                 const found = documents.find((d) => d.id === id);
                 if (found) {
@@ -1104,6 +1183,8 @@ export default function App() {
               isProcessing={isProcessing}
               onSubmit={handleCreateDocument}
               onCancel={() => setActiveTab('documents')}
+              projects={projects}
+              primaryProjects={primaryProjects}
             />
           )}
 
@@ -1115,6 +1196,19 @@ export default function App() {
           {/* TAB 5: IT ADMIN USER MANAGEMENT */}
           {activeTab === 'admin_users' && (
             <AdminUserView apiBaseUrl={API_BASE_URL} currentUser={user} showToast={showToast} />
+          )}
+
+          {activeTab === 'admin_projects' && (
+            <AdminProjectsView apiBaseUrl={API_BASE_URL} showToast={showToast} />
+          )}
+
+          {activeTab === 'project_board' && (
+            <ProjectBoardView
+              apiBaseUrl={API_BASE_URL}
+              projects={boardProjects}
+              currentUser={user}
+              showToast={showToast}
+            />
           )}
           </Suspense>
           </ViewErrorBoundary>
@@ -1135,6 +1229,8 @@ export default function App() {
         users={assignableUsers}
         parentTask={parentTaskForCreate}
         showToast={showToast}
+        projects={projects}
+        primaryProjects={primaryProjects}
       />
 
       {/* Task Detail Modal */}
@@ -1155,6 +1251,7 @@ export default function App() {
             setParentTaskForCreate(parent);
             setIsCreateTaskOpen(true);
           }}
+          projects={projects}
         />
       )}
 

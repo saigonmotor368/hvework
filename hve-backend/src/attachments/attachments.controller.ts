@@ -137,7 +137,7 @@ export class AttachmentsController {
     },
     @Req() req: any,
   ) {
-    return this.attachmentsService.createAttachment(req.user.id, body);
+    return this.attachmentsService.createAttachment(req.user, body);
   }
 
   @UseGuards(JwtAuthGuard)

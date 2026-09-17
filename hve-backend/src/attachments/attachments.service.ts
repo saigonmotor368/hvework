@@ -7,6 +7,10 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { GoogleDriveService } from './google-drive.service.js';
 import * as path from 'path';
 import * as crypto from 'crypto';
+import {
+  buildDocumentAccessWhere,
+  buildTaskAccessWhere,
+} from '../common/access-scope.js';
 
 const ALLOWED_MIME_TYPES = [
   'application/pdf',
@@ -64,7 +68,13 @@ export class AttachmentsService {
 
   generatePresignedUrl(
     uploadedById: number,
-    data: { fileName: string; mimeType: string; size: number },
+    data: {
+      fileName: string;
+      mimeType: string;
+      size: number;
+      entityType?: string;
+      entityId?: number;
+    },
   ) {
     if (!ALLOWED_MIME_TYPES.includes(data.mimeType)) {
       throw new BadRequestException(
@@ -162,7 +172,7 @@ export class AttachmentsService {
 
 
   async createAttachment(
-    uploadedById: number,
+    actor: number | any,
     data: {
       fileName: string;
       mimeType: string;
@@ -172,6 +182,7 @@ export class AttachmentsService {
       entityId?: number;
     },
   ) {
+    const uploadedById = typeof actor === 'number' ? actor : actor.id;
     if (!ALLOWED_MIME_TYPES.includes(data.mimeType)) {
       throw new BadRequestException(
         'Định dạng tệp không được hỗ trợ. Chỉ chấp nhận: PDF, DOCX, XLSX, JPG, PNG, WEBP.',
@@ -182,6 +193,23 @@ export class AttachmentsService {
       throw new BadRequestException(
         'Dung lượng tệp vượt quá giới hạn 10MB. Vui lòng chọn tệp nhỏ hơn.',
       );
+    }
+
+    if (data.entityType && data.entityId && typeof actor !== 'number') {
+      const canAttach = data.entityType === 'document'
+        ? await this.prisma.document.findFirst({
+            where: { AND: [{ id: data.entityId }, buildDocumentAccessWhere(actor)] },
+            select: { id: true },
+          })
+        : data.entityType === 'task'
+          ? await this.prisma.task.findFirst({
+              where: { AND: [{ id: data.entityId }, buildTaskAccessWhere(actor)] },
+              select: { id: true },
+            })
+          : null;
+      if (!canAttach) {
+        throw new ForbiddenException('Bạn không có quyền đính kèm tệp vào dữ liệu này');
+      }
     }
 
     // Check existing version count for same entity & filename

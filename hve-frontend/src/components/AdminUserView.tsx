@@ -99,6 +99,7 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
     { id: 4, name: 'legal', description: 'Pháp chế - Thẩm định hợp đồng kinh tế và pháp lý' },
     { id: 5, name: 'ceo', description: 'Chủ tịch / CEO - Phê duyệt cấp cao nhất toàn công ty' },
     { id: 6, name: 'it_admin', description: 'Quản trị IT - Cấu hình hệ thống & Quản lý phân quyền' },
+    { id: 7, name: 'bgd', description: 'Ban Giám Đốc - Xem toàn bộ dữ liệu công ty, không thực thi lệnh' },
   ];
 
   const fetchUsersAndMeta = async () => {

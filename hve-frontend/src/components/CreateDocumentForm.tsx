@@ -1,4 +1,5 @@
 import React from 'react';
+import type { ProjectItem } from '../types';
 
 export interface CreateFormData {
   type: 'payment_request' | 'proposal' | 'contract';
@@ -20,6 +21,8 @@ export interface CreateFormData {
   notes: string;
   // file
   selectedFile: File | null;
+  projectId: string;
+  linkedProjectIds: number[];
 }
 
 interface CreateDocumentFormProps {
@@ -28,6 +31,8 @@ interface CreateDocumentFormProps {
   isProcessing: boolean;
   onSubmit: (e: React.FormEvent, submitNow: boolean) => void;
   onCancel: () => void;
+  projects: ProjectItem[];
+  primaryProjects: ProjectItem[];
 }
 
 export const CreateDocumentForm: React.FC<CreateDocumentFormProps> = ({
@@ -36,6 +41,8 @@ export const CreateDocumentForm: React.FC<CreateDocumentFormProps> = ({
   isProcessing,
   onSubmit,
   onCancel,
+  projects,
+  primaryProjects,
 }) => {
   return (
     <div className="w-full max-w-3xl mx-auto bg-white p-4 sm:p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
@@ -98,6 +105,49 @@ export const CreateDocumentForm: React.FC<CreateDocumentFormProps> = ({
       </div>
 
       <form className="space-y-6" onSubmit={(e) => onSubmit(e, false)}>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-gray-700">
+              Dự án chính
+            </label>
+            <select
+              value={createForm.projectId}
+              onChange={(e) => setCreateForm({ ...createForm, projectId: e.target.value })}
+              className="mt-1.5 block w-full rounded-xl border border-gray-200 bg-slate-50 px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-[#0A66C2]"
+            >
+              <option value="">Không thuộc dự án (dữ liệu dùng chung)</option>
+              {primaryProjects.filter((project) => project.isActive).map((project) => (
+                <option key={project.id} value={project.id}>
+                  {project.code} — {project.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-gray-700">
+              Dự án phối hợp
+            </label>
+            <select
+              multiple
+              value={createForm.linkedProjectIds.map(String)}
+              onChange={(e) =>
+                setCreateForm({
+                  ...createForm,
+                  linkedProjectIds: Array.from(e.target.selectedOptions).map((option) => Number(option.value)),
+                })
+              }
+              className="mt-1.5 block min-h-11 w-full rounded-xl border border-gray-200 bg-slate-50 px-3.5 py-2 text-sm focus:ring-2 focus:ring-[#0A66C2]"
+            >
+              {projects
+                .filter((project) => project.isActive && String(project.id) !== createForm.projectId)
+                .map((project) => (
+                  <option key={project.id} value={project.id}>{project.code} — {project.name}</option>
+                ))}
+            </select>
+            <p className="mt-1 text-[11px] text-gray-400">Giữ Ctrl/Cmd để chọn nhiều dự án.</p>
+          </div>
+        </div>
+
         {/* Common Title */}
         <div>
           <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider">

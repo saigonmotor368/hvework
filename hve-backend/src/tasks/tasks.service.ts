@@ -16,6 +16,7 @@ import {
   buildTaskAccessWhere,
   getDepartmentId,
   getRoleNames,
+  getUserProjectIds,
 } from '../common/access-scope.js';
 
 /**
@@ -77,6 +78,40 @@ export class TasksService {
     private notificationsService: NotificationsService,
   ) {}
 
+  private async validateProjectSelection(
+    user: any,
+    projectId?: number,
+    linkedProjectIds: number[] = [],
+  ) {
+    const selectedIds = [...new Set([...(projectId ? [projectId] : []), ...linkedProjectIds])];
+    if (selectedIds.length === 0) return;
+    const count = await this.prisma.project.count({
+      where: { id: { in: selectedIds }, isActive: true },
+    });
+    if (count !== selectedIds.length) {
+      throw new BadRequestException('Có dự án không tồn tại hoặc đã ngừng hoạt động');
+    }
+    const roles = getRoleNames(user);
+    if (
+      projectId &&
+      !roles.some((role) => ['ceo', 'it_admin'].includes(role)) &&
+      !getUserProjectIds(user).includes(projectId)
+    ) {
+      throw new ForbiddenException('Bạn không thuộc dự án đã chọn');
+    }
+  }
+
+  private async validateNewAttachments(userId: number, attachmentIds: number[] = []) {
+    if (attachmentIds.length === 0) return;
+    const uniqueIds = [...new Set(attachmentIds)];
+    const count = await this.prisma.attachment.count({
+      where: { id: { in: uniqueIds }, uploadedById: userId, entityId: 0 },
+    });
+    if (count !== uniqueIds.length) {
+      throw new ForbiddenException('Có tệp đính kèm không thuộc phiên tải lên của bạn');
+    }
+  }
+
   private hasRole(
     user: { roles?: Array<string | { name: string }> },
     roleName: string,
@@ -123,10 +158,24 @@ export class TasksService {
     const roles = getRoleNames(user);
     if (!roles.includes('ceo') && !roles.includes('department_head')) return [];
 
+    const projectIds = getUserProjectIds(user);
     return this.prisma.user.findMany({
       where: {
         status: 'active',
-        ...(!roles.includes('ceo') ? { departmentId: getDepartmentId(user) || -1 } : {}),
+        ...(!roles.includes('ceo')
+          ? projectIds.length > 0
+            ? {
+                OR: [
+                  { ledProjects: { some: { id: { in: projectIds }, isActive: true } } },
+                  {
+                    projectMemberships: {
+                      some: { projectId: { in: projectIds }, project: { isActive: true } },
+                    },
+                  },
+                ],
+              }
+            : { departmentId: getDepartmentId(user) || -1 }
+          : {}),
       },
       select: {
         id: true,
@@ -158,27 +207,48 @@ export class TasksService {
       );
     }
 
+    let parentTask: any = null;
+    if (dto.parentTaskId) {
+      parentTask = await this.prisma.task.findFirst({
+        where: { AND: [{ id: dto.parentTaskId }, buildTaskAccessWhere(user)] },
+      });
+      if (!parentTask) throw new NotFoundException('Không tìm thấy công việc cha');
+    }
+    const effectiveProjectId = parentTask?.projectId ?? dto.projectId;
+    const effectiveLinkedProjectIds = parentTask
+      ? (Array.isArray(parentTask.linkedProjectIds) ? parentTask.linkedProjectIds : [])
+      : (dto.linkedProjectIds || []);
+    await this.validateProjectSelection(user, effectiveProjectId, effectiveLinkedProjectIds);
+    await this.validateNewAttachments(user.id, dto.attachmentIds);
+
     if (dto.assigneeId && !this.hasRole(user, 'ceo')) {
       const assignee = await this.prisma.user.findFirst({
         where: { id: dto.assigneeId, status: 'active' },
-        select: { departmentId: true },
+        select: {
+          departmentId: true,
+          ledProjects: { select: { id: true } },
+          projectMemberships: { select: { projectId: true } },
+        },
       });
-      if (!assignee || !user.departmentId || assignee.departmentId !== user.departmentId) {
+      const assigneeProjectIds = [
+        ...(assignee?.ledProjects || []).map((project) => project.id),
+        ...(assignee?.projectMemberships || []).map((membership) => membership.projectId),
+      ];
+      const allowed = effectiveProjectId
+        ? assigneeProjectIds.includes(effectiveProjectId)
+        : !!assignee && !!user.departmentId && assignee.departmentId === user.departmentId;
+      if (!allowed) {
         throw new ForbiddenException(
-          'Trưởng bộ phận chỉ được giao việc cho nhân sự trong phòng mình',
+          effectiveProjectId
+            ? 'Chỉ được giao việc cho nhân sự thuộc dự án đã chọn'
+            : 'Trưởng bộ phận chỉ được giao việc cho nhân sự trong phòng mình',
         );
       }
     }
 
     // 1. Kiểm tra giới hạn 2 cấp công việc
     if (dto.parentTaskId) {
-      const parent = await this.prisma.task.findUnique({
-        where: { id: dto.parentTaskId },
-      });
-      if (!parent) {
-        throw new NotFoundException('Không tìm thấy công việc cha');
-      }
-      if (parent.parentTaskId) {
+      if (parentTask.parentTaskId) {
         throw new BadRequestException(
           'Chỉ cho phép tối đa 2 cấp công việc (việc cha và việc con)',
         );
@@ -189,7 +259,7 @@ export class TasksService {
           'Chỉ công việc độc lập mới được đặt chu kỳ lặp lại, không áp dụng cho việc con',
         );
       }
-      if (parent.recurrenceRule) {
+      if (parentTask.recurrenceRule) {
         throw new BadRequestException(
           'Không thể thêm việc con vào công việc có chu kỳ lặp lại',
         );
@@ -214,17 +284,20 @@ export class TasksService {
         recurrenceRule: dto.recurrenceRule || null,
         tags: dto.tags || null,
         collaboratorIds: (dto.collaboratorIds as any) ?? undefined,
+        projectId: effectiveProjectId || null,
+        linkedProjectIds: effectiveLinkedProjectIds,
       },
       include: {
         assignee: { select: { id: true, name: true, email: true } },
         createdBy: { select: { id: true, name: true, email: true } },
+        project: true,
       },
     });
 
     // Nếu có file đính kèm, gắn vào task
     if (dto.attachmentIds && dto.attachmentIds.length > 0) {
       await this.prisma.attachment.updateMany({
-        where: { id: { in: dto.attachmentIds } },
+        where: { id: { in: dto.attachmentIds }, uploadedById: user.id, entityId: 0 },
         data: {
           entityType: 'task',
           entityId: task.id,
@@ -273,8 +346,8 @@ export class TasksService {
     dto: UpdateTaskDto,
     ip?: string,
   ) {
-    const task = await this.prisma.task.findUnique({
-      where: { id: taskId },
+    const task = await this.prisma.task.findFirst({
+      where: { AND: [{ id: taskId }, buildTaskAccessWhere(user)] },
       include: {
         createdBy: true,
         subTasks: true,
@@ -313,11 +386,18 @@ export class TasksService {
       const isCreator = task.createdById === user.id;
       const isCeo = this.hasRole(user, 'ceo');
       const isDepartmentHead = this.hasRole(user, 'department_head');
-      const isHeadOfCreatorDept =
+      const taskLinkedProjectIds = Array.isArray(task.linkedProjectIds)
+        ? (task.linkedProjectIds as number[])
+        : [];
+      const userProjectIds = getUserProjectIds(user);
+      const isHeadOfTaskScope =
         isDepartmentHead &&
-        user.departmentId &&
-        task.createdBy?.departmentId &&
-        user.departmentId === task.createdBy.departmentId;
+        (task.projectId
+          ? userProjectIds.includes(task.projectId) ||
+            taskLinkedProjectIds.some((id) => userProjectIds.includes(id))
+          : !!user.departmentId &&
+            !!task.createdBy?.departmentId &&
+            user.departmentId === task.createdBy.departmentId);
 
       if (hasAssigneeChange && !isCeo && !isDepartmentHead) {
         throw new ForbiddenException(
@@ -325,10 +405,25 @@ export class TasksService {
         );
       }
 
-      if (hasDueDateChange && !isCreator && !isCeo && !isHeadOfCreatorDept) {
+      if (hasDueDateChange && !isCreator && !isCeo && !isHeadOfTaskScope) {
         throw new ForbiddenException(
           'Chỉ người giao việc, Trưởng bộ phận cùng phòng hoặc CEO mới có quyền thay đổi hạn hoàn thành',
         );
+      }
+
+      if (hasAssigneeChange && dto.assigneeId && !isCeo && task.projectId) {
+        const target = await this.prisma.user.findUnique({
+          where: { id: dto.assigneeId },
+          include: { ledProjects: true, projectMemberships: true },
+        });
+        const targetProjectIds = [
+          ...(target?.ledProjects || []).map((project) => project.id),
+          ...(target?.projectMemberships || []).map((membership) => membership.projectId),
+        ];
+        const targetAllowed = targetProjectIds.includes(task.projectId);
+        if (!targetAllowed) {
+          throw new ForbiddenException('Người thực hiện mới không thuộc phạm vi dự án của công việc');
+        }
       }
 
       // Ghi audit log thay đổi phân công hoặc thời hạn
@@ -399,8 +494,8 @@ export class TasksService {
     dto: UpdateProgressDto,
     ip?: string,
   ) {
-    const task = await this.prisma.task.findUnique({
-      where: { id: taskId },
+    const task = await this.prisma.task.findFirst({
+      where: { AND: [{ id: taskId }, buildTaskAccessWhere(user)] },
       include: {
         subTasks: true,
         parentTask: true,
@@ -602,6 +697,8 @@ export class TasksService {
             createdById: task.createdById,
             parentTaskId: null,
             recurrenceRule: task.recurrenceRule,
+            projectId: task.projectId,
+            linkedProjectIds: task.linkedProjectIds || [],
             tags: task.tags,
             collaboratorIds: (task.collaboratorIds as any) ?? undefined,
           },
@@ -647,15 +744,10 @@ export class TasksService {
       andConditions.push({ createdById: user.id });
     } else if (tab === 'department') {
       const roles = getRoleNames(user);
-      if (!user.departmentId || (!roles.includes('department_head') && !roles.includes('ceo'))) {
+      if (!roles.includes('department_head') && !roles.includes('ceo')) {
         return [];
       }
-      andConditions.push({
-        OR: [
-          { assignee: { departmentId: user.departmentId } },
-          { createdBy: { departmentId: user.departmentId } },
-        ],
-      });
+      andConditions.push(buildTaskAccessWhere(user));
     } else {
       andConditions.push(buildTaskAccessWhere(user));
     }
@@ -669,6 +761,14 @@ export class TasksService {
     }
     if (tags) {
       where.tags = { contains: tags, mode: 'insensitive' };
+    }
+    if (query.projectId) {
+      andConditions.push({
+        OR: [
+          { projectId: query.projectId },
+          { linkedProjectIds: { array_contains: [query.projectId] } },
+        ],
+      });
     }
     if (search) {
       const searchCondition = {
@@ -695,6 +795,7 @@ export class TasksService {
             assignee: { select: { id: true, name: true } },
           },
         },
+        project: true,
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -744,6 +845,7 @@ export class TasksService {
           },
           orderBy: { createdAt: 'asc' },
         },
+        project: true,
       },
     });
 
@@ -804,12 +906,12 @@ export class TasksService {
    * Thêm bình luận và xử lý mention bắn notification in-app
    */
   async addComment(
-    user: { id: number; name: string },
+    user: { id: number; name: string; roles?: Array<string | { name: string }> },
     taskId: number,
     dto: CreateCommentDto,
   ) {
-    const task = await this.prisma.task.findUnique({
-      where: { id: taskId },
+    const task = await this.prisma.task.findFirst({
+      where: { AND: [{ id: taskId }, buildTaskAccessWhere(user)] },
     });
     if (!task) {
       throw new NotFoundException('Không tìm thấy công việc');

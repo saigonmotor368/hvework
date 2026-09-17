@@ -19,16 +19,16 @@ const HVE_AMBER_TEXT = 'FF8A6D1D';
 export class ReportsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  // Check if user has CEO or IT Admin role
+  // Check if user has CEO / Ban Giám Đốc / IT Admin role (xem toàn bộ)
   isCeoOrAdmin(user: any): boolean {
     const roles: string[] = user.roles ? user.roles.map((r: any) => (typeof r === 'string' ? r : r.name)) : [];
-    return roles.includes('ceo') || roles.includes('it_admin');
+    return roles.includes('ceo') || roles.includes('bgd') || roles.includes('it_admin');
   }
 
   async getSummary(user: any, filter: ReportFilterDto) {
     const roles = getRoleNames(user);
     const canFilterOrganization = roles.some((role) =>
-      ['ceo', 'department_head', 'accountant', 'legal'].includes(role),
+      ['ceo', 'bgd', 'it_admin', 'department_head', 'accountant', 'legal'].includes(role),
     );
     // 1. Filter conditions for Documents with Role-Based Scoping
     const docFilters: any = {};
@@ -53,19 +53,30 @@ export class ReportsService {
     if (canFilterOrganization && filter.departmentId && !roles.includes('department_head')) {
       docFilters.createdBy = { departmentId: Number(filter.departmentId) };
     }
-    const docWhere = { AND: [buildDocumentAccessWhere(user), docFilters] };
+    if (filter.projectId) {
+      const projectId = Number(filter.projectId);
+      docFilters.OR = [
+        { projectId },
+        { linkedProjectIds: { array_contains: [projectId] } },
+      ];
+    }
+    const docWhere = {
+      AND: [roles.includes('it_admin') ? {} : buildDocumentAccessWhere(user), docFilters],
+    };
 
     const documents = await this.prisma.document.findMany({
       where: docWhere,
       include: {
         createdBy: { select: { id: true, name: true, email: true, departmentId: true, department: { select: { id: true, name: true } } } },
         steps: { orderBy: { stepOrder: 'asc' } },
+        project: true,
       },
       orderBy: { createdAt: 'desc' },
     });
 
     const docTotal = documents.length;
-    const docApproved = documents.filter((d: any) => d.status === 'Đã duyệt').length;
+    const APPROVED_STATUSES = ['Đã duyệt'];
+    const docApproved = documents.filter((d: any) => APPROVED_STATUSES.includes(d.status)).length;
     const docPending = documents.filter((d: any) => d.status === 'Chờ duyệt').length;
     const docRejected = documents.filter((d: any) => d.status === 'Từ chối' || d.status === 'Trả lại').length;
     const docDraft = documents.filter((d: any) => d.status === 'Nháp').length;
@@ -76,16 +87,24 @@ export class ReportsService {
       docTypeMap[d.type] = (docTypeMap[d.type] || 0) + 1;
     }
 
-    // Average approval time for completed documents (hours)
+    // Average approval time for completed/approved documents (hours)
     let totalApprovalHours = 0;
     let approvedCountWithSteps = 0;
     for (const d of documents as any[]) {
-      if (d.status === 'Đã duyệt' && d.steps.length > 0) {
-        const lastStep = d.steps[d.steps.length - 1];
-        if (lastStep.actedAt) {
-          const diffMs = lastStep.actedAt.getTime() - d.createdAt.getTime();
-          totalApprovalHours += diffMs / (1000 * 60 * 60);
-          approvedCountWithSteps++;
+      if (APPROVED_STATUSES.includes(d.status) && d.steps.length > 0) {
+        const approvedStepsWithDate = d.steps
+          .filter((s: any) => s.status === 'approved' && s.actedAt)
+          .sort((a: any, b: any) => new Date(b.actedAt).getTime() - new Date(a.actedAt).getTime());
+
+        const lastActedStep = approvedStepsWithDate[0] || d.steps[d.steps.length - 1];
+        if (lastActedStep?.actedAt) {
+          const actedTime = new Date(lastActedStep.actedAt).getTime();
+          const createdTime = new Date(d.createdAt).getTime();
+          const diffMs = actedTime - createdTime;
+          if (diffMs >= 0) {
+            totalApprovalHours += diffMs / (1000 * 60 * 60);
+            approvedCountWithSteps++;
+          }
         }
       }
     }
@@ -113,13 +132,23 @@ export class ReportsService {
     if (canFilterOrganization && filter.departmentId && !roles.includes('department_head')) {
       taskFilters.assignee = { departmentId: Number(filter.departmentId) };
     }
-    const taskWhere = { AND: [buildTaskAccessWhere(user), taskFilters] };
+    if (filter.projectId) {
+      const projectId = Number(filter.projectId);
+      taskFilters.OR = [
+        { projectId },
+        { linkedProjectIds: { array_contains: [projectId] } },
+      ];
+    }
+    const taskWhere = {
+      AND: [roles.includes('it_admin') ? {} : buildTaskAccessWhere(user), taskFilters],
+    };
 
     const tasks = await this.prisma.task.findMany({
       where: taskWhere,
       include: {
         assignee: { select: { id: true, name: true, department: { select: { id: true, name: true } } } },
         createdBy: { select: { id: true, name: true } },
+        project: true,
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -136,7 +165,7 @@ export class ReportsService {
 
     // 3. Contracts metrics with Role-Based Scoping
     const canViewContracts = roles.some((role) =>
-      ['ceo', 'department_head', 'accountant', 'legal'].includes(role),
+      ['ceo', 'bgd', 'department_head', 'accountant', 'legal'].includes(role),
     );
     const contracts = canViewContracts
       ? documents.filter((d: any) => d.type === 'contract')
@@ -173,6 +202,20 @@ export class ReportsService {
       };
     });
 
+    // 4. Financial & Payment Requests metrics
+    const paymentRequests = documents.filter((d: any) => d.type === 'payment_request');
+    let totalDisbursedValue = 0;
+    let disbursedCount = 0;
+
+    for (const pr of paymentRequests as any[]) {
+      const data = (pr.dataJson as any) || {};
+      const amount = Number(data.amount) || 0;
+      if (pr.status === 'Đã duyệt') {
+        totalDisbursedValue += amount;
+        disbursedCount++;
+      }
+    }
+
     return {
       filtersApplied: filter,
       documents: {
@@ -193,6 +236,7 @@ export class ReportsService {
           creator: d.createdBy.name,
           department: d.createdBy.department?.name || 'N/A',
           createdAt: d.createdAt,
+          project: d.project?.name || null,
         })),
       },
       tasks: {
@@ -214,6 +258,7 @@ export class ReportsService {
           department: t.assignee?.department?.name || 'N/A',
           dueDate: t.dueDate,
           isOverdue: t.status !== 'Hoàn thành' && t.dueDate ? new Date(t.dueDate) < now : false,
+          project: t.project?.name || null,
         })),
       },
       contracts: {
@@ -221,6 +266,10 @@ export class ReportsService {
         totalValue: totalContractValue,
         expiringSoonCount,
         items: contractList,
+      },
+      payments: {
+        totalDisbursedValue,
+        disbursedCount,
       },
     };
   }
@@ -266,7 +315,7 @@ export class ReportsService {
 
   async exportCsv(user: any, type: string, filter: ReportFilterDto): Promise<string> {
     const roles: string[] = user.roles ? user.roles.map((r: any) => (typeof r === 'string' ? r : r.name)) : [];
-    const isCompanyWide = roles.some((r) => ['ceo', 'it_admin', 'accountant', 'legal'].includes(r));
+    const isCompanyWide = roles.some((r) => ['ceo', 'bgd', 'it_admin', 'accountant', 'legal'].includes(r));
     const isDeptHead = roles.includes('department_head');
     const isEmployeeOnly = !isCompanyWide && !isDeptHead;
 
@@ -450,7 +499,7 @@ export class ReportsService {
 
   async exportXlsx(user: any, type: string, filter: ReportFilterDto): Promise<Buffer> {
     const roles: string[] = user.roles ? user.roles.map((r: any) => (typeof r === 'string' ? r : r.name)) : [];
-    const isCompanyWide = roles.some((r) => ['ceo', 'it_admin', 'accountant', 'legal'].includes(r));
+    const isCompanyWide = roles.some((r) => ['ceo', 'bgd', 'it_admin', 'accountant', 'legal'].includes(r));
     const isDeptHead = roles.includes('department_head');
     const isEmployeeOnly = !isCompanyWide && !isDeptHead;
 

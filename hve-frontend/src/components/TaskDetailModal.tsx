@@ -3,6 +3,7 @@ import {
   TASK_PRIORITY_LABELS,
   TASK_STATUS_LABELS,
   type TaskItem,
+  type ProjectItem,
 } from '../types';
 import { MOCK_TASKS } from '../mockData';
 import { authenticatedFileUrl, fetchWithSession } from '../api/client';
@@ -19,6 +20,7 @@ interface TaskDetailModalProps {
   showToast: (msg: string, type?: 'success' | 'error') => void;
   onRefreshList: () => void;
   onOpenCreateSubtask: (parent: TaskItem) => void;
+  projects: ProjectItem[];
 }
 
 export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
@@ -31,6 +33,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   showToast,
   onRefreshList,
   onOpenCreateSubtask,
+  projects,
 }) => {
   const [task, setTask] = useState<TaskItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -228,6 +231,16 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                 Quá hạn
               </span>
             )}
+            {task?.project && (
+              <span className="rounded-md bg-blue-50 px-2 py-0.5 text-[11px] font-bold text-[#0A66C2]">
+                🏗️ {task.project.code} — {task.project.name}
+              </span>
+            )}
+            {projects.filter((project) => task?.linkedProjectIds?.includes(project.id)).map((project) => (
+              <span key={project.id} className="rounded-md bg-violet-50 px-2 py-0.5 text-[11px] font-semibold text-violet-700">
+                ↔ {project.code}
+              </span>
+            ))}
           </div>
           <button
             onClick={onClose}

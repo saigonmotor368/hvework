@@ -56,12 +56,14 @@ model User {
   roles Role[]
 
   // References for created documents/tasks
-  createdDocuments  Document[]
-  assignedTasks     Task[]             @relation("AssignedTasks")
-  createdTasks      Task[]             @relation("CreatedTasks")
-  pushSubscriptions PushSubscription[]
-  trustedDevices    TrustedDevice[]
-  loginChallenges   LoginChallenge[]
+  createdDocuments   Document[]
+  assignedTasks      Task[]             @relation("AssignedTasks")
+  createdTasks       Task[]             @relation("CreatedTasks")
+  pushSubscriptions  PushSubscription[]
+  trustedDevices     TrustedDevice[]
+  loginChallenges    LoginChallenge[]
+  ledProjects        Project[]          @relation("ProjectLead")
+  projectMemberships ProjectMember[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -106,6 +108,10 @@ model Document {
   status   String @default("Nháp") // Nháp, Chờ duyệt, Trả lại, Từ chối, Đã duyệt
   dataJson Json // Flexible data based on document type
 
+  projectId        Int?
+  project          Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  linkedProjectIds Json? // array of project ids allowed to collaborate/view
+
   createdById Int
   createdBy   User @relation(fields: [createdById], references: [id])
 
@@ -115,6 +121,8 @@ model Document {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([projectId])
 }
 
 model DocumentApprovalStep {
@@ -184,11 +192,46 @@ model Task {
 
   recurrenceRule String? // null if no recurrence
 
-  tags            String? // comma-separated tags or category
-  collaboratorIds Json? // array of user ids [2, 3]
+  tags             String? // comma-separated tags or category
+  collaboratorIds  Json? // array of user ids [2, 3]
+  projectId        Int?
+  project          Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  linkedProjectIds Json? // array of project ids allowed to collaborate/view
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([projectId])
+}
+
+model Project {
+  id         Int     @id @default(autoincrement())
+  code       String  @unique
+  name       String
+  location   String?
+  leadUserId Int?
+  lead       User?   @relation("ProjectLead", fields: [leadUserId], references: [id], onDelete: SetNull)
+  isActive   Boolean @default(true)
+
+  members   ProjectMember[]
+  documents Document[]
+  tasks     Task[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([leadUserId])
+}
+
+model ProjectMember {
+  id        Int     @id @default(autoincrement())
+  projectId Int
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId    Int
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@index([userId])
 }
 
 model Attachment {

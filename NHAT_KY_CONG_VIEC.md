@@ -422,3 +422,19 @@ Dự án đã hoàn thành toàn bộ các giai đoạn (Phase 0 ➔ Phase 5) v�
 - Thay spinner chung bằng loader HVE có hiệu ứng nổi nhẹ, quầng sáng và ba chấm màu thương hiệu ở màn hình tải module, Tổng quan, Báo cáo, danh sách/chi tiết công việc và thiết lập bảo mật.
 - Loader có hai kích thước cho trang và modal, hỗ trợ `aria-live` và tự tắt animation khi thiết bị bật chế độ giảm chuyển động.
 - Baseline: frontend build pass, 9/9 test pass, lint không có error; logo SVG tải đúng với MIME `image/svg+xml` và không còn phần tử nền.
+
+---
+
+## 13. QUẢN LÝ THEO DỰ ÁN & XÁC NHẬN CHI TIỀN RÚT GỌN (17/09/2026)
+
+- **Người thực hiện:** Long. Minh tiếp tục là người rà soát, chạy migration và deploy; Long không tự phát hành production trong đợt này.
+- Thêm mô hình `Project`/`ProjectMember`, quan hệ dự án chính và danh sách dự án phối hợp cho hồ sơ/công việc; dữ liệu cũ không có dự án tiếp tục dùng phạm vi phòng ban cũ.
+- Thêm trang quản trị dự án cho CEO/IT Admin: tạo, sửa, tắt dự án, chỉ định Trưởng dự án và thành viên; Trưởng dự án phải có role Trưởng bộ phận hoặc CEO.
+- JWT và response đăng nhập nạp danh sách dự án đang hoạt động; một người được phép thuộc nhiều dự án, phòng ban vẫn tồn tại song song, `projectId` hiện để tùy chọn theo giả định vận hành đã chốt trong lúc triển khai.
+- Thu hẹp RBAC của Trưởng bộ phận theo dự án chính/dự án được chia sẻ cho danh sách, chi tiết và toàn bộ hành động duyệt/trả lại/từ chối; hồ sơ/công việc `projectId = null` vẫn fallback theo phòng ban để tương thích dữ liệu cũ.
+- Thêm chặn IDOR cho cập nhật công việc, bình luận, đính kèm trực tiếp và các attachment ID lúc tạo hồ sơ/công việc; client không thể lấy ID file hoặc ID bản ghi ngoài phạm vi để gán lại.
+- Form tạo hồ sơ/công việc có dự án chính và dự án phối hợp; tự chọn nếu người dùng chỉ có một dự án. Chi tiết hồ sơ/công việc hiển thị badge dự án; danh sách công việc và báo cáo có bộ lọc dự án.
+- Luồng chi tiền dùng đúng thiết kế rút gọn: không có endpoint `confirm-disbursement`, không có trạng thái `Chờ chi tiền`/`Đã chi`, không có modal riêng. Kế toán tải chứng từ trực tiếp vào đúng hồ sơ và chỉ được duyệt bước cuối khi chính họ đã tải ít nhất một chứng từ.
+- Báo cáo trả thêm `payments.totalDisbursedValue` và `payments.disbursedCount` từ các đề nghị thanh toán đã ở trạng thái `Đã duyệt`; giao diện hiển thị thẻ tổng tiền đã duyệt chi.
+- Migration mới: `20260917090000_add_projects`; chưa áp dụng production, chờ Minh rà soát và deploy.
+- Baseline bàn giao: Prisma validate pass; backend lint/build pass và 169/169 test pass; frontend build pass, 10/10 test pass, lint 0 error (còn warning React hooks hiện hữu); main bundle 360,06 KB, gzip 100,38 KB; `git diff --check` không có lỗi whitespace.

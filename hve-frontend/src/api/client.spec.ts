@@ -153,6 +153,33 @@ describe('API contracts', () => {
     });
   });
 
+  it('binds accountant proof directly to the current document without attachment reassignment', async () => {
+    const fetcher = vi
+      .fn<Fetcher>()
+      .mockResolvedValueOnce(jsonResponse({ uploadUrl: '/attachments/upload-storage/temp.pdf?token=signed' }))
+      .mockResolvedValueOnce(jsonResponse({ fileUrl: '/attachments/file/drive-proof', size: 4 }))
+      .mockResolvedValueOnce(jsonResponse({ id: 77 }));
+    const file = new File(['test'], 'unc.pdf', { type: 'application/pdf' });
+
+    await uploadAttachment(
+      'https://api.example.com',
+      'jwt',
+      file,
+      { entityType: 'document', entityId: 91 },
+      fetcher,
+    );
+
+    expect(JSON.parse(String(fetcher.mock.calls[0][1]?.body))).toMatchObject({
+      entityType: 'document',
+      entityId: 91,
+    });
+    expect(JSON.parse(String(fetcher.mock.calls[2][1]?.body))).toMatchObject({
+      fileUrl: '/attachments/file/drive-proof',
+      entityType: 'document',
+      entityId: 91,
+    });
+  });
+
   it.each([
     [401, 'Phiên đăng nhập không hợp lệ'],
     [404, 'Không tìm thấy tệp'],

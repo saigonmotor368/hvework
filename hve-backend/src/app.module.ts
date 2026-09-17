@@ -12,6 +12,7 @@ import { TasksModule } from './tasks/tasks.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
 import { DashboardModule } from './dashboard/dashboard.module.js';
 import { ReportsModule } from './reports/reports.module.js';
+import { ProjectsModule } from './projects/projects.module.js';
 
 import { ScheduleModule } from '@nestjs/schedule';
 import { APP_GUARD } from '@nestjs/core';
@@ -31,6 +32,7 @@ import { SimpleThrottlerGuard } from './common/simple-throttler.guard.js';
     NotificationsModule,
     DashboardModule,
     ReportsModule,
+    ProjectsModule,
   ],
   controllers: [AppController],
   providers: [
@@ -42,4 +44,3 @@ import { SimpleThrottlerGuard } from './common/simple-throttler.guard.js';
   ],
 })
 export class AppModule {}
-

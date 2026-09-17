@@ -1,6 +1,7 @@
 import { IsNotEmpty, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { ProjectFieldsDto } from '../../common/dto/project-fields.dto.js';
 
-export class CreatePaymentRequestDto {
+export class CreatePaymentRequestDto extends ProjectFieldsDto {
   @IsString({ message: 'Tiêu đề phải là chuỗi' })
   @IsNotEmpty({ message: 'Tiêu đề đề nghị thanh toán không được để trống' })
   title: string;

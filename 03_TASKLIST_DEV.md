@@ -193,3 +193,22 @@ Bám theo [02_KE_HOACH_TRIEN_KHAI.md](02_KE_HOACH_TRIEN_KHAI.md) và [01_KIEN_TR
 - [x] Thêm quyền CEO duyệt thẳng toàn bộ quy trình (giữ chống tự duyệt và PIN)
 - [x] Chỉ Trưởng bộ phận/CEO được giao hoặc giao lại công việc, kể cả việc con
 - [x] Thêm Kanban board 4 cột dùng task/comment/@mention thật trên server
+
+---
+
+## Quản lý theo dự án + xác nhận chi tiền rút gọn — 17/09/2026
+
+- [x] Thêm schema, migration và API quản trị `Project`/`ProjectMember`
+- [x] Nạp phạm vi dự án vào phiên đăng nhập/JWT và hỗ trợ một người thuộc nhiều dự án
+- [x] Áp dụng RBAC dự án cho hồ sơ, công việc, duyệt, trả lại, từ chối và dữ liệu được chia sẻ
+- [x] Giữ fallback phòng ban cho dữ liệu cũ chưa có `projectId`
+- [x] Chặn IDOR ở attachment, cập nhật/bình luận công việc và attachment ID lúc tạo mới
+- [x] Thêm trang quản trị dự án, bộ chọn dự án khi tạo và badge dự án ở màn hình chi tiết
+- [x] Thêm bộ lọc dự án cho danh sách công việc và báo cáo
+- [x] Gắn chứng từ chi trực tiếp vào hồ sơ, bắt buộc chứng từ của Kế toán ở bước duyệt cuối
+- [x] Loại endpoint/modal/trạng thái xác nhận chi tiền cũ; giữ trạng thái cuối là `Đã duyệt`
+- [x] Thêm tổng số đề nghị đã duyệt chi và tổng tiền vào báo cáo
+- [x] Prisma validate, backend lint/build, 169/169 backend test, frontend build và 10/10 frontend test đều đạt
+- [ ] Minh rà soát diff RBAC và migration `20260917090000_add_projects`
+- [ ] Minh cập nhật cột Excel theo spec, chạy migration và deploy Railway/Vercel từ commit sạch
+- [ ] UAT production bằng dữ liệu `TEST-*`, xác nhận cô lập chéo dự án rồi dọn dữ liệu thử

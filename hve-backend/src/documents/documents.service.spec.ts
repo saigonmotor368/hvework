@@ -105,7 +105,7 @@ describe('DocumentsService', () => {
         createdById: 10,
       });
 
-      const result = await service.createPaymentRequest(10, {
+      const result = await service.createPaymentRequest({ id: 10, roles: ['employee'] }, {
         title: 'Thanh toán nhà cung cấp',
         amount: 5000000,
         receiver: 'Công ty ABC',
@@ -602,6 +602,35 @@ describe('DocumentsService', () => {
         expect.objectContaining({ action: 'reject_document' }),
       );
     });
+
+    it('should block return and reject actions from a head of another project', async () => {
+      prisma.document.findUnique.mockResolvedValue({
+        id: 1,
+        projectId: 200,
+        linkedProjectIds: [],
+        status: 'Chờ duyệt',
+        createdById: 10,
+        createdBy: { id: 10, departmentId: 1 },
+        version: 1,
+        steps: [
+          { id: 101, stepOrder: 1, roleRequired: 'department_head', status: 'pending' },
+        ],
+      });
+      const otherProjectHead = {
+        id: 20,
+        departmentId: 1,
+        roles: [{ name: 'department_head' }],
+        ledProjects: [{ id: 100, isActive: true }],
+      };
+
+      await expect(
+        service.returnStep(1, 101, otherProjectHead, { comment: 'Trả lại' }),
+      ).rejects.toThrow(ForbiddenException);
+      await expect(
+        service.rejectStep(1, 101, otherProjectHead, { comment: 'Từ chối' }),
+      ).rejects.toThrow(ForbiddenException);
+      expect(prisma.document.update).not.toHaveBeenCalled();
+    });
   });
 
   describe('Optimistic Locking', () => {
@@ -858,4 +887,63 @@ describe('DocumentsService', () => {
       );
     });
   });
+
+  describe('final accountant approval for payment requests', () => {
+    const finalAccountantDocument = {
+      id: 91,
+      code: 'DNTT-2026-091',
+      title: 'Thanh toán dự án Alpha',
+      type: 'payment_request',
+      status: 'Chờ duyệt',
+      createdById: 10,
+      createdBy: { id: 10, departmentId: 1 },
+      version: 3,
+      steps: [
+        { id: 901, stepOrder: 1, roleRequired: 'ceo', status: 'approved' },
+        { id: 902, stepOrder: 2, roleRequired: 'accountant', status: 'pending' },
+      ],
+    };
+
+    it('rejects final accountant approval when that accountant has not uploaded proof', async () => {
+      prisma.document.findUnique.mockResolvedValue(finalAccountantDocument);
+      prisma.attachment.count.mockResolvedValue(0);
+
+      await expect(
+        service.approveStep(
+          91,
+          902,
+          { id: 25, roles: [{ name: 'accountant' }] },
+          { comment: 'UNC 88291' },
+          3,
+        ),
+      ).rejects.toThrow('Bắt buộc đính kèm chứng từ giao dịch');
+    });
+
+    it('finishes as Đã duyệt after proof-backed accountant approval', async () => {
+      prisma.document.findUnique.mockResolvedValue(finalAccountantDocument);
+      prisma.attachment.count.mockResolvedValue(1);
+      prisma.document.update.mockResolvedValue({
+        ...finalAccountantDocument,
+        status: 'Đã duyệt',
+      });
+
+      await service.approveStep(
+        91,
+        902,
+        { id: 25, roles: [{ name: 'accountant' }] },
+        { comment: 'Đã chuyển khoản UNC 88291' },
+        3,
+      );
+
+      expect(prisma.attachment.count).toHaveBeenCalledWith({
+        where: { entityType: 'document', entityId: 91, uploadedById: 25 },
+      });
+      expect(prisma.document.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: 'Đã duyệt' }),
+        }),
+      );
+    });
+  });
+
 });

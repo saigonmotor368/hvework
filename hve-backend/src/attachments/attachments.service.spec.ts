@@ -18,6 +18,8 @@ describe('AttachmentsService', () => {
         create: vi.fn(),
         findMany: vi.fn(),
       },
+      document: { findFirst: vi.fn() },
+      task: { findFirst: vi.fn() },
     };
 
     googleDrive = {
@@ -89,6 +91,24 @@ describe('AttachmentsService', () => {
   });
 
   describe('createAttachment', () => {
+    it('blocks direct registration against a document outside the caller scope', async () => {
+      prisma.document.findFirst.mockResolvedValue(null);
+      await expect(
+        service.createAttachment(
+          { id: 10, roles: ['employee'] },
+          {
+            fileName: 'chung_tu.pdf',
+            mimeType: 'application/pdf',
+            size: 500000,
+            fileUrl: '/attachments/file/safe-key',
+            entityType: 'document',
+            entityId: 999,
+          },
+        ),
+      ).rejects.toThrow('Bạn không có quyền đính kèm tệp');
+      expect(prisma.attachment.create).not.toHaveBeenCalled();
+    });
+
     it('should create attachment with version 1 if first upload', async () => {
       prisma.attachment.findFirst.mockResolvedValue(null);
       prisma.attachment.create.mockResolvedValue({

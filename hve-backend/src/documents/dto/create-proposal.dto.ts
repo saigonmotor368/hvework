@@ -1,6 +1,7 @@
 import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { ProjectFieldsDto } from '../../common/dto/project-fields.dto.js';
 
-export class CreateProposalDto {
+export class CreateProposalDto extends ProjectFieldsDto {
   @IsString({ message: 'Tiêu đề đề xuất phải là chuỗi' })
   @IsNotEmpty({ message: 'Tiêu đề đề xuất không được để trống' })
   title: string;

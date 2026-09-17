@@ -117,8 +117,11 @@ export async function uploadAttachment(
   apiBaseUrl: string,
   token: string,
   file: File,
-  fetcher: Fetcher = fetch,
+  targetOrFetcher: Fetcher | { entityType: 'document' | 'task'; entityId: number } = fetch,
+  customFetcher: Fetcher = fetch,
 ): Promise<number> {
+  const target = typeof targetOrFetcher === 'function' ? undefined : targetOrFetcher;
+  const fetcher = typeof targetOrFetcher === 'function' ? targetOrFetcher : customFetcher;
   const mimeType = file.type || 'application/pdf';
   const presignResponse = await fetcher(apiUrl(apiBaseUrl, '/attachments/presigned-url'), {
     method: 'POST',
@@ -126,7 +129,7 @@ export async function uploadAttachment(
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ fileName: file.name, mimeType, size: file.size }),
+    body: JSON.stringify({ fileName: file.name, mimeType, size: file.size, ...(target || {}) }),
   });
 
   if (!presignResponse.ok) {
@@ -160,6 +163,7 @@ export async function uploadAttachment(
       mimeType,
       size: uploaded.size ?? file.size,
       fileUrl: uploaded.fileUrl,
+      ...(target || {}),
     }),
   });
 

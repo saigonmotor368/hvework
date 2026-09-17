@@ -34,7 +34,7 @@ export class DocumentsController {
     @Body() dto: CreatePaymentRequestDto,
     @Req() req: any,
   ) {
-    return this.documentsService.createPaymentRequest(req.user.id, dto, req.ip);
+    return this.documentsService.createPaymentRequest(req.user, dto, req.ip);
   }
 
   @Post('proposals')
@@ -43,7 +43,7 @@ export class DocumentsController {
     @Body() dto: CreateProposalDto,
     @Req() req: any,
   ) {
-    return this.documentsService.createProposal(req.user.id, dto, req.ip);
+    return this.documentsService.createProposal(req.user, dto, req.ip);
   }
 
   @Post('contracts')
@@ -52,7 +52,7 @@ export class DocumentsController {
     @Body() dto: CreateContractDto,
     @Req() req: any,
   ) {
-    return this.documentsService.createContract(req.user.id, dto, req.ip);
+    return this.documentsService.createContract(req.user, dto, req.ip);
   }
 
   @Get('contracts/expiring')
@@ -70,8 +70,14 @@ export class DocumentsController {
     @Query('status') status?: string,
     @Query('type') type?: string,
     @Query('tab') tab?: string,
+    @Query('projectId') projectId?: string,
   ) {
-    return this.documentsService.findAll(req.user, { status, type, tab });
+    return this.documentsService.findAll(req.user, {
+      status,
+      type,
+      tab,
+      projectId: projectId ? parseInt(projectId, 10) : undefined,
+    });
   }
 
   @Get(':id')

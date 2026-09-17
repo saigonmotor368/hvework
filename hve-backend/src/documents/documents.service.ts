@@ -14,7 +14,11 @@ import { UpdatePaymentRequestDto } from './dto/update-payment-request.dto.js';
 import { ActionStepDto, RejectOrReturnStepDto } from './dto/action-step.dto.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { AuthService } from '../auth/auth.service.js';
-import { buildDocumentAccessWhere, getRoleNames } from '../common/access-scope.js';
+import {
+  buildDocumentAccessWhere,
+  getRoleNames,
+  getUserProjectIds,
+} from '../common/access-scope.js';
 
 @Injectable()
 export class DocumentsService {
@@ -24,6 +28,72 @@ export class DocumentsService {
     private notificationsService: NotificationsService,
     private authService: AuthService,
   ) {}
+
+  private async validateProjectSelection(
+    user: any,
+    projectId?: number,
+    linkedProjectIds: number[] = [],
+  ) {
+    const selectedIds = [...new Set([...(projectId ? [projectId] : []), ...linkedProjectIds])];
+    if (selectedIds.length === 0) return;
+
+    const projects = await this.prisma.project.findMany({
+      where: { id: { in: selectedIds }, isActive: true },
+      select: { id: true },
+    });
+    if (projects.length !== selectedIds.length) {
+      throw new BadRequestException('Có dự án không tồn tại hoặc đã ngừng hoạt động');
+    }
+
+    const roles = getRoleNames(user);
+    const ownProjectIds = getUserProjectIds(user);
+    const canLinkProjects = roles.some((role) =>
+      ['ceo', 'it_admin', 'department_head'].includes(role),
+    );
+    if (projectId && !roles.some((role) => ['ceo', 'it_admin'].includes(role)) && !ownProjectIds.includes(projectId)) {
+      throw new ForbiddenException('Bạn không thuộc dự án đã chọn');
+    }
+    if (!canLinkProjects && linkedProjectIds.some((id) => !ownProjectIds.includes(id))) {
+      throw new ForbiddenException('Bạn không có quyền liên kết hồ sơ với dự án khác');
+    }
+  }
+
+  private async validateNewAttachments(userId: number, attachmentIds: number[] = []) {
+    if (attachmentIds.length === 0) return;
+    const uniqueIds = [...new Set(attachmentIds)];
+    const count = await this.prisma.attachment.count({
+      where: {
+        id: { in: uniqueIds },
+        uploadedById: userId,
+        entityId: 0,
+      },
+    });
+    if (count !== uniqueIds.length) {
+      throw new ForbiddenException('Có tệp đính kèm không thuộc phiên tải lên của bạn');
+    }
+  }
+
+  private assertDepartmentHeadDocumentScope(doc: any, user: any) {
+    const userProjectIds = getUserProjectIds(user);
+    const linkedProjectIds = Array.isArray(doc.linkedProjectIds)
+      ? (doc.linkedProjectIds as number[])
+      : [];
+    const canHandleProject = doc.projectId
+      ? userProjectIds.includes(doc.projectId) ||
+        linkedProjectIds.some((id) => userProjectIds.includes(id))
+      : false;
+    const creatorDeptId = doc.createdBy?.departmentId;
+    const userDeptId = user.departmentId || user.department?.id;
+    const canHandleLegacy =
+      !doc.projectId &&
+      Boolean(creatorDeptId && userDeptId && creatorDeptId === userDeptId);
+
+    if (!canHandleProject && !canHandleLegacy) {
+      throw new ForbiddenException(
+        'Bạn chỉ được xử lý hồ sơ thuộc dự án mình phụ trách/tham gia',
+      );
+    }
+  }
 
   async generateDocumentCode(prefix: string): Promise<string> {
     const year = new Date().getFullYear();
@@ -58,7 +128,7 @@ export class DocumentsService {
    * Bắn thông báo tức thời cho người/vai trò duyệt của bước hiện tại
    */
   async notifyStepApprovers(
-    doc: { id: number; code: string; title: string; createdBy?: { name?: string; departmentId?: number | null } },
+    doc: { id: number; code: string; title: string; projectId?: number | null; createdBy?: { name?: string; departmentId?: number | null } },
     stepOrder: number,
     roleRequired: string,
   ) {
@@ -66,8 +136,15 @@ export class DocumentsService {
       let approverIds: number[] = [];
 
       if (roleRequired === 'department_head') {
-        const deptId = doc.createdBy?.departmentId;
-        if (deptId) {
+        if (doc.projectId) {
+          const project = await this.prisma.project.findUnique({
+            where: { id: doc.projectId },
+            select: { leadUserId: true },
+          });
+          approverIds = project?.leadUserId ? [project.leadUserId] : [];
+        } else {
+          const deptId = doc.createdBy?.departmentId;
+          if (deptId) {
           const deptHeads = await this.prisma.user.findMany({
             where: {
               departmentId: deptId,
@@ -77,6 +154,7 @@ export class DocumentsService {
             select: { id: true },
           });
           approverIds = deptHeads.map((u) => u.id);
+          }
         }
       } else {
         const roleUsers = await this.prisma.user.findMany({
@@ -105,7 +183,10 @@ export class DocumentsService {
     }
   }
 
-  async createPaymentRequest(userId: number, dto: CreatePaymentRequestDto, ip?: string) {
+  async createPaymentRequest(user: any, dto: CreatePaymentRequestDto, ip?: string) {
+    const userId = user.id;
+    await this.validateProjectSelection(user, dto.projectId, dto.linkedProjectIds);
+    await this.validateNewAttachments(userId, dto.attachmentIds);
     const code = await this.generateDocumentCode('DNTT');
 
     const dataJson = {
@@ -126,6 +207,8 @@ export class DocumentsService {
         status: 'Nháp',
         dataJson,
         createdById: userId,
+        projectId: dto.projectId || null,
+        linkedProjectIds: dto.linkedProjectIds || [],
         version: 1,
       },
       include: {
@@ -138,7 +221,7 @@ export class DocumentsService {
     // Update attachments if provided
     if (dto.attachmentIds && dto.attachmentIds.length > 0) {
       await this.prisma.attachment.updateMany({
-        where: { id: { in: dto.attachmentIds } },
+        where: { id: { in: dto.attachmentIds }, uploadedById: userId, entityId: 0 },
         data: { entityId: document.id, entityType: 'document' },
       });
     }
@@ -155,7 +238,10 @@ export class DocumentsService {
     return document;
   }
 
-  async createProposal(userId: number, dto: CreateProposalDto, ip?: string) {
+  async createProposal(user: any, dto: CreateProposalDto, ip?: string) {
+    const userId = user.id;
+    await this.validateProjectSelection(user, dto.projectId, dto.linkedProjectIds);
+    await this.validateNewAttachments(userId, dto.attachmentIds);
     const code = await this.generateDocumentCode('DX');
 
     const dataJson = {
@@ -171,6 +257,8 @@ export class DocumentsService {
         status: 'Nháp',
         dataJson,
         createdById: userId,
+        projectId: dto.projectId || null,
+        linkedProjectIds: dto.linkedProjectIds || [],
         version: 1,
       },
       include: {
@@ -182,7 +270,7 @@ export class DocumentsService {
 
     if (dto.attachmentIds && dto.attachmentIds.length > 0) {
       await this.prisma.attachment.updateMany({
-        where: { id: { in: dto.attachmentIds } },
+        where: { id: { in: dto.attachmentIds }, uploadedById: userId, entityId: 0 },
         data: { entityId: document.id, entityType: 'document' },
       });
     }
@@ -199,7 +287,10 @@ export class DocumentsService {
     return document;
   }
 
-  async createContract(userId: number, dto: CreateContractDto, ip?: string) {
+  async createContract(user: any, dto: CreateContractDto, ip?: string) {
+    const userId = user.id;
+    await this.validateProjectSelection(user, dto.projectId, dto.linkedProjectIds);
+    await this.validateNewAttachments(userId, dto.attachmentIds);
     if (new Date(dto.endDate) < new Date(dto.startDate)) {
       throw new BadRequestException('Ngày hết hạn hợp đồng không được trước ngày hiệu lực');
     }
@@ -224,6 +315,8 @@ export class DocumentsService {
         status: 'Nháp',
         dataJson,
         createdById: userId,
+        projectId: dto.projectId || null,
+        linkedProjectIds: dto.linkedProjectIds || [],
         version: 1,
       },
       include: {
@@ -235,7 +328,7 @@ export class DocumentsService {
 
     if (dto.attachmentIds && dto.attachmentIds.length > 0) {
       await this.prisma.attachment.updateMany({
-        where: { id: { in: dto.attachmentIds } },
+        where: { id: { in: dto.attachmentIds }, uploadedById: userId, entityId: 0 },
         data: { entityId: document.id, entityType: 'document' },
       });
     }
@@ -436,6 +529,8 @@ export class DocumentsService {
           revision: nextRevision,
         },
         createdById: userId,
+        projectId: doc.projectId,
+        linkedProjectIds: doc.linkedProjectIds || [],
         version: 1, // Hồ sơ nháp mới bắt đầu bộ đếm optimistic lock từ 1
       },
       include: {
@@ -550,7 +645,7 @@ export class DocumentsService {
         },
         include: {
           steps: { orderBy: { stepOrder: 'asc' } },
-          createdBy: { select: { id: true, name: true, email: true } },
+          createdBy: { select: { id: true, name: true, email: true, departmentId: true } },
         },
       });
 
@@ -630,21 +725,30 @@ export class DocumentsService {
       );
     }
 
-    // Check department scoping for department_head
+    // Project scope replaces department scope for project records. Legacy
+    // records without projectId continue using department scope.
     if (step.roleRequired === 'department_head') {
-      const creatorDeptId = doc.createdBy?.departmentId;
-      const userDeptId = user.departmentId || user.department?.id;
-      if (!creatorDeptId || !userDeptId || creatorDeptId !== userDeptId) {
-        throw new ForbiddenException(
-          'Quy định kiểm soát nội bộ: Trưởng bộ phận chỉ được quyền phê duyệt hồ sơ của nhân sự thuộc bộ phận mình phụ trách',
-        );
-      }
+      this.assertDepartmentHeadDocumentScope(doc, user);
     }
 
     // Bắt buộc mã PIN xác nhận duyệt cho bước phê duyệt CUỐI CÙNG do CEO thực
     // hiện — xác định động theo cấu hình luồng hiện tại (stepOrder lớn nhất),
     // không hardcode, để đúng ngay cả khi IT admin đổi lại số cấp duyệt sau này.
     const maxStepOrder = Math.max(...doc.steps.map((s) => s.stepOrder));
+    const isFinalAccountantStep =
+      doc.type === 'payment_request' &&
+      step.roleRequired === 'accountant' &&
+      step.stepOrder === maxStepOrder;
+    if (isFinalAccountantStep) {
+      const proofCount = await this.prisma.attachment.count({
+        where: { entityType: 'document', entityId: documentId, uploadedById: user.id },
+      });
+      if (proofCount === 0) {
+        throw new BadRequestException(
+          'Bắt buộc đính kèm chứng từ giao dịch trước khi Kế toán duyệt bước cuối.',
+        );
+      }
+    }
     const isFinalCeoStep = step.roleRequired === 'ceo' && step.stepOrder === maxStepOrder;
     if (isFinalCeoStep) {
       // CEO có thể tự bật/tắt yêu cầu PIN — chỉ bắt buộc khi đang bật.
@@ -682,7 +786,6 @@ export class DocumentsService {
           data: { status: 'pending' },
         });
       } else {
-        // All steps completed -> Approved
         newDocumentStatus = 'Đã duyệt';
       }
 
@@ -698,10 +801,11 @@ export class DocumentsService {
         },
       });
 
+      const isFinalDocApproval = newDocumentStatus === 'Đã duyệt';
       await this.auditService.logEvent({
         entityType: 'Document',
         entityId: doc.id,
-        action: newDocumentStatus === 'Đã duyệt' ? 'approve_document_final' : 'approve_step',
+        action: isFinalDocApproval ? 'approve_document_final' : 'approve_step',
         actorId: user.id,
         beforeJson: { stepOrder: step.stepOrder, roleRequired: step.roleRequired },
         afterJson: {
@@ -726,7 +830,7 @@ export class DocumentsService {
         eventType: 'document_approved',
         entityRef: `document:${doc.id}`,
         title: `Hồ sơ đã được phê duyệt: ${doc.code}`,
-        content: `Hồ sơ "${doc.title}" của bạn đã hoàn tất phê duyệt bởi Ban Giám đốc.`,
+        content: `Hồ sơ "${doc.title}" của bạn đã hoàn tất quy trình phê duyệt.`,
         link: `/documents?id=${doc.id}`,
         dedupeKey: `doc_approved_${doc.id}_${Date.now()}`,
       });
@@ -793,9 +897,10 @@ export class DocumentsService {
         },
       });
 
+      const newStatus = 'Đã duyệt';
       const updatedDoc = await tx.document.update({
         where: { id: documentId },
-        data: { status: 'Đã duyệt', version: doc.version + 1 },
+        data: { status: newStatus, version: doc.version + 1 },
         include: {
           steps: { orderBy: { stepOrder: 'asc' } },
           createdBy: { select: { id: true, name: true, email: true } },
@@ -809,7 +914,7 @@ export class DocumentsService {
         actorId: user.id,
         beforeJson: { status: doc.status, remainingSteps: doc.steps.filter((s: any) => s.status !== 'approved').length },
         afterJson: {
-          status: 'Đã duyệt',
+          status: newStatus,
           comment: dto?.comment || 'CEO duyệt thẳng toàn bộ quy trình',
         },
         ip,
@@ -874,22 +979,15 @@ export class DocumentsService {
       throw new ForbiddenException('Người tạo không được thao tác trên bước phê duyệt của mình');
     }
 
-    const userRoleNames: string[] = user.roles ? user.roles.map((r: any) => r.name) : [];
+    const userRoleNames = getRoleNames(user);
     if (!userRoleNames.includes(step.roleRequired)) {
       throw new ForbiddenException(
         `Bạn không có vai trò '${step.roleRequired}' để thực hiện trả lại hồ sơ`,
       );
     }
 
-    // Check department scoping for department_head
     if (step.roleRequired === 'department_head') {
-      const creatorDeptId = doc.createdBy?.departmentId;
-      const userDeptId = user.departmentId || user.department?.id;
-      if (!creatorDeptId || !userDeptId || creatorDeptId !== userDeptId) {
-        throw new ForbiddenException(
-          'Quy định kiểm soát nội bộ: Trưởng bộ phận chỉ được quyền trả lại hồ sơ của nhân sự thuộc bộ phận mình phụ trách',
-        );
-      }
+      this.assertDepartmentHeadDocumentScope(doc, user);
     }
 
     const result = await this.prisma.$transaction(async (tx) => {
@@ -987,22 +1085,15 @@ export class DocumentsService {
       throw new ForbiddenException('Người tạo không được thao tác trên bước phê duyệt của mình');
     }
 
-    const userRoleNames: string[] = user.roles ? user.roles.map((r: any) => r.name) : [];
+    const userRoleNames = getRoleNames(user);
     if (!userRoleNames.includes(step.roleRequired)) {
       throw new ForbiddenException(
         `Bạn không có vai trò '${step.roleRequired}' để từ chối hồ sơ`,
       );
     }
 
-    // Check department scoping for department_head
     if (step.roleRequired === 'department_head') {
-      const creatorDeptId = doc.createdBy?.departmentId;
-      const userDeptId = user.departmentId || user.department?.id;
-      if (!creatorDeptId || !userDeptId || creatorDeptId !== userDeptId) {
-        throw new ForbiddenException(
-          'Quy định kiểm soát nội bộ: Trưởng bộ phận chỉ được quyền từ chối hồ sơ của nhân sự thuộc bộ phận mình phụ trách',
-        );
-      }
+      this.assertDepartmentHeadDocumentScope(doc, user);
     }
 
     const result = await this.prisma.$transaction(async (tx) => {
@@ -1057,7 +1148,10 @@ export class DocumentsService {
     return result;
   }
 
-  async findAll(user: any, query: { status?: string; type?: string; tab?: string }) {
+  async findAll(
+    user: any,
+    query: { status?: string; type?: string; tab?: string; projectId?: number },
+  ) {
     const userRoleNames: string[] = user.roles ? user.roles.map((r: any) => r.name) : [];
     const where: any = {};
     const accessScope = buildDocumentAccessWhere(user);
@@ -1068,6 +1162,12 @@ export class DocumentsService {
 
     if (query.status && query.status !== 'all') {
       where.status = query.status;
+    }
+    if (query.projectId) {
+      where.OR = [
+        { projectId: query.projectId },
+        { linkedProjectIds: { array_contains: [query.projectId] } },
+      ];
     }
 
     if (query.tab === 'my') {
@@ -1082,11 +1182,27 @@ export class DocumentsService {
           roleRequired: { in: nonDeptRoles },
         });
       }
+      const userProjectIds = getUserProjectIds(user);
+      if (userRoleNames.includes('department_head') && userProjectIds.length > 0) {
+        conditions.push({
+          status: 'pending',
+          roleRequired: 'department_head',
+          document: {
+            OR: [
+              { projectId: { in: userProjectIds } },
+              ...userProjectIds.map((projectId) => ({
+                linkedProjectIds: { array_contains: [projectId] },
+              })),
+            ],
+          },
+        });
+      }
       if (userRoleNames.includes('department_head') && userDeptId) {
         conditions.push({
           status: 'pending',
           roleRequired: 'department_head',
           document: {
+            projectId: null,
             createdBy: {
               departmentId: userDeptId,
             },
@@ -1116,6 +1232,7 @@ export class DocumentsService {
         steps: {
           orderBy: { stepOrder: 'asc' },
         },
+        project: true,
       },
     });
 
@@ -1132,6 +1249,7 @@ export class DocumentsService {
         steps: {
           orderBy: { stepOrder: 'asc' },
         },
+        project: true,
       },
     });
 
@@ -1149,6 +1267,7 @@ export class DocumentsService {
       attachments,
     });
   }
+
 
   async getExpiringContracts(user: any, offsetDays: number = 30) {
     const contracts = await this.findAll(user, { type: 'contract' });

@@ -3,6 +3,11 @@ export type UserWithBusinessScope = {
   departmentId?: number | null;
   department?: { id?: number | null; name?: string | null } | null;
   roles?: Array<string | { name: string }>;
+  ledProjects?: Array<{ id: number; name?: string | null; isActive?: boolean }>;
+  projectMemberships?: Array<{
+    projectId?: number;
+    project?: { id: number; name?: string | null; isActive?: boolean } | null;
+  }>;
 };
 
 export function getRoleNames(user: UserWithBusinessScope): string[] {
@@ -13,6 +18,25 @@ export function getRoleNames(user: UserWithBusinessScope): string[] {
 
 export function getDepartmentId(user: UserWithBusinessScope): number | null {
   return user.departmentId || user.department?.id || null;
+}
+
+export function getUserProjectIds(user: UserWithBusinessScope): number[] {
+  const ids = [
+    ...(user.ledProjects || [])
+      .filter((project) => project.isActive !== false)
+      .map((project) => project.id),
+    ...(user.projectMemberships || [])
+      .filter((membership) => membership.project?.isActive !== false)
+      .map((membership) => membership.projectId || membership.project?.id)
+      .filter((id): id is number => typeof id === 'number'),
+  ];
+  return [...new Set(ids)].sort((a, b) => a - b);
+}
+
+function linkedProjectConditions(projectIds: number[]) {
+  return projectIds.map((projectId) => ({
+    linkedProjectIds: { array_contains: [projectId] },
+  }));
 }
 
 export function hasBusinessRole(
@@ -32,13 +56,25 @@ export function hasBusinessRole(
  */
 export function buildDocumentAccessWhere(user: UserWithBusinessScope): any {
   const roles = getRoleNames(user);
-  if (roles.includes('ceo')) return {};
+  // BGĐ (Ban Giám Đốc) xem toàn bộ như CEO nhưng không có quyền thực thi —
+  // quyền thực thi được chặn ở tầng RolesGuard/@Roles trên từng endpoint ghi
+  // dữ liệu (approve/reject/create/...), không liệt kê 'bgd' ở đó.
+  if (roles.includes('ceo') || roles.includes('bgd')) return {};
 
   const departmentId = getDepartmentId(user);
   const conditions: any[] = [{ createdById: user.id }];
 
-  if (roles.includes('department_head') && departmentId) {
-    conditions.push({ createdBy: { departmentId } });
+  if (roles.includes('department_head')) {
+    const projectIds = getUserProjectIds(user);
+    if (projectIds.length > 0) {
+      conditions.push({ projectId: { in: projectIds } });
+      conditions.push(...linkedProjectConditions(projectIds));
+    }
+    if (departmentId) {
+      conditions.push({
+        AND: [{ projectId: null }, { createdBy: { departmentId } }],
+      });
+    }
   }
   if (roles.includes('accountant')) {
     conditions.push({ type: 'payment_request' });
@@ -70,45 +106,73 @@ export function buildDocumentAccessWhere(user: UserWithBusinessScope): any {
  */
 export function buildTaskAccessWhere(user: UserWithBusinessScope): any {
   const roles = getRoleNames(user);
-  if (roles.includes('ceo')) return {};
+  if (roles.includes('ceo') || roles.includes('bgd')) return {};
 
   const departmentId = getDepartmentId(user);
-  if (roles.includes('department_head') && departmentId) {
-    return {
-      OR: [
-        { assignee: { departmentId } },
-        { createdBy: { departmentId } },
-      ],
-    };
+  const conditions: any[] = [
+    { assigneeId: user.id },
+    { createdById: user.id },
+  ];
+  if (roles.includes('department_head')) {
+    const projectIds = getUserProjectIds(user);
+    if (projectIds.length > 0) {
+      conditions.push({ projectId: { in: projectIds } });
+      conditions.push(...linkedProjectConditions(projectIds));
+    }
+    if (departmentId) {
+      conditions.push({
+        AND: [
+          { projectId: null },
+          {
+            OR: [
+              { assignee: { departmentId } },
+              { createdBy: { departmentId } },
+            ],
+          },
+        ],
+      });
+    }
   }
 
-  return {
-    OR: [
-      { assigneeId: user.id },
-      { createdById: user.id },
-    ],
-  };
+  return { OR: conditions };
 }
 
 export function describeBusinessScope(user: UserWithBusinessScope) {
   const roles = getRoleNames(user);
   const departmentId = getDepartmentId(user);
-  const isCeo = roles.includes('ceo');
-  const isDepartmentHead = roles.includes('department_head') && !!departmentId;
+  const projectIds = getUserProjectIds(user);
+  const isCeoStrict = roles.includes('ceo');
+  // "isCeo" ở đây chỉ dùng cho phạm vi XEM (view) — BGĐ xem như CEO nhưng
+  // không có quyền thực thi, nên các capability hành động (canAssignTasks...)
+  // phải dùng isCeoStrict, không dùng isCeo.
+  const isCeo = isCeoStrict || roles.includes('bgd');
+  const isDepartmentHead = roles.includes('department_head');
+  const projectNames = [
+    ...(user.ledProjects || []),
+    ...(user.projectMemberships || []).map((membership) => membership.project).filter(Boolean),
+  ]
+    .filter((project: any) => project.isActive !== false)
+    .map((project: any) => project.name)
+    .filter(Boolean);
+  const uniqueProjectNames = [...new Set(projectNames)];
 
   return {
-    level: isCeo ? 'company' : isDepartmentHead ? 'department' : 'personal',
+    level: isCeo ? 'company' : isDepartmentHead && projectIds.length > 0 ? 'project' : isDepartmentHead ? 'department' : 'personal',
     label: isCeo
       ? 'Toàn công ty'
-      : isDepartmentHead
+      : isDepartmentHead && uniqueProjectNames.length > 0
+        ? `Dự án ${uniqueProjectNames.join(', ')}`
+        : isDepartmentHead
         ? `Phòng ban${user.department?.name ? ` ${user.department.name}` : ''}`
         : 'Dữ liệu của tôi',
     departmentId,
+    projectIds,
     roles,
     capabilities: {
       canViewCompany: isCeo,
       canViewDepartment: isCeo || isDepartmentHead,
-      canAssignTasks: isCeo || roles.includes('department_head'),
+      canViewProject: isCeo || (isDepartmentHead && projectIds.length > 0),
+      canAssignTasks: isCeoStrict || roles.includes('department_head'),
       canViewFinancials: isCeo || roles.includes('accountant'),
       canViewLegal: isCeo || roles.includes('legal'),
       canManageSystem: roles.includes('it_admin'),

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { TASK_PRIORITY_LABELS, type TaskItem } from '../types';
+import { TASK_PRIORITY_LABELS, type ProjectItem, type TaskItem } from '../types';
 import { fetchWithSession, uploadAttachment } from '../api/client';
 
 interface CreateTaskModalProps {
@@ -10,6 +10,8 @@ interface CreateTaskModalProps {
   users: Array<{ id: number; name: string; email: string; department?: { name: string } }>;
   parentTask?: TaskItem | null;
   showToast: (msg: string, type?: 'success' | 'error') => void;
+  projects: ProjectItem[];
+  primaryProjects: ProjectItem[];
 }
 
 export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
@@ -20,6 +22,8 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
   users,
   parentTask,
   showToast,
+  projects,
+  primaryProjects,
 }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -32,6 +36,8 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
   const [recurrenceRule, setRecurrenceRule] = useState<string>('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [projectId, setProjectId] = useState<string>(parentTask?.projectId ? String(parentTask.projectId) : '');
+  const [linkedProjectIds, setLinkedProjectIds] = useState<number[]>(parentTask?.linkedProjectIds || []);
 
   if (!isOpen) return null;
 
@@ -77,6 +83,8 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
         collaboratorIds: collaboratorIds.length > 0 ? collaboratorIds : undefined,
         tags: tags.trim() || undefined,
         attachmentIds: attachmentIds.length > 0 ? attachmentIds : undefined,
+        projectId: projectId ? Number(projectId) : undefined,
+        linkedProjectIds: linkedProjectIds.length > 0 ? linkedProjectIds : undefined,
       };
 
       if (parentTask) {
@@ -146,6 +154,37 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
               placeholder="VD: Soát xét hợp đồng thuê văn phòng Q3/2026"
               className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0A66C2] focus:bg-white transition-all"
             />
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div>
+              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-gray-700">Dự án chính</label>
+              <select
+                value={projectId}
+                disabled={!!parentTask}
+                onChange={(e) => setProjectId(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-[#0A66C2] disabled:opacity-70"
+              >
+                <option value="">Không thuộc dự án</option>
+                {primaryProjects.filter((project) => project.isActive).map((project) => (
+                  <option key={project.id} value={project.id}>{project.code} — {project.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-gray-700">Dự án phối hợp</label>
+              <select
+                multiple
+                value={linkedProjectIds.map(String)}
+                disabled={!!parentTask}
+                onChange={(e) => setLinkedProjectIds(Array.from(e.target.selectedOptions).map((option) => Number(option.value)))}
+                className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-sm focus:ring-2 focus:ring-[#0A66C2] disabled:opacity-70"
+              >
+                {projects.filter((project) => project.isActive && String(project.id) !== projectId).map((project) => (
+                  <option key={project.id} value={project.id}>{project.code} — {project.name}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div>

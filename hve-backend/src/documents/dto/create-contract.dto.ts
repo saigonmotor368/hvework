@@ -1,6 +1,7 @@
 import { IsNotEmpty, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { ProjectFieldsDto } from '../../common/dto/project-fields.dto.js';
 
-export class CreateContractDto {
+export class CreateContractDto extends ProjectFieldsDto {
   @IsString({ message: 'Tiêu đề hợp đồng phải là chuỗi' })
   @IsNotEmpty({ message: 'Tiêu đề hợp đồng không được để trống' })
   title: string;

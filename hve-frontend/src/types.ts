@@ -17,6 +17,9 @@ export interface DocumentItem {
   version: number;
   createdById: number;
   createdAt: string;
+  projectId?: number | null;
+  project?: ProjectItem | null;
+  linkedProjectIds?: number[] | null;
   createdBy?: { id: number; name: string; email: string; department?: { id: number; name: string; code: string } };
   dataJson: {
     // payment_request
@@ -73,6 +76,17 @@ export interface DepartmentItem {
   code: string;
 }
 
+export interface ProjectItem {
+  id: number;
+  code: string;
+  name: string;
+  location?: string | null;
+  leadUserId?: number | null;
+  lead?: { id: number; name: string; email: string } | null;
+  members?: Array<{ userId: number; user: { id: number; name: string; email: string } }>;
+  isActive: boolean;
+}
+
 export interface AdminUser {
   id: number;
   email: string;
@@ -87,11 +101,12 @@ export interface AdminUser {
 
 export const ROLE_LABELS: Record<string, string> = {
   employee: 'Nhân viên',
-  department_head: 'Trưởng bộ phận',
+  department_head: 'Trưởng Ban',
   accountant: 'Kế toán',
   legal: 'Pháp chế',
   ceo: 'CEO',
   it_admin: 'Quản trị IT',
+  bgd: 'Ban Giám Đốc',
 };
 
 export const DOCUMENT_TYPE_LABELS: Record<string, string> = {
@@ -148,6 +163,9 @@ export interface TaskItem {
   isOverdue?: boolean;
   createdAt: string;
   updatedAt: string;
+  projectId?: number | null;
+  project?: ProjectItem | null;
+  linkedProjectIds?: number[] | null;
   attachments?: Array<{ id: number; fileName: string; size: number; mimeType: string; fileUrl: string }>;
   comments?: TaskComment[];
 }
@@ -165,4 +183,3 @@ export const TASK_STATUS_LABELS: Record<string, { label: string; color: string }
   'Chờ duyệt': { label: 'Chờ duyệt', color: 'bg-amber-100 text-amber-800' },
   'Hoàn thành': { label: 'Hoàn thành', color: 'bg-emerald-100 text-emerald-800' },
 };
-

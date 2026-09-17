@@ -2,14 +2,25 @@ import React from 'react';
 import { ROLE_LABELS } from '../types.js';
 import { PwaInstallPrompt } from './PwaInstallPrompt.js';
 
+type AppTab =
+  | 'overview'
+  | 'documents'
+  | 'create'
+  | 'tasks'
+  | 'reports'
+  | 'admin_workflows'
+  | 'admin_users'
+  | 'admin_projects'
+  | 'project_board';
+
 interface SidebarProps {
-  activeTab: 'overview' | 'documents' | 'create' | 'tasks' | 'reports' | 'admin_workflows' | 'admin_users';
+  activeTab: AppTab;
   pendingCount: number;
   taskCount?: number;
   user: any;
   isMobileOpen?: boolean;
   onClose?: () => void;
-  onSelectTab: (tab: 'overview' | 'documents' | 'create' | 'tasks' | 'reports' | 'admin_workflows' | 'admin_users') => void;
+  onSelectTab: (tab: AppTab) => void;
   onLogout: () => void;
   onOpenSetPin?: () => void;
 }
@@ -135,6 +146,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
 
           <button
+            onClick={() => handleTabSelect('project_board')}
+            className={`w-full flex items-center px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
+              activeTab === 'project_board'
+                ? 'bg-blue-50 text-[#0A66C2] font-semibold'
+                : 'text-gray-600 hover:bg-slate-50'
+            }`}
+          >
+            <span className="mr-3">💬</span> Bảng tin dự án
+          </button>
+
+          <button
             onClick={() => handleTabSelect('create')}
             className={`w-full flex items-center px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
               activeTab === 'create'
@@ -151,6 +173,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <div className="px-3.5 pb-1 text-[11px] font-bold text-gray-400 uppercase tracking-wider">
                 Quản trị hệ thống
               </div>
+
+              <button
+                onClick={() => handleTabSelect('admin_projects')}
+                className={`w-full flex items-center px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                  activeTab === 'admin_projects'
+                    ? 'bg-blue-50 text-[#0A66C2] font-semibold'
+                    : 'text-gray-600 hover:bg-slate-50'
+                }`}
+              >
+                <span className="mr-3">🏗️</span> Quản lý dự án
+              </button>
 
               <button
                 onClick={() => handleTabSelect('admin_workflows')}

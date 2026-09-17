@@ -6,8 +6,9 @@ import {
   IsOptional,
   IsString,
 } from 'class-validator';
+import { ProjectFieldsDto } from '../../common/dto/project-fields.dto.js';
 
-export class CreateTaskDto {
+export class CreateTaskDto extends ProjectFieldsDto {
   @IsString({ message: 'Tiêu đề công việc phải là chuỗi' })
   @IsNotEmpty({ message: 'Tiêu đề công việc không được để trống' })
   title: string;

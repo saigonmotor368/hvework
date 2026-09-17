@@ -1,5 +1,6 @@
-import React from 'react';
-import { type DocumentItem, type ApprovalStep, ROLE_LABELS, DOCUMENT_TYPE_LABELS } from '../types';
+import React, { useState } from 'react';
+import { type DocumentItem, type ApprovalStep, type ProjectItem, ROLE_LABELS, DOCUMENT_TYPE_LABELS } from '../types';
+import { uploadAttachment } from '../api/client';
 
 interface DocumentDetailModalProps {
   selectedDoc: DocumentItem;
@@ -10,9 +11,12 @@ interface DocumentDetailModalProps {
   onBack: () => void;
   onSubmitDraft: (doc: DocumentItem) => void;
   onCreateNewVersion: (doc: DocumentItem) => void;
-  onApproveStep: (doc: DocumentItem, step: ApprovalStep) => void;
+  onApproveStep: (doc: DocumentItem, step: ApprovalStep, comment?: string) => void;
   onApproveDirect: (doc: DocumentItem) => void;
   onOpenModalAction: (type: 'return' | 'reject', stepId: number, docId: number) => void;
+  projects: ProjectItem[];
+  onAttachmentUploaded: () => void;
+  showToast: (message: string, type?: 'success' | 'error') => void;
 }
 
 export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
@@ -27,7 +31,36 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
   onApproveStep,
   onApproveDirect,
   onOpenModalAction,
+  projects,
+  onAttachmentUploaded,
+  showToast,
 }) => {
+  const [proofFile, setProofFile] = useState<File | null>(null);
+  const [uploadingProof, setUploadingProof] = useState(false);
+  const [proofUploaded, setProofUploaded] = useState(false);
+  const [approvalComment, setApprovalComment] = useState('');
+
+  const uploadPaymentProof = async () => {
+    const token = localStorage.getItem('access_token');
+    if (!token || !proofFile) return;
+    setUploadingProof(true);
+    try {
+      await uploadAttachment(apiBaseUrl, token, proofFile, {
+        entityType: 'document',
+        entityId: selectedDoc.id,
+      });
+      setProofUploaded(true);
+      setProofFile(null);
+      showToast('Đã đính kèm chứng từ giao dịch vào hồ sơ.');
+      onAttachmentUploaded();
+    } catch (error: any) {
+      showToast(error.message || 'Không thể tải chứng từ giao dịch', 'error');
+    } finally {
+      setUploadingProof(false);
+    }
+  };
+
+  const linkedProjects = projects.filter((project) => selectedDoc.linkedProjectIds?.includes(project.id));
   return (
     <div className="min-w-0 space-y-4 md:space-y-6">
       {/* Back button & versioning */}
@@ -77,6 +110,16 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
                 {DOCUMENT_TYPE_LABELS[selectedDoc.type] || selectedDoc.type}
               </span>
               {getStatusBadge(selectedDoc.status)}
+              {selectedDoc.project && (
+                <span className="rounded-md bg-blue-50 px-2.5 py-1 text-xs font-bold text-[#0A66C2]">
+                  🏗️ {selectedDoc.project.code} — {selectedDoc.project.name}
+                </span>
+              )}
+              {linkedProjects.map((project) => (
+                <span key={project.id} className="rounded-md bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-700">
+                  ↔ {project.code}
+                </span>
+              ))}
             </div>
             <p className="text-xs text-gray-400 mt-1.5">
               Mã hồ sơ: <strong className="text-gray-700">{selectedDoc.code}</strong> — Tạo lúc:{' '}
@@ -197,6 +240,7 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
                 {selectedDoc.dataJson?.content}
               </p>
             </div>
+
           </div>
         )}
 
@@ -275,11 +319,16 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
                 // Department scoping check for UI
                 let departmentMatch = true;
                 if (step.roleRequired === 'department_head') {
+                  const userProjectIds = (user?.projects || []).map((project: ProjectItem) => project.id);
+                  const projectMatch = selectedDoc.projectId
+                    ? userProjectIds.includes(selectedDoc.projectId) ||
+                      selectedDoc.linkedProjectIds?.some((id) => userProjectIds.includes(id))
+                    : false;
                   const creatorDeptId = selectedDoc.createdBy?.department?.id;
                   const userDeptId = user?.departmentId || user?.department?.id;
-                  if (creatorDeptId && userDeptId && creatorDeptId !== userDeptId) {
-                    departmentMatch = false;
-                  }
+                  departmentMatch = selectedDoc.projectId
+                    ? Boolean(projectMatch)
+                    : Boolean(creatorDeptId && userDeptId && creatorDeptId === userDeptId);
                 }
 
                 const canAct = isPending && hasRole && !isCreator && departmentMatch;
@@ -354,12 +403,33 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
                           ) : !departmentMatch && hasRole ? (
                             <div className="text-xs font-semibold text-gray-600 bg-gray-50 p-2.5 rounded-lg border border-gray-200 flex items-center">
                               <span className="mr-2">🔒</span>
-                              Giới hạn phạm vi: Bạn là Trưởng bộ phận nhưng hồ sơ này thuộc bộ phận khác ({selectedDoc.createdBy?.department?.name || 'khác'}).
+                              Giới hạn phạm vi: Hồ sơ này không thuộc dự án bạn phụ trách hoặc được chia sẻ.
                             </div>
                           ) : canAct ? (
-                            <div className="flex items-center space-x-2">
+                            <div className="space-y-3">
+                              {selectedDoc.type === 'payment_request' &&
+                                step.roleRequired === 'accountant' &&
+                                step.stepOrder === Math.max(...(selectedDoc.steps || []).map((item) => item.stepOrder)) && (
+                                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                                    <p className="mb-2 text-xs font-bold text-emerald-800">Chứng từ giao dịch bắt buộc trước khi duyệt</p>
+                                    <div className="flex flex-col gap-2 sm:flex-row">
+                                      <input type="file" onChange={(event) => setProofFile(event.target.files?.[0] || null)} className="min-w-0 flex-1 text-xs" />
+                                      <button type="button" onClick={uploadPaymentProof} disabled={!proofFile || uploadingProof} className="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white disabled:opacity-50">
+                                        {uploadingProof ? 'Đang tải...' : proofUploaded ? 'Đã tải ✓' : 'Tải chứng từ'}
+                                      </button>
+                                    </div>
+                                    <textarea
+                                      value={approvalComment}
+                                      onChange={(event) => setApprovalComment(event.target.value)}
+                                      placeholder="Ý kiến (tùy chọn): mã giao dịch, ngày chi tiền..."
+                                      rows={2}
+                                      className="mt-2 w-full rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs"
+                                    />
+                                  </div>
+                                )}
+                              <div className="flex flex-wrap items-center gap-2">
                               <button
-                                onClick={() => onApproveStep(selectedDoc, step)}
+                                onClick={() => onApproveStep(selectedDoc, step, approvalComment.trim() || undefined)}
                                 disabled={isProcessing}
                                 className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 shadow-sm transition-all disabled:opacity-50"
                               >
@@ -379,6 +449,7 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
                               >
                                 Từ chối hồ sơ
                               </button>
+                              </div>
                             </div>
                           ) : (
                             <p className="text-xs text-gray-400 italic">

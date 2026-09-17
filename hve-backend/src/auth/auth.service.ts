@@ -54,6 +54,14 @@ export class AuthService {
       department: user.department?.name || null,
       departmentId: user.departmentId || null,
       roles: user.roles.map((r: { name: string }) => r.name),
+      projects: [
+        ...(user.ledProjects || []),
+        ...(user.projectMemberships || []).map((membership: any) => membership.project),
+      ].filter(
+        (project: any, index: number, projects: any[]) =>
+          project?.isActive !== false &&
+          projects.findIndex((candidate: any) => candidate?.id === project?.id) === index,
+      ),
     };
   }
 
@@ -62,7 +70,12 @@ export class AuthService {
     const { password } = loginDto;
     const user = await this.prisma.user.findUnique({
       where: { email },
-      include: { roles: true, department: true },
+      include: {
+        roles: true,
+        department: true,
+        ledProjects: true,
+        projectMemberships: { include: { project: true } },
+      },
     });
 
     if (!user) {
@@ -244,7 +257,16 @@ export class AuthService {
   ) {
     const challenge = await this.prisma.loginChallenge.findUnique({
       where: { id: dto.challengeId },
-      include: { user: { include: { roles: true, department: true } } },
+      include: {
+        user: {
+          include: {
+            roles: true,
+            department: true,
+            ledProjects: true,
+            projectMemberships: { include: { project: true } },
+          },
+        },
+      },
     });
 
     if (
@@ -451,7 +473,12 @@ export class AuthService {
 
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
-      include: { roles: true, department: true },
+      include: {
+        roles: true,
+        department: true,
+        ledProjects: true,
+        projectMemberships: { include: { project: true } },
+      },
     });
 
     if (!user || user.status !== 'active' || !user.refreshTokenHash) {

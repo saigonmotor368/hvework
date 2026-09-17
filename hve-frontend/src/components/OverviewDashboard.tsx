@@ -83,7 +83,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
   }, [user]);
 
   const userRoles: string[] = user?.roles || [];
-  const isCeo = userRoles.includes('ceo');
+  const isCeo = userRoles.includes('ceo') || userRoles.includes('bgd');
   const isDeptHead = userRoles.includes('department_head');
   const capabilities = dashboardData?.capabilities || {};
   const scopeLabel = dashboardData?.scope?.label ||

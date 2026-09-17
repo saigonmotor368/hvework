@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { MOCK_REPORTS_SUMMARY } from '../mockData';
 import { ENABLE_MOCK_DATA } from '../config';
 import { BrandLoader } from './BrandLoader';
+import type { ProjectItem } from '../types';
 
 interface ReportsViewProps {
   apiBaseUrl: string;
@@ -9,6 +10,7 @@ interface ReportsViewProps {
   showToast: (msg: string, type?: 'success' | 'error') => void;
   onSelectDoc?: (docId: number) => void;
   onSelectTask?: (taskId: number) => void;
+  projects: ProjectItem[];
 }
 
 export const ReportsView: React.FC<ReportsViewProps> = ({
@@ -17,6 +19,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   showToast,
   onSelectDoc,
   onSelectTask,
+  projects,
 }) => {
   const [activeTab, setActiveTab] = useState<'documents' | 'tasks' | 'financial' | 'audit_logs'>('documents');
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -30,6 +33,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   const [userId, setUserId] = useState<string>('');
   const [status, setStatus] = useState<string>('all');
   const [docType, setDocType] = useState<string>('');
+  const [projectId, setProjectId] = useState<string>('');
 
   // Dropdown lists
   const [departments, setDepartments] = useState<any[]>([
@@ -47,8 +51,8 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   ]);
 
   const userRoles: string[] = currentUser?.roles || [];
-  const isCeoOrAdmin = userRoles.includes('ceo') || userRoles.includes('it_admin');
-  const isCompanyWide = userRoles.some((r) => ['ceo', 'it_admin', 'accountant', 'legal'].includes(r));
+  const isCeoOrAdmin = userRoles.includes('ceo') || userRoles.includes('bgd') || userRoles.includes('it_admin');
+  const isCompanyWide = userRoles.some((r) => ['ceo', 'bgd', 'it_admin', 'accountant', 'legal'].includes(r));
   const isDeptHead = userRoles.includes('department_head');
   const isEmployee = !isCompanyWide && !isDeptHead;
 
@@ -134,6 +138,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
       if (userId) params.append('userId', userId);
       if (status && status !== 'all') params.append('status', status);
       if (docType) params.append('type', docType);
+      if (projectId) params.append('projectId', projectId);
 
       const res = await fetch(`${apiBaseUrl}/reports/summary?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -186,7 +191,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     } else {
       fetchSummary();
     }
-  }, [activeTab, startDate, endDate, departmentId, userId, status, docType]);
+  }, [activeTab, startDate, endDate, departmentId, userId, status, docType, projectId]);
 
   // Export CSV Handler
   const handleExportCsv = () => {
@@ -235,6 +240,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     setStartDate('');
     setEndDate('');
     setDepartmentId(isDeptHead && userDeptId ? String(userDeptId) : '');
+    setProjectId('');
     setUserId('');
     setStatus('all');
     setDocType('');
@@ -356,7 +362,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
           {/* Filter 1: Từ ngày */}
           <div>
             <label className="block text-[11px] font-bold text-gray-500 mb-1">Từ ngày</label>
@@ -377,6 +383,17 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
               onChange={(e) => setEndDate(e.target.value)}
               className="w-full text-xs p-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#0A66C2]"
             />
+          </div>
+
+          {/* Filter 3: Bộ phận */}
+          <div>
+            <label className="block text-[11px] font-bold text-gray-500 mb-1">Dự án</label>
+            <select value={projectId} onChange={(e) => setProjectId(e.target.value)} className="w-full text-xs p-2 rounded-lg border border-slate-200 bg-white">
+              <option value="">Tất cả dự án</option>
+              {projects.filter((project) => project.isActive).map((project) => (
+                <option key={project.id} value={project.id}>{project.code} — {project.name}</option>
+              ))}
+            </select>
           </div>
 
           {/* Filter 3: Bộ phận */}
@@ -484,29 +501,29 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           {activeTab === 'documents' && summaryData?.documents && (
             <div className="space-y-6">
               {/* Metric Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-white p-5 rounded-2xl border border-slate-200">
-                  <span className="text-xs font-bold text-gray-500 uppercase">Tổng số hồ sơ</span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
+                <div className="bg-white p-4 rounded-2xl border border-slate-200">
+                  <span className="text-[11px] font-bold text-gray-500 uppercase">Tổng số hồ sơ</span>
                   <p className="text-2xl font-black text-gray-900 mt-1">
                     {summaryData.documents.total}
                   </p>
                 </div>
-                <div className="bg-white p-5 rounded-2xl border border-slate-200">
-                  <span className="text-xs font-bold text-emerald-600 uppercase">Tỷ lệ phê duyệt</span>
+                <div className="bg-white p-4 rounded-2xl border border-slate-200">
+                  <span className="text-[11px] font-bold text-emerald-600 uppercase">Tỷ lệ phê duyệt</span>
                   <p className="text-2xl font-black text-emerald-700 mt-1">
                     {summaryData.documents.approvalRate}%
                   </p>
                 </div>
-                <div className="bg-white p-5 rounded-2xl border border-slate-200">
-                  <span className="text-xs font-bold text-amber-600 uppercase">Đang chờ xử lý</span>
+                <div className="bg-white p-4 rounded-2xl border border-slate-200">
+                  <span className="text-[11px] font-bold text-amber-600 uppercase">Chờ duyệt</span>
                   <p className="text-2xl font-black text-amber-700 mt-1">
                     {summaryData.documents.pending}
                   </p>
                 </div>
-                <div className="bg-white p-5 rounded-2xl border border-slate-200">
-                  <span className="text-xs font-bold text-[#0A66C2] uppercase">Thời gian duyệt TB</span>
+                <div className="bg-white p-4 rounded-2xl border border-slate-200">
+                  <span className="text-[11px] font-bold text-[#0A66C2] uppercase">Duyệt TB (giờ)</span>
                   <p className="text-2xl font-black text-[#0A66C2] mt-1">
-                    {summaryData.documents.avgApprovalTimeHours} giờ
+                    {summaryData.documents.avgApprovalTimeHours}
                   </p>
                 </div>
               </div>
@@ -644,20 +661,29 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           {activeTab === 'financial' && summaryData?.contracts && (
             <div className="space-y-6">
               {/* Metric Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="bg-white p-5 rounded-2xl border border-slate-200">
-                  <span className="text-xs font-bold text-gray-500 uppercase">Tổng số hợp đồng</span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-white p-4 rounded-2xl border border-slate-200">
+                  <span className="text-[11px] font-bold text-gray-500 uppercase">Tổng số hợp đồng</span>
                   <p className="text-2xl font-black text-gray-900 mt-1">{summaryData.contracts.total}</p>
                 </div>
-                <div className="bg-white p-5 rounded-2xl border border-slate-200">
-                  <span className="text-xs font-bold text-emerald-600 uppercase">Tổng giá trị hợp đồng</span>
-                  <p className="text-2xl font-black text-emerald-700 mt-1">
-                    {summaryData.contracts.totalValue?.toLocaleString('vi-VN')} VNĐ
+                <div className="bg-white p-4 rounded-2xl border border-slate-200">
+                  <span className="text-[11px] font-bold text-[#0A66C2] uppercase">Giá trị hợp đồng</span>
+                  <p className="text-lg font-black text-[#0A66C2] mt-1">
+                    {summaryData.contracts.totalValue ? Number(summaryData.contracts.totalValue).toLocaleString('vi-VN') : 0} đ
                   </p>
                 </div>
-                <div className="bg-white p-5 rounded-2xl border border-slate-200">
-                  <span className="text-xs font-bold text-amber-600 uppercase">Hợp đồng sắp hết hạn (≤30 ngày)</span>
-                  <p className="text-2xl font-black text-amber-700 mt-1">
+                <div className="bg-white p-4 rounded-2xl border border-slate-200">
+                  <span className="text-[11px] font-bold text-emerald-600 uppercase">Tổng đã giải ngân</span>
+                  <p className="text-lg font-black text-amber-700 mt-1">
+                    {(summaryData.payments?.totalDisbursedValue || 0).toLocaleString('vi-VN')} đ
+                  </p>
+                  <span className="text-[10px] text-gray-400 mt-0.5 block">
+                    {summaryData.payments?.disbursedCount || 0} đề nghị đã hoàn tất duyệt
+                  </span>
+                </div>
+                <div className="bg-white p-4 rounded-2xl border border-slate-200">
+                  <span className="text-[11px] font-bold text-rose-600 uppercase">HĐ sắp hết hạn (≤30 ngày)</span>
+                  <p className="text-2xl font-black text-rose-700 mt-1">
                     {summaryData.contracts.expiringSoonCount}
                   </p>
                 </div>

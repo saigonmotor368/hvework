@@ -1,4 +1,5 @@
-import { IsIn, IsOptional, IsString } from 'class-validator';
+import { IsIn, IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class TaskQueryDto {
   @IsOptional()
@@ -26,4 +27,10 @@ export class TaskQueryDto {
   @IsOptional()
   @IsString()
   tags?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  projectId?: number;
 }
