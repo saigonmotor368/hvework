@@ -126,17 +126,20 @@ export class DashboardService {
     const [documents, tasks, pendingDocuments, returnedDocuments, departments] =
       await Promise.all([
         this.prisma.document.findMany({
+          relationLoadStrategy: 'join',
           where: documentScope,
           select: documentSelect,
           orderBy: { createdAt: 'desc' },
         }),
         this.prisma.task.findMany({
+          relationLoadStrategy: 'join',
           where: { AND: [taskScope, { parentTaskId: null }] },
           select: taskSelect,
           orderBy: { createdAt: 'desc' },
         }),
         pendingStepConditions.length > 0
           ? this.prisma.document.findMany({
+              relationLoadStrategy: 'join',
               where: {
                 AND: [
                   documentScope,
@@ -156,6 +159,7 @@ export class DashboardService {
             })
           : Promise.resolve([]),
         this.prisma.document.findMany({
+          relationLoadStrategy: 'join',
           where: {
             createdById: user.id,
             status: { in: ['Nháp', 'Trả lại'] },
@@ -166,6 +170,7 @@ export class DashboardService {
         }),
         scope.capabilities.canViewCompany
           ? this.prisma.department.findMany({
+              relationLoadStrategy: 'join',
               include: {
                 users: {
                   select: {

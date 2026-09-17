@@ -782,6 +782,7 @@ export class TasksService {
     if (andConditions.length > 0) where.AND = andConditions;
 
     const tasks = await this.prisma.task.findMany({
+      relationLoadStrategy: 'join',
       where,
       include: {
         assignee: {
@@ -828,6 +829,7 @@ export class TasksService {
     taskId: number,
   ) {
     const task = await this.prisma.task.findFirst({
+      relationLoadStrategy: 'join',
       where: { AND: [{ id: taskId }, buildTaskAccessWhere(user)] },
       include: {
         assignee: {

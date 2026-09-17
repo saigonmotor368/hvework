@@ -107,6 +107,7 @@ export class ProjectsService {
     const canManage = roles.includes('ceo') || roles.includes('it_admin');
     const canBrowseAll = canManage || roles.includes('department_head');
     const projects = await this.prisma.project.findMany({
+      relationLoadStrategy: 'join',
       where: canManage
         ? undefined
         : canBrowseAll
@@ -134,6 +135,7 @@ export class ProjectsService {
 
   async findAllForAdmin() {
     return this.prisma.project.findMany({
+      relationLoadStrategy: 'join',
       include: projectInclude,
       orderBy: [{ isActive: 'desc' }, { name: 'asc' }],
     });

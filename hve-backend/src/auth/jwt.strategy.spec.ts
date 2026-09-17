@@ -20,6 +20,9 @@ describe('JwtStrategy auth context cache', () => {
   it('reuses the user context during the short cache window', async () => {
     const prisma = {
       user: { findUnique: vi.fn().mockResolvedValue(activeUser) },
+      department: { findUnique: vi.fn() },
+      role: { findMany: vi.fn().mockResolvedValue(activeUser.roles) },
+      project: { findMany: vi.fn().mockResolvedValue([]) },
     } as any;
     const strategy = new JwtStrategy(prisma);
 
@@ -36,6 +39,9 @@ describe('JwtStrategy auth context cache', () => {
     });
     const prisma = {
       user: { findUnique: vi.fn().mockReturnValue(pendingUser) },
+      department: { findUnique: vi.fn() },
+      role: { findMany: vi.fn().mockResolvedValue(activeUser.roles) },
+      project: { findMany: vi.fn().mockResolvedValue([]) },
     } as any;
     const strategy = new JwtStrategy(prisma);
 
@@ -50,6 +56,46 @@ describe('JwtStrategy auth context cache', () => {
     expect(prisma.user.findUnique).toHaveBeenCalledTimes(1);
   });
 
+  it('rebuilds the complete business scope from parallel relation queries', async () => {
+    const prisma = {
+      user: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 7,
+          email: activeUser.email,
+          status: 'active',
+          departmentId: 3,
+        }),
+      },
+      department: {
+        findUnique: vi.fn().mockResolvedValue({ id: 3, name: 'Vận hành' }),
+      },
+      role: {
+        findMany: vi.fn().mockResolvedValue([{ name: 'department_head' }]),
+      },
+      project: {
+        findMany: vi
+          .fn()
+          .mockResolvedValueOnce([{ id: 11, name: 'Dự án A', isActive: true }])
+          .mockResolvedValueOnce([{ id: 12, name: 'Dự án B', isActive: true }]),
+      },
+    } as any;
+    const strategy = new JwtStrategy(prisma);
+
+    const result = await strategy.validate({ sub: 7 });
+
+    expect(result.department).toEqual({ id: 3, name: 'Vận hành' });
+    expect(result.roles).toEqual([{ name: 'department_head' }]);
+    expect(result.ledProjects).toEqual([
+      { id: 11, name: 'Dự án A', isActive: true },
+    ]);
+    expect(result.projectMemberships).toEqual([
+      {
+        projectId: 12,
+        project: { id: 12, name: 'Dự án B', isActive: true },
+      },
+    ]);
+  });
+
   it('rejects invalid subjects and inactive users', async () => {
     const prisma = {
       user: {
@@ -57,6 +103,9 @@ describe('JwtStrategy auth context cache', () => {
           .fn()
           .mockResolvedValue({ ...activeUser, status: 'locked' }),
       },
+      department: { findUnique: vi.fn() },
+      role: { findMany: vi.fn().mockResolvedValue(activeUser.roles) },
+      project: { findMany: vi.fn().mockResolvedValue([]) },
     } as any;
     const strategy = new JwtStrategy(prisma);
 

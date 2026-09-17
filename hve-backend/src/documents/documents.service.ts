@@ -1223,6 +1223,7 @@ export class DocumentsService {
     }
 
     const docs = await this.prisma.document.findMany({
+      relationLoadStrategy: 'join',
       where,
       orderBy: { createdAt: 'desc' },
       include: {
@@ -1241,6 +1242,7 @@ export class DocumentsService {
 
   async findById(user: any, id: number) {
     const doc = await this.prisma.document.findFirst({
+      relationLoadStrategy: 'join',
       where: { AND: [{ id }, buildDocumentAccessWhere(user)] },
       include: {
         createdBy: {

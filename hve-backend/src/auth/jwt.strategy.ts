@@ -45,23 +45,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     const existingLoad = this.inFlightLoads.get(userId);
     if (existingLoad) return existingLoad;
 
-    const load = this.prisma.user
-      .findUnique({
-        where: { id: userId },
-        include: {
-          roles: true,
-          department: true,
-          ledProjects: {
-            where: { isActive: true },
-            select: { id: true, name: true, isActive: true },
-          },
-          projectMemberships: {
-            include: {
-              project: { select: { id: true, name: true, isActive: true } },
-            },
-          },
-        },
-      })
+    const load = this.loadUserFromDatabase(userId)
       .then((user) => {
         if (this.cacheTtlMs > 0) {
           this.userCache.set(userId, {
@@ -81,6 +65,47 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
     this.inFlightLoads.set(userId, load);
     return load;
+  }
+
+  /**
+   * Prisma's default relation loading issues one SQL round-trip per relation.
+   * Railway is in Singapore while Supabase is in Tokyo, so those sequential
+   * round-trips dominated every authenticated request. Load the scalar user
+   * first, then fetch all business-scope relations concurrently.
+   */
+  private async loadUserFromDatabase(userId: number) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) return null;
+
+    const [department, roles, ledProjects, memberProjects] = await Promise.all([
+      user.departmentId
+        ? this.prisma.department.findUnique({
+            where: { id: user.departmentId },
+          })
+        : Promise.resolve(null),
+      this.prisma.role.findMany({
+        where: { users: { some: { id: userId } } },
+      }),
+      this.prisma.project.findMany({
+        where: { leadUserId: userId, isActive: true },
+        select: { id: true, name: true, isActive: true },
+      }),
+      this.prisma.project.findMany({
+        where: { members: { some: { userId } } },
+        select: { id: true, name: true, isActive: true },
+      }),
+    ]);
+
+    return {
+      ...user,
+      department,
+      roles,
+      ledProjects,
+      projectMemberships: memberProjects.map((project) => ({
+        projectId: project.id,
+        project,
+      })),
+    };
   }
 
   async validate(payload: any) {
