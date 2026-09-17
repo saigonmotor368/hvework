@@ -438,3 +438,20 @@ Dự án đã hoàn thành toàn bộ các giai đoạn (Phase 0 ➔ Phase 5) v�
 - Báo cáo trả thêm `payments.totalDisbursedValue` và `payments.disbursedCount` từ các đề nghị thanh toán đã ở trạng thái `Đã duyệt`; giao diện hiển thị thẻ tổng tiền đã duyệt chi.
 - Migration mới: `20260917090000_add_projects`; chưa áp dụng production, chờ Minh rà soát và deploy.
 - Baseline bàn giao: Prisma validate pass; backend lint/build pass và 169/169 test pass; frontend build pass, 10/10 test pass, lint 0 error (còn warning React hooks hiện hữu); main bundle 360,06 KB, gzip 100,38 KB; `git diff --check` không có lỗi whitespace.
+
+---
+
+## 14. TỐI ƯU TỐC ĐỘ PRODUCTION RAILWAY (TỐI 17/09/2026)
+
+- **Nguyên nhân đã xác nhận:** CPU/RAM Railway còn rất dư và không có 5xx; độ trễ chủ yếu đến từ nhiều lượt SQL tuần tự giữa backend Railway Singapore và Supabase Tokyo, cộng với frontend gọi đồng thời nhiều API không cần thiết ngay sau đăng nhập.
+- **Tối ưu kết nối dữ liệu:** chuyển `DATABASE_URL` production từ transaction pooler cổng 6543 sang session pooler cổng 5432, giới hạn 5 kết nối và `pool_timeout=10`; truy vấn kiểm chứng cùng dữ liệu giảm từ khoảng 1.499 ms xuống 598–607 ms.
+- **Tối ưu xác thực:** thêm cache ngữ cảnh quyền 30 giây, single-flight cho request đồng thời, giới hạn tối đa 500 user; tách phần nạp phạm vi quyền thành các truy vấn quan hệ chạy song song. Thời gian nạp quyền nguội đo riêng còn 358 ms.
+- **Tối ưu truy vấn:** bật Prisma `relationJoins` cho dashboard, hồ sơ, công việc và dự án; bổ sung index cho các cột lọc/phân quyền thường dùng bằng migration `20260917143000_add_query_performance_indexes`.
+- **Tối ưu frontend:** không còn tải sẵn toàn bộ hồ sơ, công việc, dự án và danh sách người được giao khi vừa đăng nhập; dashboard trả luôn hồ sơ gần đây; giảm polling thông báo còn 5 phút khi Web Push đã hoạt động và cache đồng bộ push subscription trong 6 giờ.
+- **Kết quả 7 vòng đo warm có JWT thật, tất cả HTTP 200:** dashboard median 189 ms; hồ sơ 282 ms; công việc 270 ms; dự án 272 ms; thông báo 271 ms. Railway không ghi nhận HTTP 5xx trong cửa sổ kiểm tra sau phát hành.
+- **So với baseline Railway trước tối ưu:** p95 quan sát từng lên dashboard 3.454 ms, hồ sơ 2.534 ms, công việc 3.782 ms, dự án 6.571 ms và thông báo 3.646 ms. Các median warm sau sửa đều dưới mục tiêu 500 ms.
+- **Frontend production:** main chunk 364,13 KB (gzip 101,60 KB), chứa đúng URL Railway; Vercel deployment `dpl_8w8H2e1aviWgGpyor7dk4LzZrh6U` đạt `READY` và giữ alias `work.huyvoeducation.vn`.
+- **Backend production:** Railway deployment trung gian `98204583-da7c-416f-a003-a6fe527aeb5f` và deployment tối ưu cuối `b41eb9e6-61c8-4c24-9a29-e0a9967a32b0` đều đạt `SUCCESS`.
+- **Mã nguồn:** commit `045d5ed` (giảm request/polling, cache JWT, index) và `acd046d` (giảm round-trip quan hệ DB) đã push lên `main`.
+- **Baseline cuối:** backend build/lint pass, 178/178 test pass; frontend build pass, 10/10 test pass; endpoint health và VAPID public đều HTTP 200.
+- **Giới hạn còn lại:** Supabase Tokyo và Railway Singapore vẫn khác vùng. Nếu cần giảm thêm độ trễ nguội/outlier, đợt riêng sau này phải migrate database sang cùng vùng Singapore; không thực hiện trong đợt này vì cần kế hoạch sao lưu, downtime và kiểm chứng dữ liệu.
