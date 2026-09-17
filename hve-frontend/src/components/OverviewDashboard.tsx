@@ -3,6 +3,7 @@ import type { DocumentItem } from '../types';
 import { MOCK_DASHBOARD_DATA } from '../mockData';
 import { ENABLE_MOCK_DATA } from '../config';
 import { fetchWithSession } from '../api/client';
+import { BrandLoader } from './BrandLoader';
 
 interface OverviewDashboardProps {
   apiBaseUrl: string;
@@ -91,12 +92,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
   const returnedActionCount = dashboardData?.actionRequired?.returnedDocumentsCount || 0;
 
   if (isLoading && !dashboardData) {
-    return (
-      <div className="py-24 text-center text-sm text-gray-400">
-        <div className="w-9 h-9 border-2 border-[#0A66C2] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-        Đang tổng hợp dữ liệu điều hành...
-      </div>
-    );
+    return <BrandLoader label="Đang tổng hợp dữ liệu điều hành..." />;
   }
 
   if (loadError && !dashboardData) {

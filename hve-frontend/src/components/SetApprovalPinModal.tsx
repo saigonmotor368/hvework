@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { BrandLoader } from './BrandLoader';
 
 interface SetApprovalPinModalProps {
   apiBaseUrl: string;
@@ -113,8 +114,8 @@ export const SetApprovalPinModal: React.FC<SetApprovalPinModalProps> = ({
   if (view === 'loading') {
     return (
       <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 text-center text-sm text-gray-500">
-          Đang tải...
+        <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm px-6">
+          <BrandLoader compact label="Đang tải thiết lập bảo mật..." />
         </div>
       </div>
     );

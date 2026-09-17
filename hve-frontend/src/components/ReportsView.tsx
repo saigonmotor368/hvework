@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { MOCK_REPORTS_SUMMARY } from '../mockData';
 import { ENABLE_MOCK_DATA } from '../config';
+import { BrandLoader } from './BrandLoader';
 
 interface ReportsViewProps {
   apiBaseUrl: string;
@@ -476,10 +477,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
 
       {/* Main Report Content according to Tab */}
       {isLoading ? (
-        <div className="py-16 text-center text-sm text-gray-400">
-          <div className="w-8 h-8 border-2 border-[#0A66C2] border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-          Đang tổng hợp dữ liệu báo cáo...
-        </div>
+        <BrandLoader label="Đang tổng hợp dữ liệu báo cáo..." />
       ) : (
         <div>
           {/* TAB 1: DOCUMENTS */}

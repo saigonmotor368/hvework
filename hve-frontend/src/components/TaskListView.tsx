@@ -7,6 +7,7 @@ import {
 import { MOCK_TASKS } from '../mockData';
 import { ENABLE_MOCK_DATA } from '../config';
 import { fetchWithSession } from '../api/client';
+import { BrandLoader } from './BrandLoader';
 
 interface TaskListViewProps {
   apiBaseUrl: string;
@@ -285,10 +286,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
       {/* Task Table List */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
         {isLoading ? (
-          <div className="p-12 flex flex-col items-center justify-center space-y-3">
-            <div className="w-8 h-8 border-3 border-[#0A66C2]/30 border-t-[#0A66C2] rounded-full animate-spin" />
-            <span className="text-xs text-gray-500">Đang tải danh sách công việc...</span>
-          </div>
+          <BrandLoader compact label="Đang tải danh sách công việc..." />
         ) : tasks.length === 0 ? (
           <div className="p-12 text-center space-y-3">
             <span className="text-4xl">📋</span>

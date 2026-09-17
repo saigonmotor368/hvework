@@ -413,3 +413,12 @@ Dự án đã hoàn thành toàn bộ các giai đoạn (Phase 0 ➔ Phase 5) v�
 - Trưởng bộ phận chỉ lấy được danh sách nhân sự và giao việc trong chính phòng mình; nhân viên không còn mở được tab công việc toàn phòng.
 - Giao diện dashboard hiển thị rõ phạm vi đang xem và nhãn “Đã gộp N vai trò”; các tab công việc đổi theo cấp CEO/phòng ban/cá nhân.
 - Baseline: backend build/lint pass, 162/162 test pass; frontend build pass, 9/9 test pass, lint không có error; main chunk 352,29 KB (gzip 98,56 KB).
+
+---
+
+## 12. LOADER THƯƠNG HIỆU HVE NỀN TRONG SUỐT (17/09/2026)
+
+- Tách logo HVE từ vector gốc thành SVG nền trong suốt, giữ nguyên hình học và ba màu nhận diện; không dùng AI dựng lại nên logo không bị sai nét.
+- Thay spinner chung bằng loader HVE có hiệu ứng nổi nhẹ, quầng sáng và ba chấm màu thương hiệu ở màn hình tải module, Tổng quan, Báo cáo, danh sách/chi tiết công việc và thiết lập bảo mật.
+- Loader có hai kích thước cho trang và modal, hỗ trợ `aria-live` và tự tắt animation khi thiết bị bật chế độ giảm chuyển động.
+- Baseline: frontend build pass, 9/9 test pass, lint không có error; logo SVG tải đúng với MIME `image/svg+xml` và không còn phần tử nền.

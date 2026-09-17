@@ -7,6 +7,7 @@ import {
 import { MOCK_TASKS } from '../mockData';
 import { authenticatedFileUrl, fetchWithSession } from '../api/client';
 import { ENABLE_MOCK_DATA } from '../config';
+import { BrandLoader } from './BrandLoader';
 
 interface TaskDetailModalProps {
   taskId: number;
@@ -237,10 +238,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
         </div>
 
         {isLoading ? (
-          <div className="p-12 flex flex-col items-center justify-center space-y-3">
-            <div className="w-8 h-8 border-3 border-[#0A66C2]/30 border-t-[#0A66C2] rounded-full animate-spin" />
-            <span className="text-sm text-gray-500">Đang tải dữ liệu công việc...</span>
-          </div>
+          <BrandLoader compact label="Đang tải dữ liệu công việc..." />
         ) : !task ? (
           <div className="p-12 flex flex-col items-center justify-center space-y-4 text-center">
             <div className="w-12 h-12 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center text-xl font-bold border border-amber-200">

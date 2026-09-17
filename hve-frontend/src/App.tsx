@@ -15,6 +15,7 @@ import { TaskDetailModal } from './components/TaskDetailModal';
 import { NotificationBell } from './components/NotificationBell';
 import { OfflineBanner } from './components/OfflineBanner';
 import { ViewErrorBoundary } from './components/ViewErrorBoundary';
+import { BrandLoader } from './components/BrandLoader';
 import { subscribeToWebPush } from './utils/pwa';
 import {
   consumeSessionExpiredMessage,
@@ -972,7 +973,7 @@ export default function App() {
         {/* Tab Body */}
         <div className="flex-1 min-w-0 overflow-x-hidden overflow-y-auto overscroll-contain p-3 sm:p-4 md:p-8 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           <ViewErrorBoundary key={activeTab}>
-          <Suspense fallback={<div className="py-24 text-center text-sm text-gray-400">Đang tải màn hình...</div>}>
+          <Suspense fallback={<BrandLoader label="Đang tải màn hình HVE Work..." />}>
           {/* TAB 1: OVERVIEW */}
           {activeTab === 'overview' && (
             <OverviewDashboard
