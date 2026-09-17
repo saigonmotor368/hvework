@@ -31,6 +31,9 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ apiBaseUrl, 
   const [pushStatus, setPushStatus] = useState<WebPushStatus>('permission-required');
   const [isEnablingPush, setIsEnablingPush] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const isIosDevice =
+    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
   const syncAppBadge = (count: number) => {
     const badgeNavigator = navigator as Navigator & {
@@ -151,7 +154,11 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ apiBaseUrl, 
       if (!enabled && Notification.permission === 'denied') {
         setLoadError('Quyền thông báo đang bị chặn. Hãy bật lại trong Cài đặt của thiết bị.');
       } else if (!enabled) {
-        setLoadError('Thiết bị chưa bật được thông báo nền. Trên iPhone, hãy cài HVE Work vào Màn hình chính trước.');
+        setLoadError(
+          isIosDevice
+            ? 'Hãy cài HVE Work vào Màn hình chính rồi mở từ biểu tượng app để bật thông báo.'
+            : 'Hãy dùng Chrome/Edge mới nhất và cho phép HVE Work gửi thông báo trong cài đặt trình duyệt.',
+        );
       } else {
         setLoadError(null);
       }
@@ -295,7 +302,11 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ apiBaseUrl, 
             ) : pushStatus === 'denied' ? (
               <span className="text-[11px] font-semibold text-red-600">Thông báo đang bị chặn trong Cài đặt thiết bị</span>
             ) : pushStatus === 'unsupported' ? (
-              <span className="text-[11px] text-gray-500">Trên iPhone, hãy cài HVE Work vào Màn hình chính để bật thông báo nền</span>
+              <span className="text-[11px] text-gray-500">
+                {isIosDevice
+                  ? 'iPhone/iPad: cài HVE Work vào Màn hình chính rồi mở app để bật thông báo'
+                  : 'Android: mở bằng Chrome/Edge mới nhất, cài HVE Work và cho phép thông báo'}
+              </span>
             ) : (
               <button
                 type="button"
@@ -303,7 +314,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ apiBaseUrl, 
                 disabled={isEnablingPush}
                 className="w-full rounded-lg bg-blue-50 px-3 py-2 text-[11px] font-bold text-[#0A66C2] hover:bg-blue-100 disabled:opacity-60"
               >
-                {isEnablingPush ? 'Đang bật...' : '🔔 Bật thông báo nền trên thiết bị này'}
+                {isEnablingPush ? 'Đang bật...' : '🔔 Bật thông báo nền (Android/iPhone)'}
               </button>
             )}
           </div>
