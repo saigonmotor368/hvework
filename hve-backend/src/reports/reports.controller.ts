@@ -44,4 +44,19 @@ export class ReportsController {
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     return res.send(csvData);
   }
+
+  @Get('export-xlsx')
+  async exportXlsx(
+    @Request() req: any,
+    @Query('type') type: string,
+    @Query() query: ReportFilterDto,
+    @Res() res: Response,
+  ) {
+    const buffer = await this.reportsService.exportXlsx(req.user, type || 'documents', query);
+    const filename = `HVE_BaoCao_${type || 'documents'}_${new Date().toISOString().split('T')[0]}.xlsx`;
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    return res.send(buffer);
+  }
 }

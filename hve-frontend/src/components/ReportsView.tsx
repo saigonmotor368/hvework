@@ -203,7 +203,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     if (status && status !== 'all') params.append('status', status);
     if (docType) params.append('type', docType);
 
-    const exportUrl = `${apiBaseUrl}/reports/export?${params.toString()}`;
+    const exportUrl = `${apiBaseUrl}/reports/export-xlsx?${params.toString()}`;
     // Trigger download with auth
     fetch(exportUrl, {
       headers: { Authorization: `Bearer ${token}` },
@@ -216,11 +216,11 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `HVE_BaoCao_${exportType}_${new Date().toISOString().split('T')[0]}.csv`;
+        a.download = `HVE_BaoCao_${exportType}_${new Date().toISOString().split('T')[0]}.xlsx`;
         document.body.appendChild(a);
         a.click();
         a.remove();
-        showToast('Đã tải xuống file báo cáo thành công!');
+        showToast('Đã tải xuống file báo cáo Excel thành công!');
       })
       .catch((err) => {
         showToast(err.message || 'Lỗi xuất file', 'error');
@@ -285,7 +285,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             onClick={handleExportCsv}
             className="inline-flex items-center justify-center px-2 sm:px-3.5 py-2 text-[11px] sm:text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-colors shadow-sm"
           >
-            📥 Xuất Excel (CSV UTF-8)
+            📥 Xuất Excel (.xlsx)
           </button>
         </div>
       </div>

@@ -1,4 +1,5 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
+import ExcelJS from 'exceljs';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { ReportFilterDto } from './dto/report-filter.dto.js';
 import {
@@ -6,6 +7,13 @@ import {
   buildTaskAccessWhere,
   getRoleNames,
 } from '../common/access-scope.js';
+
+// Màu thương hiệu HVE dùng chung cho mọi file Excel xuất ra
+const HVE_BRAND_BLUE = 'FF0A66C2';
+const HVE_HEADER_TEXT = 'FFFFFFFF';
+const HVE_LIGHT_ROW = 'FFF3F7FC';
+const HVE_AMBER = 'FFFFF4CE';
+const HVE_AMBER_TEXT = 'FF8A6D1D';
 
 @Injectable()
 export class ReportsService {
@@ -356,5 +364,199 @@ export class ReportsService {
       default:
         return type;
     }
+  }
+
+  private reportTitle(type: string): string {
+    switch (type) {
+      case 'documents':
+        return 'BÁO CÁO TỔNG HỢP HỒ SƠ';
+      case 'tasks':
+        return 'BÁO CÁO TIẾN ĐỘ CÔNG VIỆC';
+      case 'contracts':
+        return 'BÁO CÁO TÀI CHÍNH & HỢP ĐỒNG';
+      case 'audit_logs':
+        return 'NHẬT KÝ HỆ THỐNG';
+      default:
+        return 'BÁO CÁO';
+    }
+  }
+
+  // Dựng phần đầu trang chung cho mọi file Excel: tên công ty + tiêu đề báo
+  // cáo + ngày xuất, chiếm 1 dòng merge full chiều rộng bảng.
+  private buildSheetHeader(sheet: ExcelJS.Worksheet, title: string, columnCount: number) {
+    sheet.mergeCells(1, 1, 1, columnCount);
+    const brandCell = sheet.getCell(1, 1);
+    brandCell.value = 'HUY VÕ EDUCATION — Hệ Thống Quản Lý Công Việc';
+    brandCell.font = { bold: true, size: 12, color: { argb: HVE_HEADER_TEXT } };
+    brandCell.alignment = { vertical: 'middle', horizontal: 'left' };
+    brandCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: HVE_BRAND_BLUE } };
+    sheet.getRow(1).height = 26;
+
+    sheet.mergeCells(2, 1, 2, columnCount);
+    const titleCell = sheet.getCell(2, 1);
+    titleCell.value = `${title}   —   Xuất lúc ${new Date().toLocaleString('vi-VN')}`;
+    titleCell.font = { bold: true, size: 10, italic: true, color: { argb: 'FF475569' } };
+    titleCell.alignment = { vertical: 'middle', horizontal: 'left' };
+    sheet.getRow(2).height = 18;
+
+    sheet.addRow([]); // dòng trống ngăn cách
+  }
+
+  private styleHeaderRow(row: ExcelJS.Row) {
+    row.eachCell((cell) => {
+      cell.font = { bold: true, size: 10, color: { argb: HVE_HEADER_TEXT } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: HVE_BRAND_BLUE } };
+      cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+      cell.border = {
+        top: { style: 'thin', color: { argb: 'FFDCE3EC' } },
+        left: { style: 'thin', color: { argb: 'FFDCE3EC' } },
+        bottom: { style: 'thin', color: { argb: 'FFDCE3EC' } },
+        right: { style: 'thin', color: { argb: 'FFDCE3EC' } },
+      };
+    });
+    row.height = 22;
+  }
+
+  private styleDataRow(row: ExcelJS.Row, isEven: boolean, highlight?: boolean) {
+    row.eachCell((cell) => {
+      cell.font = { size: 10, color: { argb: 'FF1E293B' } };
+      cell.alignment = { vertical: 'middle' };
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: highlight ? HVE_AMBER : isEven ? HVE_LIGHT_ROW : 'FFFFFFFF' },
+      };
+      cell.border = {
+        top: { style: 'thin', color: { argb: 'FFEDF1F7' } },
+        left: { style: 'thin', color: { argb: 'FFEDF1F7' } },
+        bottom: { style: 'thin', color: { argb: 'FFEDF1F7' } },
+        right: { style: 'thin', color: { argb: 'FFEDF1F7' } },
+      };
+      if (highlight) cell.font = { size: 10, bold: true, color: { argb: HVE_AMBER_TEXT } };
+    });
+  }
+
+  private autoFitColumns(sheet: ExcelJS.Worksheet, headers: string[], minWidths: number[]) {
+    headers.forEach((h, i) => {
+      const col = sheet.getColumn(i + 1);
+      let maxLen = h.length;
+      col.eachCell({ includeEmpty: false }, (cell) => {
+        const len = String(cell.value ?? '').length;
+        if (len > maxLen) maxLen = len;
+      });
+      col.width = Math.min(Math.max(maxLen + 3, minWidths[i] || 10), 45);
+    });
+  }
+
+  async exportXlsx(user: any, type: string, filter: ReportFilterDto): Promise<Buffer> {
+    const roles: string[] = user.roles ? user.roles.map((r: any) => (typeof r === 'string' ? r : r.name)) : [];
+    const isCompanyWide = roles.some((r) => ['ceo', 'it_admin', 'accountant', 'legal'].includes(r));
+    const isDeptHead = roles.includes('department_head');
+    const isEmployeeOnly = !isCompanyWide && !isDeptHead;
+
+    if (type === 'audit_logs' && !this.isCeoOrAdmin(user)) {
+      throw new ForbiddenException('Chỉ CEO và Quản trị IT mới có quyền xuất Nhật ký hệ thống.');
+    }
+    if (type === 'contracts' && isEmployeeOnly) {
+      throw new ForbiddenException('Nhân viên không có quyền truy xuất danh mục hợp đồng của công ty.');
+    }
+
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'HVE Work';
+    workbook.created = new Date();
+    const sheet = workbook.addWorksheet(this.reportTitle(type).slice(0, 31), {
+      views: [{ state: 'frozen', ySplit: 4 }],
+      pageSetup: { orientation: 'landscape', fitToPage: true },
+    });
+
+    if (type === 'documents') {
+      const summary = await this.getSummary(user, filter);
+      const headers = ['Mã hồ sơ', 'Tiêu đề', 'Loại hồ sơ', 'Trạng thái', 'Người tạo', 'Phòng ban', 'Ngày tạo'];
+      this.buildSheetHeader(sheet, this.reportTitle(type), headers.length);
+      const headerRow = sheet.addRow(headers);
+      this.styleHeaderRow(headerRow);
+      summary.documents.items.forEach((d: any, idx: number) => {
+        const row = sheet.addRow([
+          d.code,
+          d.title,
+          this.mapDocType(d.type),
+          d.status,
+          d.creator,
+          d.department,
+          new Date(d.createdAt).toLocaleDateString('vi-VN'),
+        ]);
+        this.styleDataRow(row, idx % 2 === 0);
+      });
+      this.autoFitColumns(sheet, headers, [12, 30, 16, 14, 18, 22, 12]);
+    } else if (type === 'tasks') {
+      const summary = await this.getSummary(user, filter);
+      const headers = ['Mã công việc', 'Tiêu đề', 'Mức ưu tiên', 'Trạng thái', 'Tiến độ (%)', 'Người thực hiện', 'Phòng ban', 'Hạn hoàn thành', 'Quá hạn'];
+      this.buildSheetHeader(sheet, this.reportTitle(type), headers.length);
+      const headerRow = sheet.addRow(headers);
+      this.styleHeaderRow(headerRow);
+      summary.tasks.items.forEach((t: any, idx: number) => {
+        const row = sheet.addRow([
+          t.code,
+          t.title,
+          t.priority,
+          t.status,
+          t.progressPercent,
+          t.assignee,
+          t.department,
+          t.dueDate ? new Date(t.dueDate).toLocaleDateString('vi-VN') : '',
+          t.isOverdue ? 'Có' : 'Không',
+        ]);
+        this.styleDataRow(row, idx % 2 === 0, t.isOverdue);
+      });
+      this.autoFitColumns(sheet, headers, [14, 30, 12, 14, 12, 18, 22, 14, 10]);
+    } else if (type === 'contracts') {
+      const summary = await this.getSummary(user, filter);
+      const headers = ['Mã hợp đồng', 'Tiêu đề', 'Đối tác', 'Giá trị (VNĐ)', 'Ngày hiệu lực', 'Ngày hết hạn', 'Người phụ trách', 'Trạng thái', 'Sắp hết hạn'];
+      this.buildSheetHeader(sheet, this.reportTitle(type), headers.length);
+      const headerRow = sheet.addRow(headers);
+      this.styleHeaderRow(headerRow);
+      summary.contracts.items.forEach((c: any, idx: number) => {
+        const row = sheet.addRow([
+          c.code,
+          c.title,
+          c.partner,
+          c.value,
+          c.startDate ? new Date(c.startDate).toLocaleDateString('vi-VN') : '',
+          c.endDate ? new Date(c.endDate).toLocaleDateString('vi-VN') : '',
+          c.manager,
+          c.status,
+          c.isExpiringSoon ? 'Có' : 'Không',
+        ]);
+        row.getCell(4).numFmt = '#,##0';
+        this.styleDataRow(row, idx % 2 === 0, c.isExpiringSoon);
+      });
+      this.autoFitColumns(sheet, headers, [14, 30, 20, 16, 14, 14, 18, 14, 12]);
+    } else if (type === 'audit_logs') {
+      const logs = await this.getAuditLogs(user, {
+        startDate: filter.startDate,
+        endDate: filter.endDate,
+        limit: 1000,
+      });
+      const headers = ['ID', 'Đối tượng', 'Mã bản ghi', 'Hành động', 'Người thao tác', 'Địa chỉ IP', 'Thời gian'];
+      this.buildSheetHeader(sheet, this.reportTitle(type), headers.length);
+      const headerRow = sheet.addRow(headers);
+      this.styleHeaderRow(headerRow);
+      logs.forEach((l: any, idx: number) => {
+        const row = sheet.addRow([
+          l.id,
+          l.entityType,
+          l.entityId || '',
+          l.action,
+          l.actor?.name || 'Hệ thống',
+          l.ip || '',
+          new Date(l.createdAt).toLocaleString('vi-VN'),
+        ]);
+        this.styleDataRow(row, idx % 2 === 0);
+      });
+      this.autoFitColumns(sheet, headers, [8, 14, 12, 20, 20, 16, 20]);
+    }
+
+    const arrayBuffer = await workbook.xlsx.writeBuffer();
+    return Buffer.from(arrayBuffer);
   }
 }
