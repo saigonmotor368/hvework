@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { type AdminUser, type RoleItem, type DepartmentItem, ROLE_LABELS, DOCUMENT_TYPE_LABELS } from '../types';
+import { type AdminUser, type RoleItem, type ProjectItem, ROLE_LABELS, DOCUMENT_TYPE_LABELS } from '../types';
 import { fetchWithSession } from '../api/client';
 
 interface AdminUserViewProps {
@@ -43,9 +43,9 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
   // Users & Meta State
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [roles, setRoles] = useState<RoleItem[]>([]);
-  const [departments, setDepartments] = useState<DepartmentItem[]>([]);
+  const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [search, setSearch] = useState<string>('');
-  const [deptFilter, setDeptFilter] = useState<string>('all');
+  const [projectFilter, setProjectFilter] = useState<string>('all');
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   // Stuck Data State
@@ -59,7 +59,7 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
   const [newName, setNewName] = useState<string>('');
   const [newEmail, setNewEmail] = useState<string>('');
   const [newPassword, setNewPassword] = useState<string>('Hve@2026');
-  const [newDeptId, setNewDeptId] = useState<number | ''>('');
+  const [newProjectIds, setNewProjectIds] = useState<number[]>([]);
   const [newRoleIds, setNewRoleIds] = useState<number[]>([1]); // default employee
   const [isCreatingUser, setIsCreatingUser] = useState<boolean>(false);
 
@@ -68,7 +68,7 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
   const [editName, setEditName] = useState<string>('');
   const [editEmail, setEditEmail] = useState<string>('');
   const [editRoleIds, setEditRoleIds] = useState<number[]>([]);
-  const [editDeptId, setEditDeptId] = useState<number | ''>('');
+  const [editProjectIds, setEditProjectIds] = useState<number[]>([]);
   const [isSavingUser, setIsSavingUser] = useState<boolean>(false);
 
   // Reset Password Modal State
@@ -85,13 +85,6 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
   } | null>(null);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
 
-  const DEFAULT_DEPARTMENTS: DepartmentItem[] = [
-    { id: 1, name: 'Phòng Công nghệ Thông tin', code: 'IT' },
-    { id: 2, name: 'Phòng Tài chính - Kế toán', code: 'FIN' },
-    { id: 3, name: 'Phòng Kinh doanh & Tuyển sinh', code: 'KD' },
-    { id: 4, name: 'Ban Pháp chế & Thẩm định', code: 'LEG' },
-  ];
-
   const DEFAULT_ROLES: RoleItem[] = [
     { id: 1, name: 'employee', description: 'Nhân viên - Lập hồ sơ và thực hiện công việc' },
     { id: 2, name: 'department_head', description: 'Trưởng bộ phận - Phê duyệt sơ bộ & Giao việc phòng' },
@@ -106,23 +99,23 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
     setIsLoading(true);
     const token = localStorage.getItem('access_token');
     try {
-      const [uRes, rRes, dRes] = await Promise.all([
+      const [uRes, rRes, pRes] = await Promise.all([
         fetchWithSession(`${apiBaseUrl}/admin/users`, { headers: { Authorization: `Bearer ${token}` } }),
         fetchWithSession(`${apiBaseUrl}/admin/roles`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetchWithSession(`${apiBaseUrl}/admin/departments`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetchWithSession(`${apiBaseUrl}/projects/admin`, { headers: { Authorization: `Bearer ${token}` } }),
       ]);
 
-      if (uRes.ok && rRes.ok && dRes.ok) {
+      if (uRes.ok && rRes.ok) {
         const uData = await uRes.json();
         const rData = await rRes.json();
-        const dData = await dRes.json();
         setUsers(uData);
         setRoles(rData);
-        setDepartments(dData);
+      }
+      if (pRes.ok) {
+        setProjects(await pRes.json());
       }
     } catch {
       setRoles(DEFAULT_ROLES);
-      setDepartments(DEFAULT_DEPARTMENTS);
     } finally {
       setIsLoading(false);
     }
@@ -220,7 +213,7 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
           name: newName.trim(),
           email: newEmail.trim().toLowerCase(),
           password: newPassword || 'Hve@2026',
-          departmentId: newDeptId === '' ? null : Number(newDeptId),
+          projectIds: newProjectIds,
           roleIds: newRoleIds,
         }),
       });
@@ -228,12 +221,12 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
       if (res.ok) {
         const created = await res.json();
         showToast(`Đã thêm thành công người dùng ${created.name}`, 'success');
-        setUsers([...users, created]);
+        await fetchUsersAndMeta();
         setIsAddModalOpen(false);
         setNewName('');
         setNewEmail('');
         setNewPassword('Hve@2026');
-        setNewDeptId('');
+        setNewProjectIds([]);
         setNewRoleIds([1]);
       } else {
         const err = await res.json();
@@ -252,7 +245,12 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
     setEditName(user.name);
     setEditEmail(user.email);
     setEditRoleIds(user.roles.map((r) => r.id));
-    setEditDeptId(user.department?.id || user.departmentId || '');
+    setEditProjectIds([
+      ...new Set([
+        ...(user.ledProjects || []).map((p) => p.id),
+        ...(user.projectMemberships || []).map((m) => m.project.id),
+      ]),
+    ]);
   };
 
   // Toggle Role Checkbox in Edit Modal
@@ -294,27 +292,14 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
           name: editName.trim(),
           email: editEmail.trim().toLowerCase(),
           roleIds: editRoleIds,
-          departmentId: editDeptId === '' ? null : Number(editDeptId),
+          projectIds: editProjectIds,
         }),
       });
 
       if (res.ok) {
         const updated = await res.json();
         showToast(`Đã cập nhật thông tin cho ${updated.name}`, 'success');
-        setUsers(
-          users.map((u) =>
-            u.id === editUser.id
-              ? {
-                  ...u,
-                  name: updated.name,
-                  email: updated.email,
-                  department: updated.department,
-                  departmentId: updated.department?.id || null,
-                  roles: updated.roles,
-                }
-              : u,
-          ),
-        );
+        await fetchUsersAndMeta();
         setEditUser(null);
       } else {
         const err = await res.json();
@@ -402,10 +387,12 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
     const matchSearch =
       u.name.toLowerCase().includes(search.toLowerCase()) ||
       u.email.toLowerCase().includes(search.toLowerCase());
-    const matchDept =
-      deptFilter === 'all' ||
-      String(u.department?.id || u.departmentId) === deptFilter;
-    return matchSearch && matchDept;
+    const userProjectIds = [
+      ...(u.ledProjects || []).map((p) => p.id),
+      ...(u.projectMemberships || []).map((m) => m.project.id),
+    ];
+    const matchProject = projectFilter === 'all' || userProjectIds.includes(Number(projectFilter));
+    return matchSearch && matchProject;
   });
 
   const filteredStuckTasks = stuckTasks.filter(
@@ -472,14 +459,14 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
           <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
             <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:gap-3">
               <select
-                value={deptFilter}
-                onChange={(e) => setDeptFilter(e.target.value)}
+                value={projectFilter}
+                onChange={(e) => setProjectFilter(e.target.value)}
                 className="w-full text-xs font-medium bg-slate-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#0A66C2] sm:w-auto"
               >
-                <option value="all">Tất cả phòng ban</option>
-                {departments.map((d) => (
-                  <option key={d.id} value={String(d.id)}>
-                    {d.name} ({d.code})
+                <option value="all">Tất cả dự án</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={String(p.id)}>
+                    {p.name} ({p.code})
                   </option>
                 ))}
               </select>
@@ -509,7 +496,7 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                   <tr>
                     <th className="px-5 py-3.5">Họ và tên</th>
                     <th className="px-5 py-3.5">Email</th>
-                    <th className="px-5 py-3.5">Phòng ban</th>
+                    <th className="px-5 py-3.5">Dự án</th>
                     <th className="px-5 py-3.5">Vai trò đảm nhiệm</th>
                     <th className="px-5 py-3.5">Trạng thái</th>
                     <th className="px-5 py-3.5 text-right">Thao tác</th>
@@ -542,10 +529,27 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                         <td className="px-5 py-4 text-xs text-gray-600 whitespace-nowrap">
                           {user.email}
                         </td>
-                        <td className="px-5 py-4 whitespace-nowrap">
-                          <span className="text-xs font-semibold text-gray-700 bg-slate-100 px-2.5 py-1 rounded-md">
-                            {user.department?.name || 'Chưa gán'}
-                          </span>
+                        <td className="px-5 py-4">
+                          <div className="flex flex-wrap gap-1 max-w-[180px]">
+                            {[
+                              ...(user.ledProjects || []).map((p) => p.code),
+                              ...(user.projectMemberships || []).map((m) => m.project.code),
+                            ].length > 0 ? (
+                              [...new Set([
+                                ...(user.ledProjects || []).map((p) => p.code),
+                                ...(user.projectMemberships || []).map((m) => m.project.code),
+                              ])].map((code) => (
+                                <span
+                                  key={code}
+                                  className="text-xs font-semibold text-gray-700 bg-slate-100 px-2 py-0.5 rounded-md"
+                                >
+                                  {code}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-xs text-gray-400">Chưa gán</span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-5 py-4">
                           <div className="flex flex-wrap gap-1.5 max-w-xs">
@@ -895,25 +899,47 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                 <p className="text-[11px] text-gray-400 mt-1">Mặc định hệ thống là Hve@2026</p>
               </div>
 
-              {/* Department */}
+              {/* Projects */}
               <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
-                  Phòng ban trực thuộc
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                  Dự án tham gia
                 </label>
-                <select
-                  value={newDeptId}
-                  onChange={(e) =>
-                    setNewDeptId(e.target.value === '' ? '' : Number(e.target.value))
-                  }
-                  className="w-full text-xs font-medium bg-slate-50 border border-gray-200 rounded-lg p-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#0A66C2]"
-                >
-                  <option value="">-- Không trực thuộc phòng ban --</option>
-                  {departments.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.name} ({d.code})
-                    </option>
-                  ))}
-                </select>
+                <div className="grid grid-cols-1 gap-2 max-h-32 overflow-y-auto p-1 border border-slate-100 rounded-xl sm:grid-cols-2">
+                  {projects.map((p) => {
+                    const isChecked = newProjectIds.includes(p.id);
+                    return (
+                      <label
+                        key={p.id}
+                        className={`flex items-center space-x-2 p-2 rounded-lg border text-xs cursor-pointer transition-all ${
+                          isChecked
+                            ? 'border-[#0A66C2] bg-blue-50/60 font-bold text-[#0A66C2]'
+                            : 'border-slate-200 text-gray-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => {
+                            setNewProjectIds(
+                              isChecked
+                                ? newProjectIds.filter((id) => id !== p.id)
+                                : [...newProjectIds, p.id],
+                            );
+                          }}
+                        />
+                        <span>{p.name} ({p.code})</span>
+                      </label>
+                    );
+                  })}
+                  {projects.length === 0 && (
+                    <p className="col-span-full text-center text-[11px] text-gray-400 py-2">
+                      Chưa có dự án nào — tạo dự án ở mục "Quản lý dự án" trước.
+                    </p>
+                  )}
+                </div>
+                <p className="text-[11px] text-gray-400 mt-1">
+                  Vị trí (vai trò) + Dự án quyết định phạm vi dữ liệu người dùng được xem/xử lý.
+                </p>
               </div>
 
               {/* Roles */}
@@ -1018,25 +1044,44 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                 />
               </div>
 
-              {/* Department */}
+              {/* Projects */}
               <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
-                  Phòng ban trực thuộc
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                  Dự án tham gia
                 </label>
-                <select
-                  value={editDeptId}
-                  onChange={(e) =>
-                    setEditDeptId(e.target.value === '' ? '' : Number(e.target.value))
-                  }
-                  className="w-full text-xs font-medium bg-slate-50 border border-gray-200 rounded-lg p-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#0A66C2]"
-                >
-                  <option value="">-- Không trực thuộc phòng ban --</option>
-                  {departments.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.name} ({d.code})
-                    </option>
-                  ))}
-                </select>
+                <div className="grid grid-cols-1 gap-2 max-h-32 overflow-y-auto p-1 border border-slate-100 rounded-xl sm:grid-cols-2">
+                  {projects.map((p) => {
+                    const isChecked = editProjectIds.includes(p.id);
+                    return (
+                      <label
+                        key={p.id}
+                        className={`flex items-center space-x-2 p-2 rounded-lg border text-xs cursor-pointer transition-all ${
+                          isChecked
+                            ? 'border-[#0A66C2] bg-blue-50/60 font-bold text-[#0A66C2]'
+                            : 'border-slate-200 text-gray-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => {
+                            setEditProjectIds(
+                              isChecked
+                                ? editProjectIds.filter((id) => id !== p.id)
+                                : [...editProjectIds, p.id],
+                            );
+                          }}
+                        />
+                        <span>{p.name} ({p.code})</span>
+                      </label>
+                    );
+                  })}
+                  {projects.length === 0 && (
+                    <p className="col-span-full text-center text-[11px] text-gray-400 py-2">
+                      Chưa có dự án nào — tạo dự án ở mục "Quản lý dự án" trước.
+                    </p>
+                  )}
+                </div>
               </div>
 
               {/* Roles */}

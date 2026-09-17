@@ -35,11 +35,34 @@ export class AdminService {
         roles: {
           select: { id: true, name: true, description: true },
         },
+        ledProjects: { select: { id: true, code: true, name: true } },
+        projectMemberships: {
+          select: { project: { select: { id: true, code: true, name: true } } },
+        },
         createdAt: true,
         updatedAt: true,
       },
       orderBy: { id: 'asc' },
     });
+  }
+
+  // Đồng bộ danh sách Dự án của 1 user: xóa hết ProjectMember cũ rồi tạo
+  // lại đúng theo danh sách mới — cùng cách ProjectsService làm ở chiều
+  // ngược lại (từ dự án chọn thành viên), giữ nhất quán logic 2 chiều.
+  private async syncUserProjects(userId: number, projectIds: number[]) {
+    const uniqueIds = [...new Set(projectIds)];
+    if (uniqueIds.length > 0) {
+      const count = await this.prisma.project.count({ where: { id: { in: uniqueIds } } });
+      if (count !== uniqueIds.length) {
+        throw new BadRequestException('Có dự án không tồn tại');
+      }
+    }
+    await this.prisma.$transaction([
+      this.prisma.projectMember.deleteMany({ where: { userId } }),
+      this.prisma.projectMember.createMany({
+        data: uniqueIds.map((projectId) => ({ userId, projectId })),
+      }),
+    ]);
   }
 
   async findAllRoles() {
@@ -104,6 +127,10 @@ export class AdminService {
         createdAt: true,
       },
     });
+
+    if (dto.projectIds !== undefined) {
+      await this.syncUserProjects(newUser.id, dto.projectIds);
+    }
 
     await this.auditService.logEvent({
       entityType: 'User',
@@ -204,6 +231,10 @@ export class AdminService {
         updatedAt: true,
       },
     });
+
+    if (dto.projectIds !== undefined) {
+      await this.syncUserProjects(targetUserId, dto.projectIds);
+    }
 
     if (updateData.emailVerifiedAt === null) {
       await this.prisma.trustedDevice.deleteMany({ where: { userId: targetUserId } });

@@ -18,6 +18,11 @@ export class CreateUserDto {
   @IsNumber({}, { message: 'Phòng ban ID phải là số' })
   departmentId?: number | null;
 
+  @IsOptional()
+  @IsArray({ message: 'Danh sách dự án phải là mảng số' })
+  @IsNumber({}, { each: true, message: 'Mỗi mã dự án phải là số' })
+  projectIds?: number[];
+
   @IsArray({ message: 'Danh sách vai trò phải là mảng số' })
   @IsNumber({}, { each: true, message: 'Mỗi mã vai trò phải là số' })
   roleIds: number[];

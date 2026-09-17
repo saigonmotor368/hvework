@@ -96,6 +96,8 @@ export interface AdminUser {
   departmentId?: number | null;
   department?: DepartmentItem | null;
   roles: RoleItem[];
+  ledProjects?: Array<{ id: number; code: string; name: string }>;
+  projectMemberships?: Array<{ project: { id: number; code: string; name: string } }>;
   createdAt?: string;
 }
 

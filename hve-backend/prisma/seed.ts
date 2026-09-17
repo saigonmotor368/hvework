@@ -216,6 +216,21 @@ async function main() {
     });
   }
 
+  // Dự án thật của công ty (thay cho việc phân quyền theo Phòng ban) —
+  // idempotent theo "code", chạy lại không tạo trùng.
+  const projectsToSeed = [
+    { code: 'SNA', name: 'Dự án SNA' },
+    { code: 'KNS', name: 'Dự án KNS' },
+    { code: 'TOURISM', name: 'Dự án TOURISM' },
+    { code: 'SUNRISE', name: 'Dự án SUNRISE' },
+  ];
+  for (const p of projectsToSeed) {
+    const existing = await prisma.project.findUnique({ where: { code: p.code } });
+    if (!existing) {
+      await prisma.project.create({ data: { code: p.code, name: p.name, isActive: true } });
+    }
+  }
+
   console.log('Seeding completed successfully');
 }
 
