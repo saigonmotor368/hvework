@@ -117,6 +117,27 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
   const pendingCount = tasks.filter((t) => t.status === 'Chờ duyệt').length;
   const canCreateTask =
     currentUser?.roles?.includes('department_head') || currentUser?.roles?.includes('ceo');
+  const isCeo = currentUser?.roles?.includes('ceo');
+  const isDepartmentHead = currentUser?.roles?.includes('department_head');
+  const availableTabs: Array<{
+    id: 'all' | 'assigned_to_me' | 'assigned_by_me' | 'department';
+    label: string;
+  }> = isCeo
+    ? [
+        { id: 'all', label: 'Toàn công ty' },
+        { id: 'assigned_to_me', label: 'Việc tôi làm' },
+        { id: 'assigned_by_me', label: 'Việc tôi giao' },
+      ]
+    : isDepartmentHead
+      ? [
+          { id: 'all', label: 'Toàn bộ trong phòng' },
+          { id: 'assigned_to_me', label: 'Việc tôi làm' },
+          { id: 'assigned_by_me', label: 'Việc tôi giao' },
+        ]
+      : [
+          { id: 'assigned_to_me', label: 'Việc tôi làm' },
+          { id: 'all', label: 'Việc liên quan đến tôi' },
+        ];
   const boardColumns = [
     { status: 'Chưa làm', label: 'Chưa làm', accent: 'border-slate-300', dot: 'bg-slate-400' },
     { status: 'Đang làm', label: 'Đang làm', accent: 'border-blue-300', dot: 'bg-blue-500' },
@@ -133,7 +154,11 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
             Quản lý công việc
           </h2>
           <p className="text-sm text-gray-500 mt-1">
-            Theo dõi phân công nhiệm vụ, tiến độ thực hiện và phê duyệt nghiệm thu
+            {isCeo
+              ? 'Theo dõi công việc toàn công ty'
+              : isDepartmentHead
+                ? 'Theo dõi công việc thuộc phòng ban của bạn'
+                : 'Chỉ hiển thị công việc được giao hoặc liên quan trực tiếp đến bạn'}
           </p>
         </div>
 
@@ -168,12 +193,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
 
       {/* 4 Tabs Phân Loại */}
       <div className="mobile-scroll flex items-center space-x-1 border-b border-slate-200 overflow-x-auto pb-px">
-        {[
-          { id: 'all', label: 'Tất cả công việc' },
-          { id: 'assigned_to_me', label: 'Việc tôi làm' },
-          { id: 'assigned_by_me', label: 'Việc tôi giao' },
-          { id: 'department', label: 'Việc bộ phận' },
-        ].map((tab) => (
+        {availableTabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}

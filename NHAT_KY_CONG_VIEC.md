@@ -400,3 +400,16 @@ Dự án đã hoàn thành toàn bộ các giai đoạn (Phase 0 ➔ Phase 5) v�
 - Công việc trên mobile mặc định mở “Việc tôi làm” với nhân viên; board không còn ép rộng 1040px và ẩn cột rỗng trên mobile nên công việc “Đang làm” hiện ngay.
 - Bốn thẻ số liệu dashboard đã thành nút điều hướng, mở đúng danh sách hồ sơ/công việc và bộ lọc tương ứng.
 - Baseline trước phát hành: backend 157/157 test pass, build/lint pass; frontend 9/9 test pass, build/lint không có error, main chunk 351,90 KB (gzip 98,38 KB).
+
+---
+
+## 11. DASHBOARD VÀ PHẠM VI DỮ LIỆU THEO HỢP VAI TRÒ (17/09/2026)
+
+- Bỏ cơ chế chọn một “vai trò ưu tiên”; dashboard nay hợp toàn bộ vai trò của người dùng và khử trùng lặp bản ghi.
+- CEO xem thống kê toàn công ty và tiến độ từng phòng ban; Trưởng bộ phận xem hồ sơ/công việc thuộc phòng; nhân viên chỉ xem hồ sơ tự tạo và công việc liên quan trực tiếp.
+- Vai trò Kế toán và Pháp chế cộng thêm phạm vi nghiệp vụ tương ứng; người đồng thời giữ nhiều vai trò nhìn thấy đầy đủ các khối quyền được hợp lại.
+- IT Admin chỉ có quyền quản trị hệ thống, không còn mặc nhiên được nâng thành CEO để xem toàn bộ dữ liệu kinh doanh.
+- Dùng chung một bộ dựng phạm vi cho dashboard, danh sách hồ sơ, chi tiết hồ sơ, danh sách/chi tiết công việc và báo cáo; URL/bộ lọc do client gửi không thể mở rộng vượt quá quyền backend.
+- Trưởng bộ phận chỉ lấy được danh sách nhân sự và giao việc trong chính phòng mình; nhân viên không còn mở được tab công việc toàn phòng.
+- Giao diện dashboard hiển thị rõ phạm vi đang xem và nhãn “Đã gộp N vai trò”; các tab công việc đổi theo cấp CEO/phòng ban/cá nhân.
+- Baseline: backend build/lint pass, 162/162 test pass; frontend build pass, 9/9 test pass, lint không có error; main chunk 352,29 KB (gzip 98,56 KB).

@@ -76,7 +76,11 @@ describe('ReportsService', () => {
       // Document query MUST be scoped to user.id = 10, ignoring client attempt to probe other users
       expect(prismaMock.document.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: expect.objectContaining({ createdById: 10 }),
+          where: expect.objectContaining({
+            AND: expect.arrayContaining([
+              { OR: [{ createdById: 10 }] },
+            ]),
+          }),
         }),
       );
 
@@ -84,7 +88,9 @@ describe('ReportsService', () => {
       expect(prismaMock.task.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
-            OR: [{ assigneeId: 10 }, { createdById: 10 }],
+            AND: expect.arrayContaining([
+              { OR: [{ assigneeId: 10 }, { createdById: 10 }] },
+            ]),
           }),
         }),
       );
@@ -105,7 +111,13 @@ describe('ReportsService', () => {
       // Document query MUST be scoped to departmentId = 5, overriding client parameter
       expect(prismaMock.document.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: expect.objectContaining({ createdBy: { departmentId: 5 } }),
+          where: expect.objectContaining({
+            AND: expect.arrayContaining([
+              expect.objectContaining({
+                OR: expect.arrayContaining([{ createdBy: { departmentId: 5 } }]),
+              }),
+            ]),
+          }),
         }),
       );
 
@@ -113,10 +125,14 @@ describe('ReportsService', () => {
       expect(prismaMock.task.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
-            OR: [
-              { assignee: { departmentId: 5 } },
-              { createdBy: { departmentId: 5 } },
-            ],
+            AND: expect.arrayContaining([
+              {
+                OR: [
+                  { assignee: { departmentId: 5 } },
+                  { createdBy: { departmentId: 5 } },
+                ],
+              },
+            ]),
           }),
         }),
       );

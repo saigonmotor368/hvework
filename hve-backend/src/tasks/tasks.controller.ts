@@ -46,8 +46,9 @@ export class TasksController {
   }
 
   @Get('users')
-  async getAssignableUsers() {
-    return this.tasksService.getAssignableUsers();
+  @Roles('department_head', 'ceo')
+  async getAssignableUsers(@Req() req: any) {
+    return this.tasksService.getAssignableUsers(req.user);
   }
 
   @Get(':id')

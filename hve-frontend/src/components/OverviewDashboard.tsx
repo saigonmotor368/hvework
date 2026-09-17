@@ -82,9 +82,13 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
   }, [user]);
 
   const userRoles: string[] = user?.roles || [];
-  const isCeo = userRoles.includes('ceo') || userRoles.includes('it_admin');
+  const isCeo = userRoles.includes('ceo');
   const isDeptHead = userRoles.includes('department_head');
-  const isAccountantOrLegal = userRoles.includes('accountant') || userRoles.includes('legal');
+  const capabilities = dashboardData?.capabilities || {};
+  const scopeLabel = dashboardData?.scope?.label ||
+    (isCeo ? 'Toàn công ty' : isDeptHead ? 'Phòng ban' : 'Dữ liệu của tôi');
+  const pendingActionCount = dashboardData?.actionRequired?.pendingApprovalsCount || 0;
+  const returnedActionCount = dashboardData?.actionRequired?.returnedDocumentsCount || 0;
 
   if (isLoading && !dashboardData) {
     return (
@@ -112,16 +116,12 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
             Tổng quan điều hành
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            Bảng theo dõi số liệu và cảnh báo điều hành thời gian thực dành cho{' '}
-            <strong className="text-gray-800">
-              {isCeo
-                ? 'Ban Giám Đốc (CEO)'
-                : isDeptHead
-                ? 'Trưởng Bộ Phận'
-                : isAccountantOrLegal
-                ? 'Kế Toán & Pháp Chế'
-                : 'Nhân Sự'}
-            </strong>
+            Phạm vi dữ liệu: <strong className="text-gray-800">{scopeLabel}</strong>
+            {userRoles.length > 1 && (
+              <span className="ml-2 text-xs text-violet-700 bg-violet-50 px-2 py-0.5 rounded-full font-semibold">
+                Đã gộp {userRoles.length} vai trò
+              </span>
+            )}
             {draftCount > 0 && (
               <span className="ml-2 text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full font-semibold">
                 {draftCount} bản nháp cá nhân
@@ -166,14 +166,10 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
           <div className="bg-white rounded-2xl p-4 border border-rose-100 shadow-sm">
             <div className="flex flex-wrap items-start justify-between gap-2 pb-2 border-b border-slate-100">
               <span className="text-xs font-bold text-gray-600 uppercase tracking-wider">
-                {isCeo
-                  ? 'Hồ sơ chờ CEO phê duyệt'
-                  : isDeptHead
-                  ? 'Hồ sơ chờ Trưởng phòng duyệt'
-                  : 'Hồ sơ cần xử lý / bị trả lại'}
+                {pendingActionCount > 0 ? 'Hồ sơ đang chờ bạn xử lý' : 'Hồ sơ của bạn cần bổ sung'}
               </span>
               <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-amber-100 text-amber-800">
-                {dashboardData?.actionRequired?.pendingApprovalsCount ?? pendingCount} hồ sơ
+                {pendingActionCount || returnedActionCount} hồ sơ
               </span>
             </div>
 
@@ -212,54 +208,23 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
           <div className="bg-white rounded-2xl p-4 border border-rose-100 shadow-sm">
             <div className="flex flex-wrap items-start justify-between gap-2 pb-2 border-b border-slate-100">
               <span className="text-xs font-bold text-gray-600 uppercase tracking-wider">
-                {isCeo
+                {capabilities.canViewCompany
                   ? 'Việc quá hạn leo thang CEO (≥3 ngày)'
-                  : isDeptHead
+                  : capabilities.canViewDepartment
                   ? 'Việc quá hạn trong phòng ban'
-                  : isAccountantOrLegal
-                  ? 'Hợp đồng sắp hết hạn (≤30 ngày)'
                   : 'Nhiệm vụ đến hạn hôm nay / quá hạn'}
               </span>
               <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-rose-100 text-rose-800">
-                {isAccountantOrLegal
-                  ? `${dashboardData?.actionRequired?.expiringContractsCount ?? 0} hợp đồng`
-                  : `${dashboardData?.actionRequired?.escalatedTasksCount ?? dashboardData?.actionRequired?.overdueTasksCount ?? dashboardData?.actionRequired?.urgentTasksCount ?? 0} việc`}
+                {`${capabilities.canViewCompany
+                  ? dashboardData?.actionRequired?.escalatedTasksCount ?? 0
+                  : dashboardData?.actionRequired?.overdueTasksCount ?? dashboardData?.actionRequired?.urgentTasksCount ?? 0} việc`}
               </span>
             </div>
 
             <div className="mt-3 divide-y divide-slate-100 max-h-48 overflow-y-auto">
               {(() => {
-                if (isAccountantOrLegal) {
-                  const contracts = dashboardData?.actionRequired?.expiringContracts || [];
-                  if (contracts.length === 0) {
-                    return (
-                      <p className="text-xs text-emerald-600 font-medium py-3 text-center">
-                        ✓ Không có hợp đồng nào sắp hết hạn trong 30 ngày tới.
-                      </p>
-                    );
-                  }
-                  return contracts.slice(0, 3).map((c: any) => (
-                    <div
-                      key={c.id}
-                      onClick={() => onSelectDoc(c)}
-                      className="py-2 flex items-center justify-between hover:bg-slate-50 cursor-pointer px-2 rounded transition-colors"
-                    >
-                      <div>
-                        <div className="flex items-center space-x-2">
-                          <span className="text-xs font-bold text-amber-700">{c.code}</span>
-                          <span className="text-xs font-semibold text-gray-800 truncate max-w-[180px]">{c.title}</span>
-                        </div>
-                        <p className="text-[11px] text-gray-400 mt-0.5">
-                          Hết hạn: {c.dataJson?.endDate}
-                        </p>
-                      </div>
-                      <span className="text-xs font-semibold text-amber-700">Xem xét →</span>
-                    </div>
-                  ));
-                }
-
                 const tasks =
-                  dashboardData?.actionRequired?.escalatedTasks ||
+                  (capabilities.canViewCompany && dashboardData?.actionRequired?.escalatedTasks) ||
                   dashboardData?.actionRequired?.overdueTasks ||
                   dashboardData?.actionRequired?.urgentTasks ||
                   [];
@@ -376,8 +341,39 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
         </button>
       </div>
 
+      {(capabilities.canViewFinancials || capabilities.canViewLegal) && (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          {capabilities.canViewFinancials && (
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5">
+              <p className="text-xs font-bold uppercase tracking-wider text-emerald-700">Nghiệp vụ kế toán</p>
+              <p className="mt-2 text-2xl font-black text-emerald-900">
+                {Number(dashboardData?.metrics?.financials?.totalApprovedAmount || 0).toLocaleString('vi-VN')} ₫
+              </p>
+              <p className="mt-1 text-xs text-emerald-700">
+                {dashboardData?.metrics?.financials?.approvedPayments || 0} đề nghị thanh toán đã duyệt trong phạm vi được xem
+              </p>
+            </div>
+          )}
+          {capabilities.canViewLegal && (
+            <button
+              type="button"
+              onClick={() => onOpenDocuments('all')}
+              className="rounded-2xl border border-violet-200 bg-violet-50/60 p-5 text-left transition hover:border-violet-400"
+            >
+              <p className="text-xs font-bold uppercase tracking-wider text-violet-700">Nghiệp vụ pháp chế</p>
+              <p className="mt-2 text-2xl font-black text-violet-900">
+                {dashboardData?.metrics?.legal?.expiringSoon || 0} hợp đồng sắp hết hạn
+              </p>
+              <p className="mt-1 text-xs text-violet-700">
+                Tổng {dashboardData?.metrics?.legal?.totalContracts || 0} hợp đồng trong phạm vi được xem · Xem chi tiết →
+              </p>
+            </button>
+          )}
+        </div>
+      )}
+
       {/* KHỐI 3: TIẾN ĐỘ PHÒNG BAN (NẾU LÀ CEO) HOẶC CHI TIẾT TÀI CHÍNH */}
-      {isCeo && dashboardData?.departmentStats && (
+      {capabilities.canViewCompany && dashboardData?.departmentStats && (
         <div className="bg-white rounded-2xl p-4 md:p-6 shadow-sm border border-slate-200">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
             <h3 className="text-base font-bold text-gray-900">Tỷ lệ hoàn thành công việc theo Phòng ban</h3>

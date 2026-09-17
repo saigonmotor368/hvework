@@ -1,137 +1,129 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DashboardService } from './dashboard.service.js';
 
-describe('DashboardService', () => {
+describe('DashboardService role scopes', () => {
   let service: DashboardService;
   let prismaMock: any;
 
   beforeEach(() => {
     prismaMock = {
-      document: {
-        findMany: vi.fn(),
-        count: vi.fn(),
-      },
-      task: {
-        findMany: vi.fn(),
-        count: vi.fn(),
-      },
-      department: {
-        findMany: vi.fn(),
-      },
+      document: { findMany: vi.fn() },
+      task: { findMany: vi.fn() },
+      department: { findMany: vi.fn() },
     };
-
     service = new DashboardService(prismaMock);
   });
 
-  it('should return CEO dashboard with action items and metrics', async () => {
-    prismaMock.document.findMany.mockResolvedValueOnce([
-      { id: 1, code: 'DNTT-001', title: 'Hồ sơ 1', type: 'payment_request', createdAt: new Date() },
+  it('gives CEO company-wide metrics and department statistics', async () => {
+    prismaMock.document.findMany
+      .mockResolvedValueOnce([
+        { id: 1, type: 'proposal', status: 'Chờ duyệt', dataJson: {} },
+        { id: 2, type: 'proposal', status: 'Đã duyệt', dataJson: {} },
+      ])
+      .mockResolvedValueOnce([{ id: 1, status: 'Chờ duyệt' }])
+      .mockResolvedValueOnce([]);
+    prismaMock.task.findMany.mockResolvedValue([
+      { id: 10, status: 'Đang làm', dueDate: new Date(Date.now() - 4 * 86400000) },
     ]);
-    prismaMock.task.findMany.mockResolvedValueOnce([
-      { id: 10, code: 'CV-001', title: 'Việc quá hạn 3 ngày', dueDate: new Date() },
-    ]);
-    prismaMock.document.count.mockResolvedValue(10);
-    prismaMock.task.count.mockResolvedValue(20);
-    prismaMock.document.findMany.mockResolvedValueOnce([]); // contracts
-    prismaMock.department.findMany.mockResolvedValueOnce([
-      { id: 1, name: 'Công nghệ thông tin', code: 'IT', users: [{ assignedTasks: [{ status: 'Hoàn thành' }] }] },
+    prismaMock.department.findMany.mockResolvedValue([
+      { id: 1, name: 'IT', code: 'IT', users: [{ assignedTasks: [{ status: 'Hoàn thành' }] }] },
     ]);
 
-    const user = { id: 1, roles: [{ name: 'ceo' }] };
-    const result = await service.getDashboardData(user);
+    const result = await service.getDashboardData({ id: 1, roles: [{ name: 'ceo' }] });
 
-    expect(result.role).toBe('ceo');
-    expect(result.actionRequired.pendingApprovalsCount).toBe(1);
-    expect(result.actionRequired.escalatedTasksCount).toBe(1);
-    expect(result.metrics.documents.total).toBe(10);
+    expect(result.scope.level).toBe('company');
+    expect(result.capabilities.canViewCompany).toBe(true);
+    expect(result.metrics.documents.total).toBe(2);
+    expect(result.metrics.tasks.overdue).toBe(1);
     expect(result.departmentStats[0].completionRate).toBe(100);
   });
 
-  it('should return Department Head dashboard scoped to department', async () => {
-    prismaMock.document.findMany.mockResolvedValueOnce([
-      { id: 2, code: 'DX-001', title: 'Đề xuất 1', type: 'proposal' },
+  it('scopes a department head to the department', async () => {
+    prismaMock.document.findMany
+      .mockResolvedValueOnce([{ id: 2, type: 'proposal', status: 'Chờ duyệt', dataJson: {} }])
+      .mockResolvedValueOnce([{ id: 2, status: 'Chờ duyệt' }])
+      .mockResolvedValueOnce([]);
+    prismaMock.task.findMany.mockResolvedValue([
+      { id: 11, status: 'Đang làm', dueDate: null },
+      { id: 12, status: 'Hoàn thành', dueDate: null },
     ]);
-    prismaMock.task.findMany
-      .mockResolvedValueOnce([{ id: 11, code: 'CV-002', title: 'Việc quá hạn phòng IT' }])
-      .mockResolvedValueOnce([{ status: 'Hoàn thành' }, { status: 'Đang làm' }]);
 
-    const user = { id: 2, roles: [{ name: 'department_head' }], departmentId: 1 };
-    const result = await service.getDashboardData(user);
+    const result = await service.getDashboardData({
+      id: 2,
+      roles: [{ name: 'department_head' }],
+      departmentId: 7,
+      department: { id: 7, name: 'Vận hành' },
+    });
 
-    expect(result.role).toBe('department_head');
+    expect(result.scope).toMatchObject({ level: 'department', departmentId: 7 });
+    expect(result.scope.label).toContain('Vận hành');
+    expect(result.metrics.tasks.total).toBe(2);
     expect(result.actionRequired.pendingApprovalsCount).toBe(1);
-    expect(result.actionRequired.overdueTasksCount).toBe(1);
-    expect(result.metrics.departmentTasks.total).toBe(2);
-    expect(result.metrics.departmentTasks.completed).toBe(1);
+    expect(prismaMock.department.findMany).not.toHaveBeenCalled();
   });
 
-  it('should return Accountant/Legal dashboard with approved payments and expiring contracts', async () => {
+  it('merges accountant and legal capabilities without duplicate dashboards', async () => {
     prismaMock.document.findMany
       .mockResolvedValueOnce([
-        { id: 1, code: 'DNTT-001', title: 'Chi tiền', dataJson: { amount: 5000000 }, createdAt: new Date() },
+        { id: 1, type: 'payment_request', status: 'Đã duyệt', dataJson: { amount: 5000000 } },
+        {
+          id: 2,
+          type: 'contract',
+          status: 'Đã duyệt',
+          dataJson: { endDate: new Date(Date.now() + 10 * 86400000).toISOString() },
+        },
       ])
-      .mockResolvedValueOnce([
-        { id: 2, code: 'HD-001', title: 'Hợp đồng', dataJson: { endDate: new Date(Date.now() + 10 * 86400000).toISOString() }, status: 'Đã duyệt' },
-      ]);
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+    prismaMock.task.findMany.mockResolvedValue([]);
 
-    const user = { id: 3, roles: [{ name: 'accountant' }] };
-    const result = await service.getDashboardData(user);
+    const result = await service.getDashboardData({
+      id: 3,
+      roles: [{ name: 'employee' }, { name: 'accountant' }, { name: 'legal' }],
+    });
 
-    expect(result.role).toBe('accountant_legal');
-    expect(result.actionRequired.approvedPaymentsCount).toBe(1);
-    expect(result.actionRequired.expiringContractsCount).toBe(1);
-    expect(result.metrics.totalApprovedAmount).toBe(5000000);
+    expect(result.roles).toEqual(['accountant', 'employee', 'legal']);
+    expect(result.capabilities.canViewFinancials).toBe(true);
+    expect(result.capabilities.canViewLegal).toBe(true);
+    expect(result.metrics.financials.totalApprovedAmount).toBe(5000000);
+    expect(result.metrics.legal.expiringSoon).toBe(1);
   });
 
-  it('should return Employee dashboard with returned documents and urgent tasks', async () => {
+  it('shows an employee only personal documents and assigned work', async () => {
     prismaMock.document.findMany
       .mockResolvedValueOnce([
-        { id: 1, code: 'DNTT-001', title: 'Bị trả lại', updatedAt: new Date() },
+        { id: 1, type: 'proposal', status: 'Nháp', dataJson: {} },
+        { id: 2, type: 'proposal', status: 'Đã duyệt', dataJson: {} },
       ])
       .mockResolvedValueOnce([
-        { status: 'Nháp' },
-        { status: 'Đã duyệt' },
+        { id: 1, type: 'proposal', status: 'Nháp', dataJson: {} },
       ]);
-    prismaMock.task.findMany
-      .mockResolvedValueOnce([
-        { id: 5, code: 'CV-005', title: 'Việc cần làm hôm nay', dueDate: new Date() },
-      ])
-      .mockResolvedValueOnce([
-        { status: 'Đang làm' },
-      ]);
+    prismaMock.task.findMany.mockResolvedValue([
+      { id: 5, status: 'Đang làm', dueDate: new Date(Date.now() - 3600000) },
+    ]);
 
-    const user = { id: 10, roles: [{ name: 'employee' }] };
-    const result = await service.getDashboardData(user);
+    const result = await service.getDashboardData({ id: 10, roles: [{ name: 'employee' }] });
 
-    expect(result.role).toBe('employee');
-    expect(result.actionRequired.returnedDocumentsCount).toBe(1);
-    expect(result.actionRequired.urgentTasksCount).toBe(1);
+    expect(result.scope.level).toBe('personal');
     expect(result.metrics.documents.total).toBe(2);
     expect(result.metrics.tasks.total).toBe(1);
+    expect(result.actionRequired.returnedDocumentsCount).toBe(1);
+    expect(result.departmentStats).toBeUndefined();
   });
 
-  it('should use in-memory cache on subsequent requests within 60s', async () => {
-    prismaMock.document.findMany.mockResolvedValue([
-      { id: 1, code: 'DNTT-001', title: 'Hồ sơ 1', type: 'payment_request' },
-    ]);
+  it('uses cache per user, department and complete role set', async () => {
+    prismaMock.document.findMany.mockResolvedValue([]);
     prismaMock.task.findMany.mockResolvedValue([]);
-    prismaMock.document.count.mockResolvedValue(5);
-    prismaMock.task.count.mockResolvedValue(5);
     prismaMock.department.findMany.mockResolvedValue([]);
-
     const user = { id: 1, roles: [{ name: 'ceo' }] };
-    
-    // First call: hits prisma
-    await service.getDashboardData(user);
-    expect(prismaMock.document.count).toHaveBeenCalledTimes(4);
 
-    // Second call: should use cache, no new count calls
     await service.getDashboardData(user);
-    expect(prismaMock.document.count).toHaveBeenCalledTimes(4);
+    const callsAfterFirstRequest = prismaMock.document.findMany.mock.calls.length;
+    await service.getDashboardData(user);
+    expect(prismaMock.document.findMany).toHaveBeenCalledTimes(callsAfterFirstRequest);
 
-    // Clear cache, third call should hit prisma again
     service.clearCache(user.id);
     await service.getDashboardData(user);
-    expect(prismaMock.document.count).toHaveBeenCalledTimes(8);
+    expect(prismaMock.document.findMany).toHaveBeenCalledTimes(callsAfterFirstRequest * 2);
   });
 });

@@ -75,8 +75,11 @@ export class DocumentsController {
   }
 
   @Get(':id')
-  async findById(@Param('id', ParseIntPipe) id: number) {
-    return this.documentsService.findById(id);
+  async findById(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() req: any,
+  ) {
+    return this.documentsService.findById(req.user, id);
   }
 
   @Put(':id')

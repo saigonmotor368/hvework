@@ -1,6 +1,11 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { ReportFilterDto } from './dto/report-filter.dto.js';
+import {
+  buildDocumentAccessWhere,
+  buildTaskAccessWhere,
+  getRoleNames,
+} from '../common/access-scope.js';
 
 @Injectable()
 export class ReportsService {
@@ -13,49 +18,34 @@ export class ReportsService {
   }
 
   async getSummary(user: any, filter: ReportFilterDto) {
-    const roles: string[] = user.roles ? user.roles.map((r: any) => (typeof r === 'string' ? r : r.name)) : [];
-    const isCompanyWide = roles.some((r) => ['ceo', 'it_admin', 'accountant', 'legal'].includes(r));
-    const isDeptHead = roles.includes('department_head');
-    const isEmployeeOnly = !isCompanyWide && !isDeptHead;
-    const userDeptId = user.departmentId || user.department?.id;
-
+    const roles = getRoleNames(user);
+    const canFilterOrganization = roles.some((role) =>
+      ['ceo', 'department_head', 'accountant', 'legal'].includes(role),
+    );
     // 1. Filter conditions for Documents with Role-Based Scoping
-    const docWhere: any = {};
+    const docFilters: any = {};
     if (filter.startDate || filter.endDate) {
-      docWhere.createdAt = {};
-      if (filter.startDate) docWhere.createdAt.gte = new Date(filter.startDate);
+      docFilters.createdAt = {};
+      if (filter.startDate) docFilters.createdAt.gte = new Date(filter.startDate);
       if (filter.endDate) {
         const end = new Date(filter.endDate);
         end.setHours(23, 59, 59, 999);
-        docWhere.createdAt.lte = end;
+        docFilters.createdAt.lte = end;
       }
     }
     if (filter.type) {
-      docWhere.type = filter.type;
+      docFilters.type = filter.type;
     }
     if (filter.status && filter.status !== 'all') {
-      docWhere.status = filter.status;
+      docFilters.status = filter.status;
     }
-
-    // Role scoping for Documents
-    if (isEmployeeOnly) {
-      // Nhân viên chỉ được xem hồ sơ do chính mình tạo, không xem được phòng khác
-      docWhere.createdById = user.id;
-    } else if (isDeptHead && userDeptId) {
-      // Trưởng bộ phận chỉ được xem hồ sơ của nhân sự thuộc bộ phận mình phụ trách
-      docWhere.createdBy = { departmentId: userDeptId };
-      if (filter.userId) {
-        docWhere.createdById = Number(filter.userId);
-      }
-    } else {
-      // Vai trò toàn công ty (CEO, IT Admin, Kế toán, Pháp chế)
-      if (filter.userId) {
-        docWhere.createdById = Number(filter.userId);
-      }
-      if (filter.departmentId) {
-        docWhere.createdBy = { departmentId: Number(filter.departmentId) };
-      }
+    if (canFilterOrganization && filter.userId) {
+      docFilters.createdById = Number(filter.userId);
     }
+    if (canFilterOrganization && filter.departmentId && !roles.includes('department_head')) {
+      docFilters.createdBy = { departmentId: Number(filter.departmentId) };
+    }
+    const docWhere = { AND: [buildDocumentAccessWhere(user), docFilters] };
 
     const documents = await this.prisma.document.findMany({
       where: docWhere,
@@ -96,45 +86,26 @@ export class ReportsService {
       : 0;
 
     // 2. Filter conditions for Tasks with Role-Based Scoping
-    const taskWhere: any = {};
+    const taskFilters: any = {};
     if (filter.startDate || filter.endDate) {
-      taskWhere.createdAt = {};
-      if (filter.startDate) taskWhere.createdAt.gte = new Date(filter.startDate);
+      taskFilters.createdAt = {};
+      if (filter.startDate) taskFilters.createdAt.gte = new Date(filter.startDate);
       if (filter.endDate) {
         const end = new Date(filter.endDate);
         end.setHours(23, 59, 59, 999);
-        taskWhere.createdAt.lte = end;
+        taskFilters.createdAt.lte = end;
       }
     }
     if (filter.status && filter.status !== 'all') {
-      taskWhere.status = filter.status;
+      taskFilters.status = filter.status;
     }
-
-    // Role scoping for Tasks
-    if (isEmployeeOnly) {
-      // Nhân viên chỉ xem các công việc mình được giao hoặc do mình tạo
-      taskWhere.OR = [
-        { assigneeId: user.id },
-        { createdById: user.id },
-      ];
-    } else if (isDeptHead && userDeptId) {
-      // Trưởng bộ phận chỉ xem công việc của nhân sự trong phòng ban mình
-      taskWhere.OR = [
-        { assignee: { departmentId: userDeptId } },
-        { createdBy: { departmentId: userDeptId } },
-      ];
-      if (filter.userId) {
-        taskWhere.assigneeId = Number(filter.userId);
-      }
-    } else {
-      // Toàn quyền
-      if (filter.userId) {
-        taskWhere.assigneeId = Number(filter.userId);
-      }
-      if (filter.departmentId) {
-        taskWhere.assignee = { departmentId: Number(filter.departmentId) };
-      }
+    if (canFilterOrganization && filter.userId) {
+      taskFilters.assigneeId = Number(filter.userId);
     }
+    if (canFilterOrganization && filter.departmentId && !roles.includes('department_head')) {
+      taskFilters.assignee = { departmentId: Number(filter.departmentId) };
+    }
+    const taskWhere = { AND: [buildTaskAccessWhere(user), taskFilters] };
 
     const tasks = await this.prisma.task.findMany({
       where: taskWhere,
@@ -156,8 +127,12 @@ export class ReportsService {
     ).length;
 
     // 3. Contracts metrics with Role-Based Scoping
-    // Nhân viên bình thường không có quyền xem danh mục hợp đồng công ty
-    const contracts = isEmployeeOnly ? [] : documents.filter((d: any) => d.type === 'contract');
+    const canViewContracts = roles.some((role) =>
+      ['ceo', 'department_head', 'accountant', 'legal'].includes(role),
+    );
+    const contracts = canViewContracts
+      ? documents.filter((d: any) => d.type === 'contract')
+      : [];
     let totalContractValue = 0;
     let expiringSoonCount = 0;
     const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);

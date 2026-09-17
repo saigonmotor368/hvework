@@ -14,6 +14,7 @@ import { UpdatePaymentRequestDto } from './dto/update-payment-request.dto.js';
 import { ActionStepDto, RejectOrReturnStepDto } from './dto/action-step.dto.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { AuthService } from '../auth/auth.service.js';
+import { buildDocumentAccessWhere, getRoleNames } from '../common/access-scope.js';
 
 @Injectable()
 export class DocumentsService {
@@ -622,7 +623,7 @@ export class DocumentsService {
     }
 
     // Check user role
-    const userRoleNames: string[] = user.roles ? user.roles.map((r: any) => r.name) : [];
+    const userRoleNames = getRoleNames(user);
     if (!userRoleNames.includes(step.roleRequired)) {
       throw new ForbiddenException(
         `Bạn không có vai trò '${step.roleRequired}' để phê duyệt bước này`,
@@ -1059,6 +1060,7 @@ export class DocumentsService {
   async findAll(user: any, query: { status?: string; type?: string; tab?: string }) {
     const userRoleNames: string[] = user.roles ? user.roles.map((r: any) => r.name) : [];
     const where: any = {};
+    const accessScope = buildDocumentAccessWhere(user);
 
     if (query.type) {
       where.type = query.type;
@@ -1069,11 +1071,8 @@ export class DocumentsService {
     }
 
     if (query.tab === 'my') {
-      where.createdById = user.id;
+      where.AND = [accessScope, { createdById: user.id }];
     } else if (query.tab === 'to_review') {
-      where.status = 'Chờ duyệt';
-      where.createdById = { not: user.id };
-
       const userDeptId = user.departmentId || user.department?.id;
       const conditions: any[] = [];
       const nonDeptRoles = userRoleNames.filter((r) => r !== 'department_head');
@@ -1095,9 +1094,16 @@ export class DocumentsService {
         });
       }
 
-      where.steps = {
-        some: conditions.length === 1 ? conditions[0] : { OR: conditions },
-      };
+      where.AND = [
+        accessScope,
+        { status: 'Chờ duyệt' },
+        { createdById: { not: user.id } },
+        conditions.length > 0
+          ? { steps: { some: conditions.length === 1 ? conditions[0] : { OR: conditions } } }
+          : { id: -1 },
+      ];
+    } else {
+      where.AND = [accessScope];
     }
 
     const docs = await this.prisma.document.findMany({
@@ -1116,9 +1122,9 @@ export class DocumentsService {
     return docs.map((doc) => this.enrichDocument(doc));
   }
 
-  async findById(id: number) {
-    const doc = await this.prisma.document.findUnique({
-      where: { id },
+  async findById(user: any, id: number) {
+    const doc = await this.prisma.document.findFirst({
+      where: { AND: [{ id }, buildDocumentAccessWhere(user)] },
       include: {
         createdBy: {
           select: { id: true, name: true, email: true, department: true },

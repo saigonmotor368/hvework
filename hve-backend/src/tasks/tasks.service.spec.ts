@@ -37,6 +37,7 @@ describe('TasksService', () => {
         create: vi.fn(),
       },
       user: {
+        findFirst: vi.fn(),
         findMany: vi.fn(),
       },
       $transaction: vi.fn((cb) => cb(prisma)),
@@ -119,7 +120,8 @@ describe('TasksService', () => {
         createdById: 1,
       });
 
-      const user = { id: 1, name: 'Nguyễn Văn A', roles: ['department_head'] };
+      prisma.user.findFirst.mockResolvedValue({ departmentId: 10 });
+      const user = { id: 1, name: 'Nguyễn Văn A', roles: ['department_head'], departmentId: 10 };
       const dto: any = {
         title: 'Làm báo cáo',
         assigneeId: 2,
@@ -411,19 +413,32 @@ describe('TasksService', () => {
     it('tab "department" should filter by user department on both assignee and creator', async () => {
       prisma.task.findMany.mockResolvedValue([]);
 
-      const user = { id: 5, departmentId: 2, roles: ['employee'] };
+      const user = { id: 5, departmentId: 2, roles: ['department_head'] };
       await service.findAll(user, { tab: 'department' });
 
       expect(prisma.task.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
-            OR: [
-              { assignee: { departmentId: 2 } },
-              { createdBy: { departmentId: 2 } },
-            ],
+            AND: expect.arrayContaining([
+              {
+                OR: [
+                  { assignee: { departmentId: 2 } },
+                  { createdBy: { departmentId: 2 } },
+                ],
+              },
+            ]),
           }),
         }),
       );
+    });
+
+    it('tab "department" should be denied to regular employees', async () => {
+      const res = await service.findAll(
+        { id: 5, departmentId: 2, roles: ['employee'] },
+        { tab: 'department' },
+      );
+      expect(res).toEqual([]);
+      expect(prisma.task.findMany).not.toHaveBeenCalled();
     });
 
     it('tab "department" should return empty array if user has no department', async () => {

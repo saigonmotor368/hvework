@@ -12,6 +12,11 @@ import { UpdateTaskDto } from './dto/update-task.dto.js';
 import { UpdateProgressDto } from './dto/update-progress.dto.js';
 import { CreateCommentDto } from './dto/create-comment.dto.js';
 import { TaskQueryDto } from './dto/task-query.dto.js';
+import {
+  buildTaskAccessWhere,
+  getDepartmentId,
+  getRoleNames,
+} from '../common/access-scope.js';
 
 /**
  * Helper: Cộng thêm `months` tháng an toàn, chống tràn ngày cuối tháng (VD: 31/01 -> 28/02)
@@ -112,9 +117,17 @@ export class TasksService {
   /**
    * Lấy danh sách người dùng khả dụng để giao việc và phối hợp
    */
-  async getAssignableUsers() {
+  async getAssignableUsers(
+    user: { id: number; roles?: Array<string | { name: string }>; departmentId?: number | null },
+  ) {
+    const roles = getRoleNames(user);
+    if (!roles.includes('ceo') && !roles.includes('department_head')) return [];
+
     return this.prisma.user.findMany({
-      where: { status: 'active' },
+      where: {
+        status: 'active',
+        ...(!roles.includes('ceo') ? { departmentId: getDepartmentId(user) || -1 } : {}),
+      },
       select: {
         id: true,
         name: true,
@@ -130,7 +143,12 @@ export class TasksService {
    * Tạo công việc mới (có thể là việc cha hoặc việc con)
    */
   async createTask(
-    user: { id: number; name: string; roles?: Array<string | { name: string }> },
+    user: {
+      id: number;
+      name: string;
+      roles?: Array<string | { name: string }>;
+      departmentId?: number | null;
+    },
     dto: CreateTaskDto,
     ip?: string,
   ) {
@@ -138,6 +156,18 @@ export class TasksService {
       throw new ForbiddenException(
         'Chỉ Trưởng bộ phận hoặc CEO mới có quyền giao việc',
       );
+    }
+
+    if (dto.assigneeId && !this.hasRole(user, 'ceo')) {
+      const assignee = await this.prisma.user.findFirst({
+        where: { id: dto.assigneeId, status: 'active' },
+        select: { departmentId: true },
+      });
+      if (!assignee || !user.departmentId || assignee.departmentId !== user.departmentId) {
+        throw new ForbiddenException(
+          'Trưởng bộ phận chỉ được giao việc cho nhân sự trong phòng mình',
+        );
+      }
     }
 
     // 1. Kiểm tra giới hạn 2 cấp công việc
@@ -607,40 +637,27 @@ export class TasksService {
   ) {
     const { tab = 'all', status, priority, search, isOverdue, tags } = query;
     const where: any = {};
-    if (!search) {
-      where.parentTaskId = null;
-    }
+    const andConditions: any[] = [];
+    if (!search) andConditions.push({ parentTaskId: null });
 
     // 1. Phân loại theo 4 Tabs
     if (tab === 'assigned_to_me') {
-      where.assigneeId = user.id;
+      andConditions.push({ assigneeId: user.id });
     } else if (tab === 'assigned_by_me') {
-      where.createdById = user.id;
+      andConditions.push({ createdById: user.id });
     } else if (tab === 'department') {
-      // Lọc theo bộ phận của user
-      if (!user.departmentId) {
+      const roles = getRoleNames(user);
+      if (!user.departmentId || (!roles.includes('department_head') && !roles.includes('ceo'))) {
         return [];
       }
-      where.OR = [
-        { assignee: { departmentId: user.departmentId } },
-        { createdBy: { departmentId: user.departmentId } },
-      ];
+      andConditions.push({
+        OR: [
+          { assignee: { departmentId: user.departmentId } },
+          { createdBy: { departmentId: user.departmentId } },
+        ],
+      });
     } else {
-      // Tab 'all'
-      const isCeo = this.hasRole(user, 'ceo');
-      if (!isCeo) {
-        const orConditions: any[] = [
-          { assigneeId: user.id },
-          { createdById: user.id },
-        ];
-        if (user.departmentId) {
-          orConditions.push(
-            { assignee: { departmentId: user.departmentId } },
-            { createdBy: { departmentId: user.departmentId } },
-          );
-        }
-        where.OR = orConditions;
-      }
+      andConditions.push(buildTaskAccessWhere(user));
     }
 
     // 2. Filter trạng thái, độ ưu tiên, tag, từ khóa
@@ -660,12 +677,9 @@ export class TasksService {
           { code: { contains: search, mode: 'insensitive' } },
         ],
       };
-      if (where.AND) {
-        where.AND.push(searchCondition);
-      } else {
-        where.AND = [searchCondition];
-      }
+      andConditions.push(searchCondition);
     }
+    if (andConditions.length > 0) where.AND = andConditions;
 
     const tasks = await this.prisma.task.findMany({
       where,
@@ -709,11 +723,11 @@ export class TasksService {
    * Xem chi tiết công việc
    */
   async findById(
-    user: { id: number; roles?: string[]; departmentId?: number | null },
+    user: { id: number; roles?: Array<string | { name: string }>; departmentId?: number | null },
     taskId: number,
   ) {
-    const task = await this.prisma.task.findUnique({
-      where: { id: taskId },
+    const task = await this.prisma.task.findFirst({
+      where: { AND: [{ id: taskId }, buildTaskAccessWhere(user)] },
       include: {
         assignee: {
           select: { id: true, name: true, email: true, departmentId: true },

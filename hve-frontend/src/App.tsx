@@ -258,6 +258,11 @@ export default function App() {
   const fetchAssignableUsers = async () => {
     const token = localStorage.getItem('access_token');
     if (!token) return;
+    const roles: string[] = user?.roles || [];
+    if (!roles.includes('ceo') && !roles.includes('department_head')) {
+      setAssignableUsers([]);
+      return;
+    }
     try {
       const res = await fetch(`${API_BASE_URL}/tasks/users`, {
         headers: { Authorization: `Bearer ${token}` },

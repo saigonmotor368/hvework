@@ -1,4 +1,10 @@
 import { Injectable } from '@nestjs/common';
+import {
+  buildDocumentAccessWhere,
+  buildTaskAccessWhere,
+  describeBusinessScope,
+  getRoleNames,
+} from '../common/access-scope.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 
 export interface DashboardCacheEntry {
@@ -9,379 +15,246 @@ export interface DashboardCacheEntry {
 @Injectable()
 export class DashboardService {
   private cache = new Map<string, DashboardCacheEntry>();
-  private readonly CACHE_TTL_MS = 60 * 1000; // 60s in-memory cache
+  private readonly CACHE_TTL_MS = 60 * 1000;
 
   constructor(private readonly prisma: PrismaService) {}
 
   clearCache(userId?: number) {
-    if (userId) {
-      for (const key of this.cache.keys()) {
-        if (key.startsWith(`dashboard_${userId}_`)) {
-          this.cache.delete(key);
-        }
-      }
-    } else {
+    if (!userId) {
       this.cache.clear();
+      return;
+    }
+    for (const key of this.cache.keys()) {
+      if (key.startsWith(`dashboard_${userId}_`)) this.cache.delete(key);
     }
   }
 
   async getDashboardData(user: any) {
-    const roles: string[] = user.roles ? user.roles.map((r: any) => (typeof r === 'string' ? r : r.name)) : [];
-    const primaryRole = this.resolvePrimaryRole(roles);
-    const cacheKey = `dashboard_${user.id}_${primaryRole}`;
-
+    const roles = getRoleNames(user);
+    const scope = describeBusinessScope(user);
+    const cacheKey = `dashboard_${user.id}_${user.departmentId || 'none'}_${roles.join('-')}`;
+    const nowMs = Date.now();
     const cached = this.cache.get(cacheKey);
-    const now = Date.now();
-    if (cached && cached.expiresAt > now) {
-      return cached.data;
-    }
+    if (cached && cached.expiresAt > nowMs) return cached.data;
 
-    let data: any;
-    switch (primaryRole) {
-      case 'ceo':
-        data = await this.getCeoDashboard(user);
-        break;
-      case 'department_head':
-        data = await this.getDeptHeadDashboard(user);
-        break;
-      case 'accountant':
-      case 'legal':
-        data = await this.getAccountantLegalDashboard(user);
-        break;
-      default:
-        data = await this.getEmployeeDashboard(user);
-        break;
-    }
-
-    this.cache.set(cacheKey, {
-      data,
-      expiresAt: now + this.CACHE_TTL_MS,
-    });
-
+    const data = await this.getScopedDashboard(user, scope);
+    this.cache.set(cacheKey, { data, expiresAt: nowMs + this.CACHE_TTL_MS });
     return data;
   }
 
-  private resolvePrimaryRole(roles: string[]): string {
-    if (roles.includes('ceo') || roles.includes('it_admin')) return 'ceo';
-    if (roles.includes('department_head')) return 'department_head';
-    if (roles.includes('accountant')) return 'accountant';
-    if (roles.includes('legal')) return 'legal';
-    return 'employee';
-  }
-
-  private async getCeoDashboard(_user: any) {
-    const now = new Date();
-    const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
-    const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-
-    const [
-      pendingDocuments,
-      escalatedTasks,
-      totalDocs,
-      approvedDocs,
-      pendingDocs,
-      rejectedDocs,
-      totalTasks,
-      completedTasks,
-      overdueTasks,
-      inProgressTasks,
-      contracts,
-      departments,
-    ] = await Promise.all([
-      // 1. Pending documents for CEO approval
-      this.prisma.document.findMany({
-        where: {
-          status: 'Chờ duyệt',
-          steps: {
-            some: {
-              status: 'pending',
-              roleRequired: 'ceo',
-            },
-          },
-        },
-        select: {
-          id: true,
-          code: true,
-          title: true,
-          type: true,
-          createdAt: true,
-          createdBy: { select: { id: true, name: true, email: true } },
-        },
-        orderBy: { createdAt: 'asc' },
-      }),
-      // 2. Escalated tasks overdue >= 3 days
-      this.prisma.task.findMany({
-        where: {
-          parentTaskId: null,
-          status: { not: 'Hoàn thành' },
-          dueDate: { lt: threeDaysAgo },
-        },
-        select: {
-          id: true,
-          code: true,
-          title: true,
-          dueDate: true,
-          status: true,
-          priority: true,
-          assignee: { select: { id: true, name: true, department: { select: { name: true } } } },
-        },
-        orderBy: { dueDate: 'asc' },
-      }),
-      // 3-6. Document stats
-      this.prisma.document.count(),
-      this.prisma.document.count({ where: { status: 'Đã duyệt' } }),
-      this.prisma.document.count({ where: { status: 'Chờ duyệt' } }),
-      this.prisma.document.count({ where: { status: { in: ['Từ chối', 'Trả lại'] } } }),
-      // 7-10. Task stats (independent project tasks)
-      this.prisma.task.count({ where: { parentTaskId: null } }),
-      this.prisma.task.count({ where: { parentTaskId: null, status: 'Hoàn thành' } }),
-      this.prisma.task.count({ where: { parentTaskId: null, status: { not: 'Hoàn thành' }, dueDate: { lt: now } } }),
-      this.prisma.task.count({ where: { parentTaskId: null, status: 'Đang làm' } }),
-      // 11. Contracts
-      this.prisma.document.findMany({
-        where: { type: 'contract' },
-        select: { id: true, code: true, title: true, dataJson: true, status: true },
-      }),
-      // 12. Departments
-      this.prisma.department.findMany({
-        include: {
-          users: {
-            select: {
-              assignedTasks: {
-                where: { parentTaskId: null },
-                select: { status: true },
-              },
-            },
-          },
-        },
-      }),
-    ]);
-
-    const expiringContracts = contracts.filter((c: any) => {
-      const data = (c.dataJson as any) || {};
-      if (!data.endDate) return false;
-      const end = new Date(data.endDate);
-      return end >= now && end <= in30Days;
-    });
-
-    const departmentStats = departments.map((d: any) => {
-      let deptTotal = 0;
-      let deptCompleted = 0;
-      for (const u of d.users) {
-        deptTotal += u.assignedTasks.length;
-        deptCompleted += u.assignedTasks.filter((t: any) => t.status === 'Hoàn thành').length;
-      }
-      return {
-        id: d.id,
-        name: d.name,
-        code: d.code,
-        totalTasks: deptTotal,
-        completedTasks: deptCompleted,
-        completionRate: deptTotal > 0 ? Math.round((deptCompleted / deptTotal) * 100) : 0,
-      };
-    });
-
-    return {
-      role: 'ceo',
-      actionRequired: {
-        pendingApprovalsCount: pendingDocuments.length,
-        escalatedTasksCount: escalatedTasks.length,
-        pendingDocuments,
-        escalatedTasks,
-      },
-      metrics: {
-        documents: { total: totalDocs, approved: approvedDocs, pending: pendingDocs, rejected: rejectedDocs },
-        tasks: { total: totalTasks, completed: completedTasks, overdue: overdueTasks, inProgress: inProgressTasks },
-        contracts: { total: contracts.length, expiringSoon: expiringContracts.length },
-      },
-      departmentStats,
-    };
-  }
-
-  private async getDeptHeadDashboard(user: any) {
-    const now = new Date();
-    const userDeptId = user.departmentId || user.department?.id;
-
-    const [pendingDocuments, overdueTasks, deptTasks] = await Promise.all([
-      this.prisma.document.findMany({
-        where: {
-          status: 'Chờ duyệt',
-          createdBy: userDeptId ? { departmentId: userDeptId } : undefined,
-          createdById: { not: user.id },
-          steps: {
-            some: {
-              status: 'pending',
-              roleRequired: 'department_head',
-            },
-          },
-        },
-        select: {
-          id: true,
-          code: true,
-          title: true,
-          type: true,
-          createdAt: true,
-          createdBy: { select: { id: true, name: true } },
-        },
-        orderBy: { createdAt: 'asc' },
-      }),
-      this.prisma.task.findMany({
-        where: {
-          parentTaskId: null,
-          status: { not: 'Hoàn thành' },
-          dueDate: { lt: now },
-          assignee: userDeptId ? { departmentId: userDeptId } : undefined,
-        },
-        select: {
-          id: true,
-          code: true,
-          title: true,
-          dueDate: true,
-          status: true,
-          priority: true,
-          assignee: { select: { id: true, name: true } },
-        },
-        orderBy: { dueDate: 'asc' },
-      }),
-      this.prisma.task.findMany({
-        where: {
-          parentTaskId: null,
-          assignee: userDeptId ? { departmentId: userDeptId } : undefined,
-        },
-        select: { status: true, progressPercent: true },
-      }),
-    ]);
-
-    const total = deptTasks.length;
-    const completed = deptTasks.filter((t: any) => t.status === 'Hoàn thành').length;
-    const inProgress = deptTasks.filter((t: any) => t.status === 'Đang làm').length;
-    const pendingReview = deptTasks.filter((t: any) => t.status === 'Chờ duyệt').length;
-
-    return {
-      role: 'department_head',
-      actionRequired: {
-        pendingApprovalsCount: pendingDocuments.length,
-        overdueTasksCount: overdueTasks.length,
-        pendingDocuments,
-        overdueTasks,
-      },
-      metrics: {
-        departmentTasks: {
-          total,
-          completed,
-          inProgress,
-          pendingReview,
-          completionRate: total > 0 ? Math.round((completed / total) * 100) : 0,
-        },
-      },
-    };
-  }
-
-  private async getAccountantLegalDashboard(_user: any) {
-    const now = new Date();
-    const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-
-    const [approvedPayments, allContracts] = await Promise.all([
-      this.prisma.document.findMany({
-        where: {
-          type: 'payment_request',
-          status: 'Đã duyệt',
-        },
-        select: { id: true, code: true, title: true, dataJson: true, createdAt: true },
-        orderBy: { createdAt: 'desc' },
-        take: 10,
-      }),
-      this.prisma.document.findMany({
-        where: { type: 'contract' },
-        select: { id: true, code: true, title: true, dataJson: true, status: true },
-      }),
-    ]);
-
-    const expiringContracts = allContracts.filter((c: any) => {
-      const data = (c.dataJson as any) || {};
-      if (!data.endDate) return false;
-      const end = new Date(data.endDate);
-      return end >= now && end <= in30Days;
-    });
-
-    let totalApprovedAmount = 0;
-    for (const p of approvedPayments) {
-      const d = (p.dataJson as any) || {};
-      if (d.amount) totalApprovedAmount += Number(d.amount) || 0;
-    }
-
-    return {
-      role: 'accountant_legal',
-      actionRequired: {
-        expiringContractsCount: expiringContracts.length,
-        approvedPaymentsCount: approvedPayments.length,
-        expiringContracts,
-        approvedPayments,
-      },
-      metrics: {
-        totalApprovedAmount,
-        totalContracts: allContracts.length,
-        expiringSoonContracts: expiringContracts.length,
-      },
-    };
-  }
-
-  private async getEmployeeDashboard(user: any) {
+  private async getScopedDashboard(user: any, scope: ReturnType<typeof describeBusinessScope>) {
     const now = new Date();
     const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+    const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
+    const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const documentScope = buildDocumentAccessWhere(user);
+    const taskScope = buildTaskAccessWhere(user);
+    const actionableRoles = scope.roles.filter((role) =>
+      !['employee', 'it_admin'].includes(role),
+    );
+    const pendingStepConditions: any[] = [];
+    if (scope.roles.includes('ceo')) {
+      pendingStepConditions.push({ status: 'pending', roleRequired: 'ceo' });
+    } else {
+      if (scope.roles.includes('department_head') && scope.departmentId) {
+        pendingStepConditions.push({
+          status: 'pending',
+          roleRequired: 'department_head',
+          document: { createdBy: { departmentId: scope.departmentId } },
+        });
+      }
+      const nonDepartmentRoles = actionableRoles.filter((role) => role !== 'department_head');
+      if (nonDepartmentRoles.length > 0) {
+        pendingStepConditions.push({
+          status: 'pending',
+          roleRequired: { in: nonDepartmentRoles },
+        });
+      }
+    }
 
-    const [returnedDocs, urgentTasks, myDocs, myTasks] = await Promise.all([
+    const documentSelect = {
+      id: true,
+      code: true,
+      title: true,
+      type: true,
+      status: true,
+      dataJson: true,
+      createdAt: true,
+      updatedAt: true,
+      createdBy: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          departmentId: true,
+          department: { select: { id: true, name: true, code: true } },
+        },
+      },
+    } as const;
+    const taskSelect = {
+      id: true,
+      code: true,
+      title: true,
+      dueDate: true,
+      status: true,
+      priority: true,
+      progressPercent: true,
+      assignee: {
+        select: {
+          id: true,
+          name: true,
+          departmentId: true,
+          department: { select: { id: true, name: true } },
+        },
+      },
+      createdBy: { select: { id: true, name: true, departmentId: true } },
+    } as const;
+
+    const [documents, tasks, pendingDocuments, returnedDocuments, departments] = await Promise.all([
+      this.prisma.document.findMany({
+        where: documentScope,
+        select: documentSelect,
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.task.findMany({
+        where: { AND: [taskScope, { parentTaskId: null }] },
+        select: taskSelect,
+        orderBy: { createdAt: 'desc' },
+      }),
+      pendingStepConditions.length > 0
+        ? this.prisma.document.findMany({
+            where: {
+              AND: [
+                documentScope,
+                { status: 'Chờ duyệt' },
+                {
+                  steps: {
+                    some: pendingStepConditions.length === 1
+                      ? pendingStepConditions[0]
+                      : { OR: pendingStepConditions },
+                  },
+                },
+              ],
+            },
+            select: documentSelect,
+            orderBy: { createdAt: 'asc' },
+          })
+        : Promise.resolve([]),
       this.prisma.document.findMany({
         where: {
           createdById: user.id,
-          status: 'Nháp',
-          steps: {
-            some: { status: 'returned' },
-          },
+          status: { in: ['Nháp', 'Trả lại'] },
+          steps: { some: { status: 'returned' } },
         },
-        select: { id: true, code: true, title: true, updatedAt: true },
+        select: documentSelect,
+        orderBy: { updatedAt: 'desc' },
       }),
-      this.prisma.task.findMany({
-        where: {
-          assigneeId: user.id,
-          status: { not: 'Hoàn thành' },
-          dueDate: { lte: endOfToday },
-        },
-        select: { id: true, code: true, title: true, dueDate: true, priority: true, status: true },
-        orderBy: { dueDate: 'asc' },
-      }),
-      this.prisma.document.findMany({
-        where: { createdById: user.id },
-        select: { status: true },
-      }),
-      this.prisma.task.findMany({
-        where: { assigneeId: user.id, parentTaskId: null },
-        select: { status: true },
-      }),
+      scope.capabilities.canViewCompany
+        ? this.prisma.department.findMany({
+            include: {
+              users: {
+                select: {
+                  assignedTasks: {
+                    where: { parentTaskId: null },
+                    select: { status: true },
+                  },
+                },
+              },
+            },
+          })
+        : Promise.resolve([]),
     ]);
 
+    const overdueTasks = tasks.filter((task: any) =>
+      task.status !== 'Hoàn thành' && task.dueDate && new Date(task.dueDate) < now,
+    );
+    const urgentTasks = tasks.filter((task: any) =>
+      task.status !== 'Hoàn thành' && task.dueDate && new Date(task.dueDate) <= endOfToday,
+    );
+    const escalatedTasks = overdueTasks.filter((task: any) =>
+      task.dueDate && new Date(task.dueDate) < threeDaysAgo,
+    );
+
+    const contracts = documents.filter((doc: any) => doc.type === 'contract');
+    const expiringContracts = contracts.filter((doc: any) => {
+      const endDate = (doc.dataJson as any)?.endDate;
+      if (!endDate) return false;
+      const end = new Date(endDate);
+      return end >= now && end <= in30Days;
+    });
+    const approvedPayments = documents.filter((doc: any) =>
+      doc.type === 'payment_request' && doc.status === 'Đã duyệt',
+    );
+    const totalApprovedAmount = approvedPayments.reduce(
+      (sum: number, doc: any) => sum + (Number((doc.dataJson as any)?.amount) || 0),
+      0,
+    );
+
+    const departmentStats = departments.map((department: any) => {
+      const departmentTasks = department.users.flatMap((member: any) => member.assignedTasks);
+      const completed = departmentTasks.filter((task: any) => task.status === 'Hoàn thành').length;
+      return {
+        id: department.id,
+        name: department.name,
+        code: department.code,
+        totalTasks: departmentTasks.length,
+        completedTasks: completed,
+        completionRate: departmentTasks.length > 0
+          ? Math.round((completed / departmentTasks.length) * 100)
+          : 0,
+      };
+    });
+
+    const visibleActionDocuments = pendingDocuments.length > 0
+      ? pendingDocuments
+      : returnedDocuments;
+
     return {
-      role: 'employee',
+      role: scope.level,
+      roles: scope.roles,
+      scope: {
+        level: scope.level,
+        label: scope.label,
+        departmentId: scope.departmentId,
+      },
+      capabilities: scope.capabilities,
       actionRequired: {
-        returnedDocumentsCount: returnedDocs.length,
+        pendingApprovalsCount: pendingDocuments.length,
+        returnedDocumentsCount: returnedDocuments.length,
+        overdueTasksCount: overdueTasks.length,
         urgentTasksCount: urgentTasks.length,
-        returnedDocuments: returnedDocs,
+        escalatedTasksCount: escalatedTasks.length,
+        expiringContractsCount: expiringContracts.length,
+        pendingDocuments: visibleActionDocuments,
+        returnedDocuments,
+        overdueTasks,
         urgentTasks,
+        escalatedTasks,
+        expiringContracts,
       },
       metrics: {
         documents: {
-          total: myDocs.length,
-          pending: myDocs.filter((d: any) => d.status === 'Chờ duyệt').length,
-          approved: myDocs.filter((d: any) => d.status === 'Đã duyệt').length,
-          draft: myDocs.filter((d: any) => d.status === 'Nháp').length,
+          total: documents.length,
+          pending: documents.filter((doc: any) => doc.status === 'Chờ duyệt').length,
+          approved: documents.filter((doc: any) => doc.status === 'Đã duyệt').length,
+          draft: documents.filter((doc: any) => doc.status === 'Nháp').length,
+          rejected: documents.filter((doc: any) => ['Từ chối', 'Trả lại'].includes(doc.status)).length,
         },
         tasks: {
-          total: myTasks.length,
-          completed: myTasks.filter((t: any) => t.status === 'Hoàn thành').length,
-          inProgress: myTasks.filter((t: any) => t.status === 'Đang làm').length,
-          pendingReview: myTasks.filter((t: any) => t.status === 'Chờ duyệt').length,
+          total: tasks.length,
+          completed: tasks.filter((task: any) => task.status === 'Hoàn thành').length,
+          inProgress: tasks.filter((task: any) => task.status === 'Đang làm').length,
+          pendingReview: tasks.filter((task: any) => task.status === 'Chờ duyệt').length,
+          overdue: overdueTasks.length,
         },
+        financials: scope.capabilities.canViewFinancials
+          ? { approvedPayments: approvedPayments.length, totalApprovedAmount }
+          : null,
+        legal: scope.capabilities.canViewLegal
+          ? { totalContracts: contracts.length, expiringSoon: expiringContracts.length }
+          : null,
       },
+      departmentStats: scope.capabilities.canViewCompany ? departmentStats : undefined,
     };
   }
 }
