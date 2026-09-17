@@ -265,7 +265,7 @@ describe('TasksService', () => {
           1,
           { assigneeId: 3 },
         ),
-      ).rejects.toThrow('Chỉ Trưởng bộ phận hoặc CEO');
+      ).rejects.toThrow('Chỉ Trưởng Ban / Trưởng dự án hoặc CEO');
     });
 
     it('unauthorized user should be forbidden from changing assignee or dueDate', async () => {

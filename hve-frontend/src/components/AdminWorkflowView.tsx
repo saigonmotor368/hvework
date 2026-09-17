@@ -17,7 +17,7 @@ export const AdminWorkflowView: React.FC<AdminWorkflowViewProps> = ({
   const [isSaving, setIsSaving] = useState<boolean>(false);
 
   const availableRoles = [
-    { value: 'department_head', label: 'Trưởng bộ phận' },
+    { value: 'department_head', label: 'Trưởng Ban / Trưởng dự án' },
     { value: 'accountant', label: 'Kế toán' },
     { value: 'legal', label: 'Pháp chế' },
     { value: 'ceo', label: 'CEO' },

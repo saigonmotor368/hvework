@@ -277,7 +277,7 @@ export class TasksService {
   ) {
     if (!this.hasRole(user, 'department_head') && !this.hasRole(user, 'ceo')) {
       throw new ForbiddenException(
-        'Chỉ Trưởng bộ phận hoặc CEO mới có quyền giao việc',
+        'Chỉ Trưởng Ban / Trưởng dự án hoặc CEO mới có quyền giao việc',
       );
     }
 
@@ -315,7 +315,7 @@ export class TasksService {
         throw new ForbiddenException(
           effectiveProjectId
             ? 'Chỉ được giao việc cho nhân sự thuộc dự án đã chọn'
-            : 'Trưởng bộ phận chỉ được giao việc cho nhân sự trong phòng mình',
+            : 'Trưởng Ban / Trưởng dự án chỉ được giao việc cho nhân sự trong phạm vi mình phụ trách',
         );
       }
     }
@@ -475,13 +475,13 @@ export class TasksService {
 
       if (hasAssigneeChange && !isCeo && !isDepartmentHead) {
         throw new ForbiddenException(
-          'Chỉ Trưởng bộ phận hoặc CEO mới có quyền thay đổi người thực hiện',
+          'Chỉ Trưởng Ban / Trưởng dự án hoặc CEO mới có quyền thay đổi người thực hiện',
         );
       }
 
       if (hasDueDateChange && !isCreator && !isCeo && !isHeadOfTaskScope) {
         throw new ForbiddenException(
-          'Chỉ người giao việc, Trưởng bộ phận cùng phòng hoặc CEO mới có quyền thay đổi hạn hoàn thành',
+          'Chỉ người giao việc, Trưởng Ban / Trưởng dự án trong phạm vi hoặc CEO mới có quyền thay đổi hạn hoàn thành',
         );
       }
 

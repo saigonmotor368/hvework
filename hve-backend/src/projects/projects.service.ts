@@ -11,6 +11,7 @@ import { NotificationsService } from '../notifications/notifications.service.js'
 import { getRoleNames, getUserProjectIds } from '../common/access-scope.js';
 import { CreateProjectDto, UpdateProjectDto } from './dto/upsert-project.dto.js';
 import { CreateBoardMessageDto } from './dto/create-board-message.dto.js';
+import { JwtStrategy } from '../auth/jwt.strategy.js';
 
 const projectInclude = {
   lead: { select: { id: true, name: true, email: true, departmentId: true } },
@@ -28,6 +29,7 @@ export class ProjectsService {
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
     private readonly notificationsService: NotificationsService,
+    private readonly jwtStrategy: JwtStrategy,
   ) {}
 
   // Kiểm tra quyền xem/tham gia Bảng tin của 1 dự án: CEO/BGĐ/IT Admin xem
@@ -147,7 +149,9 @@ export class ProjectsService {
       name: dto.name.trim(),
       location: dto.location?.trim() || null,
       leadUserId: dto.leadUserId || null,
-      memberIds: [...new Set(dto.memberIds || [])],
+      memberIds: [...new Set(dto.memberIds || [])].filter(
+        (userId) => userId !== dto.leadUserId,
+      ),
       isActive: dto.isActive ?? true,
     };
   }
@@ -162,18 +166,43 @@ export class ProjectsService {
     }
   }
 
-  private async assertLeadRole(leadUserId: number | null) {
-    if (!leadUserId) return;
-    const lead = await this.prisma.user.findFirst({
-      where: {
-        id: leadUserId,
-        status: 'active',
-        roles: { some: { name: { in: ['department_head', 'ceo'] } } },
-      },
+  private async syncProjectLeadRole(
+    tx: any,
+    projectId: number,
+    previousLeadUserId: number | null,
+    nextLeadUserId: number | null,
+  ) {
+    if (!previousLeadUserId && !nextLeadUserId) return;
+    const departmentHeadRole = await tx.role.findUnique({
+      where: { name: 'department_head' },
       select: { id: true },
     });
-    if (!lead) {
-      throw new BadRequestException('Trưởng dự án phải có vai trò Trưởng bộ phận hoặc CEO');
+    if (!departmentHeadRole) {
+      throw new BadRequestException(
+        'Hệ thống chưa có vai trò Trưởng Ban (department_head)',
+      );
+    }
+
+    if (nextLeadUserId) {
+      await tx.user.update({
+        where: { id: nextLeadUserId },
+        data: { roles: { connect: { id: departmentHeadRole.id } } },
+      });
+    }
+
+    if (previousLeadUserId && previousLeadUserId !== nextLeadUserId) {
+      const remainingLeadProjects = await tx.project.count({
+        where: {
+          leadUserId: previousLeadUserId,
+          id: { not: projectId },
+        },
+      });
+      if (remainingLeadProjects === 0) {
+        await tx.user.update({
+          where: { id: previousLeadUserId },
+          data: { roles: { disconnect: { id: departmentHeadRole.id } } },
+        });
+      }
     }
   }
 
@@ -183,24 +212,33 @@ export class ProjectsService {
       ...(data.leadUserId ? [data.leadUserId] : []),
       ...data.memberIds,
     ]);
-    await this.assertLeadRole(data.leadUserId);
 
     const duplicate = await this.prisma.project.findUnique({ where: { code: data.code } });
     if (duplicate) throw new ConflictException('Mã dự án đã tồn tại');
 
-    const result = await this.prisma.project.create({
-      data: {
-        code: data.code,
-        name: data.name,
-        location: data.location,
-        leadUserId: data.leadUserId,
-        isActive: data.isActive,
-        members: {
-          create: data.memberIds.map((userId) => ({ userId })),
+    const result = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.project.create({
+        data: {
+          code: data.code,
+          name: data.name,
+          location: data.location,
+          leadUserId: data.leadUserId,
+          isActive: data.isActive,
+          members: {
+            create: data.memberIds.map((userId) => ({ userId })),
+          },
         },
-      },
-      include: projectInclude,
+        include: projectInclude,
+      });
+      await this.syncProjectLeadRole(
+        tx,
+        created.id,
+        null,
+        data.leadUserId,
+      );
+      return created;
     });
+    if (data.leadUserId) this.jwtStrategy.invalidateUser(data.leadUserId);
 
     await this.auditService.logEvent({
       entityType: 'Project',
@@ -230,7 +268,6 @@ export class ProjectsService {
       ...(data.leadUserId ? [data.leadUserId] : []),
       ...data.memberIds,
     ]);
-    await this.assertLeadRole(data.leadUserId);
 
     const duplicate = await this.prisma.project.findFirst({
       where: { code: data.code, id: { not: id } },
@@ -239,7 +276,7 @@ export class ProjectsService {
 
     const result = await this.prisma.$transaction(async (tx) => {
       await tx.projectMember.deleteMany({ where: { projectId: id } });
-      return tx.project.update({
+      const updated = await tx.project.update({
         where: { id },
         data: {
           code: data.code,
@@ -253,7 +290,16 @@ export class ProjectsService {
         },
         include: projectInclude,
       });
+      await this.syncProjectLeadRole(
+        tx,
+        id,
+        existing.leadUserId,
+        data.leadUserId,
+      );
+      return updated;
     });
+    if (existing.leadUserId) this.jwtStrategy.invalidateUser(existing.leadUserId);
+    if (data.leadUserId) this.jwtStrategy.invalidateUser(data.leadUserId);
 
     await this.auditService.logEvent({
       entityType: 'Project',

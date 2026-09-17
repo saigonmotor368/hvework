@@ -25,6 +25,9 @@ describe('AdminService', () => {
         findMany: vi.fn(),
         findUnique: vi.fn(),
       },
+      project: { count: vi.fn(), findMany: vi.fn() },
+      projectMember: { deleteMany: vi.fn(), createMany: vi.fn() },
+      $transaction: vi.fn(),
     };
 
     auditService = {
@@ -109,7 +112,7 @@ describe('AdminService', () => {
 
   describe('updateUserRoles', () => {
     it('should reject if any roleId is invalid', async () => {
-      prisma.user.findUnique.mockResolvedValue({ id: 5, roles: [] });
+      prisma.user.findUnique.mockResolvedValue({ id: 5, roles: [], ledProjects: [{ id: 1 }] });
       prisma.role.findMany.mockResolvedValue([{ id: 1, name: 'employee' }]); // only role 1 exists
 
       await expect(
@@ -118,7 +121,7 @@ describe('AdminService', () => {
     });
 
     it('should update user roles and department successfully', async () => {
-      prisma.user.findUnique.mockResolvedValue({ id: 5, roles: [] });
+      prisma.user.findUnique.mockResolvedValue({ id: 5, roles: [], ledProjects: [{ id: 1 }] });
       prisma.role.findMany.mockResolvedValue([
         { id: 1, name: 'employee' },
         { id: 2, name: 'department_head' },
@@ -139,6 +142,32 @@ describe('AdminService', () => {
       expect(res.roles).toHaveLength(2);
       expect(auditService.logEvent).toHaveBeenCalledWith(
         expect.objectContaining({ action: 'update_user_roles' }),
+      );
+    });
+
+    it('prevents department_head role from drifting away from project leadership', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: 5, roles: [], ledProjects: [] });
+      prisma.role.findMany.mockResolvedValue([
+        { id: 1, name: 'employee' },
+        { id: 2, name: 'department_head' },
+      ]);
+
+      await expect(
+        service.updateUserRoles(5, { roleIds: [1, 2] }, 1),
+      ).rejects.toThrow(
+        'Vai trò Trưởng Ban chỉ được cấp bằng cách chọn người dùng làm Trưởng dự án',
+      );
+
+      prisma.user.findUnique.mockResolvedValue({
+        id: 5,
+        roles: [{ id: 1, name: 'employee' }, { id: 2, name: 'department_head' }],
+        ledProjects: [{ id: 9 }],
+      });
+      prisma.role.findMany.mockResolvedValue([{ id: 1, name: 'employee' }]);
+      await expect(
+        service.updateUserRoles(5, { roleIds: [1] }, 1),
+      ).rejects.toThrow(
+        'Không thể gỡ vai trò Trưởng Ban khi người dùng vẫn là Trưởng dự án',
       );
     });
   });

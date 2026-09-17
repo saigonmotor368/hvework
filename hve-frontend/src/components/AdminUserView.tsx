@@ -90,7 +90,7 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
 
   const DEFAULT_ROLES: RoleItem[] = [
     { id: 1, name: 'employee', description: 'Nhân viên - Lập hồ sơ và thực hiện công việc' },
-    { id: 2, name: 'department_head', description: 'Trưởng bộ phận - Phê duyệt sơ bộ & Giao việc phòng' },
+    { id: 2, name: 'department_head', description: 'Trưởng Ban / Trưởng dự án - tự động đồng bộ từ dự án phụ trách' },
     { id: 3, name: 'accountant', description: 'Kế toán - Rà soát hóa đơn, duyệt chi và ngân sách' },
     { id: 4, name: 'legal', description: 'Pháp chế - Thẩm định hợp đồng kinh tế và pháp lý' },
     { id: 5, name: 'ceo', description: 'Chủ tịch / CEO - Phê duyệt cấp cao nhất toàn công ty' },
@@ -249,10 +249,7 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
     setEditEmail(user.email);
     setEditRoleIds(user.roles.map((r) => r.id));
     setEditProjectIds([
-      ...new Set([
-        ...(user.ledProjects || []).map((p) => p.id),
-        ...(user.projectMemberships || []).map((m) => m.project.id),
-      ]),
+      ...new Set((user.projectMemberships || []).map((m) => m.project.id)),
     ]);
     setEditDelegateToUserId(user.delegateToUserId ? String(user.delegateToUserId) : '');
     setEditDelegateUntil(user.delegateUntil ? user.delegateUntil.slice(0, 10) : '');
@@ -994,10 +991,14 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                 <div className="grid grid-cols-1 gap-2 max-h-40 overflow-y-auto p-1 border border-slate-100 rounded-xl sm:grid-cols-2">
                   {roles.map((r) => {
                     const isChecked = newRoleIds.includes(r.id);
+                    const isProjectLeadRole = r.name === 'department_head';
                     return (
                       <label
                         key={r.id}
-                        className={`flex items-center space-x-2 p-2 rounded-lg border text-xs cursor-pointer transition-all ${
+                        title={isProjectLeadRole ? 'Vai trò này được cấp tại màn Quản lý dự án' : undefined}
+                        className={`flex items-center space-x-2 p-2 rounded-lg border text-xs transition-all ${
+                          isProjectLeadRole ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
+                        } ${
                           isChecked
                             ? 'border-[#0A66C2] bg-blue-50/60 font-bold text-[#0A66C2]'
                             : 'border-slate-200 text-gray-700 hover:bg-slate-50'
@@ -1006,6 +1007,7 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                         <input
                           type="checkbox"
                           checked={isChecked}
+                          disabled={isProjectLeadRole}
                           onChange={() => {
                             if (isChecked) {
                               setNewRoleIds(newRoleIds.filter((id) => id !== r.id));
@@ -1093,8 +1095,21 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                 <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
                   Dự án tham gia
                 </label>
+                {(editUser.ledProjects || []).length > 0 && (
+                  <div className="mb-2 rounded-xl border border-blue-200 bg-blue-50 p-2.5">
+                    <p className="text-[11px] font-bold uppercase text-blue-700">Dự án đang phụ trách</p>
+                    <div className="mt-1 flex flex-wrap gap-1.5">
+                      {(editUser.ledProjects || []).map((project) => (
+                        <span key={project.id} className="rounded-md bg-white px-2 py-1 text-xs font-semibold text-blue-800">
+                          👑 {project.code} — {project.name}
+                        </span>
+                      ))}
+                    </div>
+                    <p className="mt-1.5 text-[11px] text-blue-600">Đổi Trưởng dự án tại màn Quản lý dự án.</p>
+                  </div>
+                )}
                 <div className="grid grid-cols-1 gap-2 max-h-32 overflow-y-auto p-1 border border-slate-100 rounded-xl sm:grid-cols-2">
-                  {projects.map((p) => {
+                  {projects.filter((project) => !(editUser.ledProjects || []).some((led) => led.id === project.id)).map((p) => {
                     const isChecked = editProjectIds.includes(p.id);
                     return (
                       <label
@@ -1136,10 +1151,14 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                 <div className="space-y-2 max-h-48 overflow-y-auto p-1">
                   {roles.map((r) => {
                     const isChecked = editRoleIds.includes(r.id);
+                    const isProjectLeadRole = r.name === 'department_head';
                     return (
                       <label
                         key={r.id}
-                        className={`flex items-center justify-between p-2.5 rounded-xl border cursor-pointer transition-all ${
+                        title={isProjectLeadRole ? 'Tự động đồng bộ theo dự án đang phụ trách' : undefined}
+                        className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${
+                          isProjectLeadRole ? 'cursor-not-allowed bg-slate-50' : 'cursor-pointer'
+                        } ${
                           isChecked
                             ? 'border-[#0A66C2] bg-blue-50/50'
                             : 'border-slate-200 hover:bg-slate-50'
@@ -1154,6 +1173,7 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                         <input
                           type="checkbox"
                           checked={isChecked}
+                          disabled={isProjectLeadRole}
                           onChange={() => handleToggleEditRole(r.id)}
                           className="w-4 h-4 text-[#0A66C2] rounded border-gray-300 focus:ring-[#0A66C2]"
                         />

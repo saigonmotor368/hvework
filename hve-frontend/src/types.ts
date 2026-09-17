@@ -127,7 +127,7 @@ export interface ProjectHealthItem {
 
 export const ROLE_LABELS: Record<string, string> = {
   employee: 'Nhân viên',
-  department_head: 'Trưởng Ban',
+  department_head: 'Trưởng Ban / Trưởng dự án',
   accountant: 'Kế toán',
   legal: 'Pháp chế',
   ceo: 'CEO',

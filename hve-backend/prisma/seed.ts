@@ -46,7 +46,7 @@ async function main() {
   // Create Roles if not exists
   const roleNames = [
     { name: 'employee', description: 'Nhân viên' },
-    { name: 'department_head', description: 'Trưởng bộ phận' },
+    { name: 'department_head', description: 'Trưởng Ban / Trưởng dự án' },
     { name: 'accountant', description: 'Kế toán' },
     { name: 'legal', description: 'Pháp chế' },
     { name: 'ceo', description: 'CEO' },
@@ -219,15 +219,31 @@ async function main() {
   // Dự án thật của công ty (thay cho việc phân quyền theo Phòng ban) —
   // idempotent theo "code", chạy lại không tạo trùng.
   const projectsToSeed = [
-    { code: 'SNA', name: 'Dự án SNA' },
-    { code: 'KNS', name: 'Dự án KNS' },
-    { code: 'TOURISM', name: 'Dự án TOURISM' },
-    { code: 'SUNRISE', name: 'Dự án SUNRISE' },
+    { code: 'SNA', name: 'Dự án SNA', leadEmail: 'tp_kd@huyvoeducation.vn' },
+    { code: 'KNS', name: 'Dự án KNS', leadEmail: 'tp_it@huyvoeducation.vn' },
+    { code: 'TOURISM', name: 'Dự án TOURISM', leadEmail: 'ketoan@huyvoeducation.vn' },
+    { code: 'SUNRISE', name: 'Dự án SUNRISE', leadEmail: 'ceo@huyvoeducation.vn' },
   ];
   for (const p of projectsToSeed) {
     const existing = await prisma.project.findUnique({ where: { code: p.code } });
     if (!existing) {
-      await prisma.project.create({ data: { code: p.code, name: p.name, isActive: true } });
+      const lead = process.env.SEED_DEMO_USERS === 'true'
+        ? await prisma.user.findUnique({ where: { email: p.leadEmail } })
+        : null;
+      await prisma.project.create({
+        data: {
+          code: p.code,
+          name: p.name,
+          isActive: true,
+          leadUserId: lead?.id || null,
+        },
+      });
+      if (lead) {
+        await prisma.user.update({
+          where: { id: lead.id },
+          data: { roles: { connect: { id: roles.department_head.id } } },
+        });
+      }
     }
   }
 

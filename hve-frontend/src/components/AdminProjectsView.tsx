@@ -42,7 +42,9 @@ export function AdminProjectsView({ apiBaseUrl, showToast }: Props) {
       name: project.name,
       location: project.location || '',
       leadUserId: project.leadUserId ? String(project.leadUserId) : '',
-      memberIds: project.members?.map((member) => member.userId) || [],
+      memberIds: project.members
+        ?.map((member) => member.userId)
+        .filter((userId) => userId !== project.leadUserId) || [],
       isActive: project.isActive,
     });
   };
@@ -114,14 +116,15 @@ export function AdminProjectsView({ apiBaseUrl, showToast }: Props) {
         <input required value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="Mã dự án, VD: HVE-2026" className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
         <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Tên dự án" className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
         <input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="Địa điểm (tùy chọn)" className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
-        <select value={form.leadUserId} onChange={(e) => setForm({ ...form, leadUserId: e.target.value })} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm">
+        <select value={form.leadUserId} onChange={(e) => setForm({ ...form, leadUserId: e.target.value, memberIds: form.memberIds.filter((id) => id !== Number(e.target.value)) })} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm">
           <option value="">-- Chọn Trưởng dự án --</option>
-          {users.filter((user) => user.status === 'active' && user.roles.some((role) => ['department_head', 'ceo'].includes(role.name))).map((user) => <option key={user.id} value={user.id}>{user.name} — {user.email}</option>)}
+          {users.filter((user) => user.status === 'active').map((user) => <option key={user.id} value={user.id}>{user.name} — {user.email}</option>)}
         </select>
+        <p className="-mt-3 text-[11px] text-blue-600">Người được chọn sẽ tự động có vai trò Trưởng Ban / Trưởng dự án.</p>
         <div>
           <label className="mb-1 block text-xs font-bold uppercase text-slate-600">Thành viên</label>
           <select multiple value={form.memberIds.map(String)} onChange={(e) => setForm({ ...form, memberIds: Array.from(e.target.selectedOptions).map((option) => Number(option.value)) })} className="min-h-36 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm">
-            {users.filter((user) => user.status === 'active').map((user) => <option key={user.id} value={user.id}>{user.name} — {user.email}</option>)}
+            {users.filter((user) => user.status === 'active' && String(user.id) !== form.leadUserId).map((user) => <option key={user.id} value={user.id}>{user.name} — {user.email}</option>)}
           </select>
           <p className="mt-1 text-[11px] text-slate-400">Giữ Ctrl/Cmd để chọn nhiều thành viên.</p>
         </div>

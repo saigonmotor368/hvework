@@ -58,9 +58,9 @@ export class AdminService {
     });
   }
 
-  // Đồng bộ danh sách Dự án của 1 user: xóa hết ProjectMember cũ rồi tạo
-  // lại đúng theo danh sách mới — cùng cách ProjectsService làm ở chiều
-  // ngược lại (từ dự án chọn thành viên), giữ nhất quán logic 2 chiều.
+  // Chỉ đồng bộ quan hệ thành viên. Project.leadUserId là nguồn sự thật riêng
+  // cho các dự án người dùng phụ trách, tránh biến Trưởng dự án thành thành
+  // viên trùng lặp khi lưu từ màn Quản lý người dùng.
   private async syncUserProjects(userId: number, projectIds: number[]) {
     const uniqueIds = [...new Set(projectIds)];
     if (uniqueIds.length > 0) {
@@ -69,10 +69,16 @@ export class AdminService {
         throw new BadRequestException('Có dự án không tồn tại');
       }
     }
+    const ledProjects = await this.prisma.project.findMany({
+      where: { leadUserId: userId },
+      select: { id: true },
+    });
+    const ledProjectIds = new Set(ledProjects.map((project) => project.id));
+    const membershipIds = uniqueIds.filter((id) => !ledProjectIds.has(id));
     await this.prisma.$transaction([
       this.prisma.projectMember.deleteMany({ where: { userId } }),
       this.prisma.projectMember.createMany({
-        data: uniqueIds.map((projectId) => ({ userId, projectId })),
+        data: membershipIds.map((projectId) => ({ userId, projectId })),
       }),
     ]);
   }
@@ -104,6 +110,11 @@ export class AdminService {
     });
     if (rolesInDb.length !== dto.roleIds.length) {
       throw new BadRequestException('Một hoặc nhiều mã vai trò không hợp lệ');
+    }
+    if (rolesInDb.some((role) => role.name === 'department_head')) {
+      throw new BadRequestException(
+        'Vai trò Trưởng Ban được cấp tự động khi chọn người này làm Trưởng dự án',
+      );
     }
 
     if (dto.departmentId) {
@@ -168,7 +179,7 @@ export class AdminService {
   ) {
     const user = await this.prisma.user.findUnique({
       where: { id: targetUserId },
-      include: { roles: true, department: true },
+      include: { roles: true, department: true, ledProjects: { select: { id: true } } },
     });
 
     if (!user) {
@@ -215,6 +226,17 @@ export class AdminService {
       });
       if (rolesInDb.length !== dto.roleIds.length) {
         throw new BadRequestException('Một hoặc nhiều mã vai trò không hợp lệ');
+      }
+      const wantsDepartmentHead = rolesInDb.some(
+        (role) => role.name === 'department_head',
+      );
+      const leadsProject = (user.ledProjects || []).length > 0;
+      if (wantsDepartmentHead !== leadsProject) {
+        throw new BadRequestException(
+          leadsProject
+            ? 'Không thể gỡ vai trò Trưởng Ban khi người dùng vẫn là Trưởng dự án'
+            : 'Vai trò Trưởng Ban chỉ được cấp bằng cách chọn người dùng làm Trưởng dự án',
+        );
       }
       updateData.roles = {
         set: dto.roleIds.map((id) => ({ id })),
@@ -479,7 +501,7 @@ export class AdminService {
   ) {
     const user = await this.prisma.user.findUnique({
       where: { id: targetUserId },
-      include: { roles: true },
+      include: { roles: true, ledProjects: { select: { id: true } } },
     });
 
     if (!user) {
@@ -492,6 +514,17 @@ export class AdminService {
 
     if (rolesInDb.length !== dto.roleIds.length) {
       throw new BadRequestException('Một hoặc nhiều mã vai trò không hợp lệ');
+    }
+    const wantsDepartmentHead = rolesInDb.some(
+      (role) => role.name === 'department_head',
+    );
+    const leadsProject = (user.ledProjects || []).length > 0;
+    if (wantsDepartmentHead !== leadsProject) {
+      throw new BadRequestException(
+        leadsProject
+          ? 'Không thể gỡ vai trò Trưởng Ban khi người dùng vẫn là Trưởng dự án'
+          : 'Vai trò Trưởng Ban chỉ được cấp bằng cách chọn người dùng làm Trưởng dự án',
+      );
     }
 
     if (dto.departmentId) {
