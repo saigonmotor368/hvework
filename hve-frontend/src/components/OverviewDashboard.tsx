@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import type { DocumentItem } from "../types";
+import type { DocumentItem, ProjectHealthItem } from "../types";
 import { MOCK_DASHBOARD_DATA } from "../mockData";
 import { ENABLE_MOCK_DATA } from "../config";
 import { fetchWithSession } from "../api/client";
@@ -20,6 +20,7 @@ interface OverviewDashboardProps {
     tab?: "all" | "assigned_to_me" | "assigned_by_me" | "department";
     status?: string;
     isOverdueOnly?: boolean;
+    projectId?: number;
   }) => void;
   onViewAll: () => void;
   onDashboardLoaded?: (data: any) => void;
@@ -44,6 +45,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [projectHealth, setProjectHealth] = useState<ProjectHealthItem[]>([]);
 
   const fetchDashboard = async (clearCache = false) => {
     const token = localStorage.getItem("access_token");
@@ -72,6 +74,15 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
       const data = await res.json();
       setDashboardData(data);
       onDashboardLoaded?.(data);
+      if (data?.capabilities?.canViewCompany) {
+        const healthResponse = await fetchWithSession(
+          `${apiBaseUrl}/dashboard/project-health`,
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+        if (healthResponse.ok) setProjectHealth(await healthResponse.json());
+      } else {
+        setProjectHealth([]);
+      }
     } catch (error: any) {
       setDashboardData(ENABLE_MOCK_DATA ? MOCK_DASHBOARD_DATA : null);
       if (!ENABLE_MOCK_DATA)
@@ -440,6 +451,48 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
       )}
 
       {/* KHỐI 3: TIẾN ĐỘ PHÒNG BAN (NẾU LÀ CEO) HOẶC CHI TIẾT TÀI CHÍNH */}
+      {capabilities.canViewCompany && projectHealth.length > 0 && (
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-6">
+          <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2 className="text-base font-extrabold text-slate-900">Sức khỏe dự án</h2>
+              <p className="text-xs text-slate-500">Tỷ lệ công việc quá hạn và hồ sơ chờ duyệt trên 5 ngày.</p>
+            </div>
+            <span className="text-[11px] text-slate-400">Bấm vào dự án để xem công việc</span>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {projectHealth.map((project) => {
+              const style = project.level === 'rui_ro_cao'
+                ? { icon: '🔴', label: 'Rủi ro cao', card: 'border-rose-200 bg-rose-50/60', text: 'text-rose-700' }
+                : project.level === 'tre_tien_do'
+                  ? { icon: '🟠', label: 'Trễ tiến độ', card: 'border-orange-200 bg-orange-50/60', text: 'text-orange-700' }
+                  : project.level === 'can_chu_y'
+                    ? { icon: '🟡', label: 'Cần chú ý', card: 'border-amber-200 bg-amber-50/60', text: 'text-amber-700' }
+                    : { icon: '🟢', label: 'Bình thường', card: 'border-emerald-200 bg-emerald-50/60', text: 'text-emerald-700' };
+              return (
+                <button
+                  key={project.id}
+                  type="button"
+                  onClick={() => onOpenTasks({ projectId: project.id })}
+                  className={`rounded-xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md ${style.card}`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="rounded-md bg-white/80 px-2 py-0.5 text-[11px] font-bold text-slate-600">{project.code}</span>
+                    <span aria-hidden>{style.icon}</span>
+                  </div>
+                  <strong className="mt-3 block truncate text-sm text-slate-900">{project.name}</strong>
+                  <div className="mt-2 flex items-end justify-between gap-2">
+                    <span className={`text-xs font-bold ${style.text}`}>{style.label}</span>
+                    <span className={`text-xl font-black ${style.text}`}>{project.percent}%</span>
+                  </div>
+                  <p className="mt-1 text-[11px] text-slate-500">{project.overdue}/{project.total} mục đang mở bị trễ</p>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       {capabilities.canViewCompany && dashboardData?.departmentStats && (
         <div className="bg-white rounded-2xl p-4 md:p-6 shadow-sm border border-slate-200">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-4">

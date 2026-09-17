@@ -188,6 +188,80 @@ export class TasksService {
     });
   }
 
+  async getWorkloadSummary(user: any, projectId?: number) {
+    const baseConditions: any[] = [
+      buildTaskAccessWhere(user),
+      { status: { not: 'Hoàn thành' } },
+      { assigneeId: { not: null } },
+    ];
+    if (projectId) baseConditions.push({ projectId });
+
+    const now = new Date();
+    const [grouped, overdueGrouped] = await Promise.all([
+      this.prisma.task.groupBy({
+        by: ['assigneeId'],
+        where: { AND: baseConditions },
+        _count: { _all: true },
+      }),
+      this.prisma.task.groupBy({
+        by: ['assigneeId'],
+        where: {
+          AND: [
+            ...baseConditions,
+            { dueDate: { lt: now } },
+          ],
+        },
+        _count: { _all: true },
+      }),
+    ]);
+
+    const roles = getRoleNames(user);
+    const assignableUsers = roles.some((role) =>
+      ['ceo', 'department_head'].includes(role),
+    )
+      ? await this.getAssignableUsers(user)
+      : await this.prisma.user.findMany({
+          where: {
+            id: {
+              in: [
+                user.id,
+                ...grouped
+                  .map((item: any) => item.assigneeId)
+                  .filter((id: any): id is number => typeof id === 'number'),
+              ],
+            },
+            status: 'active',
+          },
+          select: { id: true, name: true, email: true },
+          orderBy: { name: 'asc' },
+        });
+
+    const activeByUser = new Map(
+      grouped.map((item: any) => [item.assigneeId, item._count._all]),
+    );
+    const overdueByUser = new Map(
+      overdueGrouped.map((item: any) => [item.assigneeId, item._count._all]),
+    );
+
+    return assignableUsers.map((person: any) => {
+      const activeCount = Number(activeByUser.get(person.id) || 0);
+      const overdueCount = Number(overdueByUser.get(person.id) || 0);
+      return {
+        userId: person.id,
+        name: person.name,
+        email: person.email,
+        activeCount,
+        overdueCount,
+        level:
+          activeCount >= 6
+            ? 'qua_tai'
+            : activeCount >= 3
+              ? 'vua'
+              : 'ranh',
+      };
+    });
+  }
+
   /**
    * Tạo công việc mới (có thể là việc cha hoặc việc con)
    */

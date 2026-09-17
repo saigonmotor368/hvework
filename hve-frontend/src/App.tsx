@@ -189,6 +189,7 @@ export default function App() {
     tab: "all" | "assigned_to_me" | "assigned_by_me" | "department";
     status: string;
     isOverdueOnly: boolean;
+    projectId?: number;
   } | null>(null);
 
   // Filters
@@ -1321,6 +1322,7 @@ export default function App() {
                       tab: filter.tab || "all",
                       status: filter.status || "all",
                       isOverdueOnly: Boolean(filter.isOverdueOnly),
+                      projectId: filter.projectId,
                     });
                     setActiveTab("tasks");
                   }}

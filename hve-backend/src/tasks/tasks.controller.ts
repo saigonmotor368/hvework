@@ -51,6 +51,14 @@ export class TasksController {
     return this.tasksService.getAssignableUsers(req.user);
   }
 
+  @Get('workload')
+  async getWorkloadSummary(
+    @Req() req: any,
+    @Query('projectId', new ParseIntPipe({ optional: true })) projectId?: number,
+  ) {
+    return this.tasksService.getWorkloadSummary(req.user, projectId);
+  }
+
   @Get(':id')
   async getTaskById(
     @Param('id', ParseIntPipe) id: number,

@@ -24,6 +24,7 @@ describe('TasksService', () => {
         create: vi.fn(),
         update: vi.fn(),
         updateMany: vi.fn(),
+        groupBy: vi.fn(),
       },
       attachment: {
         count: vi.fn(),
@@ -109,6 +110,37 @@ describe('TasksService', () => {
       });
       const code = await service.generateTaskCode();
       expect(code).toBe(`CV-${currentYear}-008`);
+    });
+  });
+
+  describe('getWorkloadSummary', () => {
+    it('uses grouped counts and includes assignable people with zero open tasks', async () => {
+      prisma.task.groupBy
+        .mockResolvedValueOnce([
+          { assigneeId: 2, _count: { _all: 7 } },
+          { assigneeId: 3, _count: { _all: 3 } },
+        ])
+        .mockResolvedValueOnce([
+          { assigneeId: 2, _count: { _all: 2 } },
+        ]);
+      prisma.user.findMany.mockResolvedValue([
+        { id: 2, name: 'Quá tải', email: 'busy@hve.vn' },
+        { id: 3, name: 'Vừa sức', email: 'medium@hve.vn' },
+        { id: 4, name: 'Đang rảnh', email: 'free@hve.vn' },
+      ]);
+
+      const result = await service.getWorkloadSummary(
+        { id: 1, roles: ['ceo'] },
+        9,
+      );
+
+      expect(prisma.task.groupBy).toHaveBeenCalledTimes(2);
+      expect(result).toEqual([
+        expect.objectContaining({ userId: 2, activeCount: 7, overdueCount: 2, level: 'qua_tai' }),
+        expect.objectContaining({ userId: 3, activeCount: 3, level: 'vua' }),
+        expect.objectContaining({ userId: 4, activeCount: 0, level: 'ranh' }),
+      ]);
+      expect(prisma.task.groupBy.mock.calls[0][0].where.AND).toContainEqual({ projectId: 9 });
     });
   });
 

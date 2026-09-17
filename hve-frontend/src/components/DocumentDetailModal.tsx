@@ -39,6 +39,7 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
   const [uploadingProof, setUploadingProof] = useState(false);
   const [proofUploaded, setProofUploaded] = useState(false);
   const [approvalComment, setApprovalComment] = useState('');
+  const [renderedAt] = useState(() => Date.now());
 
   const uploadPaymentProof = async () => {
     const token = localStorage.getItem('access_token');
@@ -61,6 +62,26 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
   };
 
   const linkedProjects = projects.filter((project) => selectedDoc.linkedProjectIds?.includes(project.id));
+  const activeDelegations = (user?.delegatedFrom || []).filter(
+    (delegator: any) =>
+      delegator.delegateUntil &&
+      new Date(delegator.delegateUntil).getTime() >= renderedAt,
+  );
+  const delegationForRole = (roleRequired: string) =>
+    activeDelegations.find((delegator: any) => {
+      if (!(delegator.roles || []).includes(roleRequired)) return false;
+      if (roleRequired !== 'department_head') return true;
+      const delegatedProjectIds = (delegator.projects || []).map((project: ProjectItem) => project.id);
+      const projectMatch = selectedDoc.projectId
+        ? delegatedProjectIds.includes(selectedDoc.projectId) ||
+          selectedDoc.linkedProjectIds?.some((id) => delegatedProjectIds.includes(id))
+        : false;
+      const creatorDeptId = selectedDoc.createdBy?.department?.id;
+      return selectedDoc.projectId
+        ? Boolean(projectMatch)
+        : Boolean(creatorDeptId && delegator.departmentId === creatorDeptId);
+    });
+  const delegatedCeo = delegationForRole('ceo');
   return (
     <div className="min-w-0 space-y-4 md:space-y-6">
       {/* Back button & versioning */}
@@ -131,14 +152,14 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
           {/* Header Actions */}
           <div className="flex w-full flex-wrap items-center gap-2 md:w-auto">
             {selectedDoc.status === 'Chờ duyệt' &&
-              user?.roles?.includes('ceo') &&
+              (user?.roles?.includes('ceo') || delegatedCeo) &&
               selectedDoc.createdById !== user?.id && (
                 <button
                   onClick={() => onApproveDirect(selectedDoc)}
                   disabled={isProcessing}
                   className="w-full rounded-xl bg-violet-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition-all hover:bg-violet-700 disabled:opacity-50 sm:w-auto"
                 >
-                  {isProcessing ? 'Đang duyệt...' : '⚡ CEO duyệt thẳng'}
+                  {isProcessing ? 'Đang duyệt...' : delegatedCeo ? `⚡ Duyệt thay ${delegatedCeo.name}` : '⚡ CEO duyệt thẳng'}
                 </button>
               )}
             {selectedDoc.status === 'Nháp' && selectedDoc.createdById === user?.id && (
@@ -314,7 +335,9 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
                 const isRejected = step.status === 'rejected';
 
                 const isCreator = selectedDoc.createdById === user?.id;
-                const hasRole = user?.roles?.includes(step.roleRequired);
+                const approvalDelegator = delegationForRole(step.roleRequired);
+                const hasDirectRole = user?.roles?.includes(step.roleRequired);
+                const hasRole = hasDirectRole || Boolean(approvalDelegator);
 
                 // Department scoping check for UI
                 let departmentMatch = true;
@@ -326,9 +349,10 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
                     : false;
                   const creatorDeptId = selectedDoc.createdBy?.department?.id;
                   const userDeptId = user?.departmentId || user?.department?.id;
-                  departmentMatch = selectedDoc.projectId
+                  const directDepartmentMatch = selectedDoc.projectId
                     ? Boolean(projectMatch)
                     : Boolean(creatorDeptId && userDeptId && creatorDeptId === userDeptId);
+                  departmentMatch = directDepartmentMatch || Boolean(approvalDelegator);
                 }
 
                 const canAct = isPending && hasRole && !isCreator && departmentMatch;
@@ -407,6 +431,11 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
                             </div>
                           ) : canAct ? (
                             <div className="space-y-3">
+                              {approvalDelegator && !hasDirectRole && (
+                                <div className="rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-semibold text-violet-800">
+                                  🔄 Duyệt thay {approvalDelegator.name} (đang vắng mặt đến {new Date(approvalDelegator.delegateUntil).toLocaleDateString('vi-VN')})
+                                </div>
+                              )}
                               {selectedDoc.type === 'payment_request' &&
                                 step.roleRequired === 'accountant' &&
                                 step.stepOrder === Math.max(...(selectedDoc.steps || []).map((item) => item.stepOrder)) && (

@@ -70,6 +70,27 @@ export class AuthService {
             (candidate: any) => candidate?.id === project?.id,
           ) === index,
       ),
+      delegatedFrom: (user.delegatedFrom || [])
+        .filter(
+          (delegator: any) =>
+            delegator.delegateUntil &&
+            new Date(delegator.delegateUntil).getTime() >= Date.now(),
+        )
+        .map((delegator: any) => ({
+          id: delegator.id,
+          name: delegator.name,
+          email: delegator.email,
+          departmentId: delegator.departmentId,
+          department: delegator.department?.name || null,
+          delegateUntil: delegator.delegateUntil,
+          roles: (delegator.roles || []).map((role: any) => role.name),
+          projects: [
+            ...(delegator.ledProjects || []),
+            ...(delegator.projectMemberships || []).map(
+              (membership: any) => membership.project,
+            ),
+          ].filter(Boolean),
+        })),
     };
   }
 
@@ -83,6 +104,15 @@ export class AuthService {
         department: true,
         ledProjects: true,
         projectMemberships: { include: { project: true } },
+        delegatedFrom: {
+          where: { delegateUntil: { gte: new Date() }, status: 'active' },
+          include: {
+            roles: true,
+            department: true,
+            ledProjects: true,
+            projectMemberships: { include: { project: true } },
+          },
+        },
       },
     });
 
@@ -272,6 +302,15 @@ export class AuthService {
             department: true,
             ledProjects: true,
             projectMemberships: { include: { project: true } },
+            delegatedFrom: {
+              where: { delegateUntil: { gte: new Date() }, status: 'active' },
+              include: {
+                roles: true,
+                department: true,
+                ledProjects: true,
+                projectMemberships: { include: { project: true } },
+              },
+            },
           },
         },
       },

@@ -377,6 +377,83 @@ describe('DocumentsService', () => {
       ).rejects.toThrow(ForbiddenException);
     });
 
+    it('allows delegated approval only in the delegator project and audits who was represented', async () => {
+      prisma.document.findUnique.mockResolvedValue({
+        id: 1,
+        code: 'DX-2026-001',
+        title: 'Đề xuất dự án',
+        projectId: 200,
+        linkedProjectIds: [],
+        status: 'Chờ duyệt',
+        createdById: 10,
+        createdBy: { id: 10, departmentId: 1 },
+        version: 1,
+        type: 'proposal',
+        steps: [
+          { id: 101, stepOrder: 1, roleRequired: 'department_head', status: 'pending' },
+        ],
+      });
+      const delegate = {
+        id: 20,
+        roles: [{ name: 'employee' }],
+        delegatedFrom: [
+          {
+            id: 7,
+            name: 'Trưởng dự án A',
+            roles: [{ name: 'department_head' }],
+            ledProjects: [{ id: 200, isActive: true }],
+            delegateUntil: new Date(Date.now() + 60_000),
+          },
+        ],
+      };
+
+      await service.approveStep(1, 101, delegate, { comment: 'Duyệt thay' });
+
+      expect(prisma.documentApprovalStep.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ actedById: 20, status: 'approved' }),
+        }),
+      );
+      expect(auditService.logEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          actorId: 20,
+          afterJson: expect.objectContaining({ actedOnBehalfOf: 7 }),
+        }),
+      );
+    });
+
+    it('denies an expired delegated approval immediately', async () => {
+      prisma.document.findUnique.mockResolvedValue({
+        id: 1,
+        projectId: 200,
+        linkedProjectIds: [],
+        status: 'Chờ duyệt',
+        createdById: 10,
+        createdBy: { id: 10, departmentId: 1 },
+        version: 1,
+        steps: [
+          { id: 101, stepOrder: 1, roleRequired: 'department_head', status: 'pending' },
+        ],
+      });
+      const expiredDelegate = {
+        id: 20,
+        roles: [{ name: 'employee' }],
+        delegatedFrom: [
+          {
+            id: 7,
+            roles: [{ name: 'department_head' }],
+            ledProjects: [{ id: 200, isActive: true }],
+            delegateUntil: new Date(Date.now() - 1),
+          },
+        ],
+      };
+
+      await expect(
+        service.approveStep(1, 101, expiredDelegate, { comment: 'Quá hạn' }),
+      ).rejects.toThrow(ForbiddenException);
+      expect(prisma.documentApprovalStep.update).not.toHaveBeenCalled();
+    });
+
     it('should transition document status to "Đã duyệt" when final step is approved', async () => {
       prisma.document.findUnique.mockResolvedValue({
         id: 1,

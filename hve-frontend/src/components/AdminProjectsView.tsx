@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { fetchWithSession } from '../api/client';
-import type { AdminUser, ProjectItem } from '../types';
+import type { AdminUser, ProjectHealthItem, ProjectItem } from '../types';
 
 interface Props {
   apiBaseUrl: string;
@@ -12,6 +12,7 @@ const emptyForm = { code: '', name: '', location: '', leadUserId: '', memberIds:
 export function AdminProjectsView({ apiBaseUrl, showToast }: Props) {
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [users, setUsers] = useState<AdminUser[]>([]);
+  const [projectHealth, setProjectHealth] = useState<ProjectHealthItem[]>([]);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
@@ -19,13 +20,15 @@ export function AdminProjectsView({ apiBaseUrl, showToast }: Props) {
   const token = localStorage.getItem('access_token');
   const load = async () => {
     const headers = { Authorization: `Bearer ${token}` };
-    const [projectRes, userRes] = await Promise.all([
+    const [projectRes, userRes, healthRes] = await Promise.all([
       fetchWithSession(`${apiBaseUrl}/projects/admin`, { headers }),
       fetchWithSession(`${apiBaseUrl}/admin/users`, { headers }),
+      fetchWithSession(`${apiBaseUrl}/dashboard/project-health`, { headers }),
     ]);
     if (!projectRes.ok || !userRes.ok) throw new Error('Không thể tải dữ liệu dự án');
     setProjects(await projectRes.json());
     setUsers(await userRes.json());
+    if (healthRes.ok) setProjectHealth(await healthRes.json());
   };
 
   useEffect(() => {
@@ -86,6 +89,12 @@ export function AdminProjectsView({ apiBaseUrl, showToast }: Props) {
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="rounded-md bg-blue-50 px-2 py-0.5 text-xs font-bold text-[#0A66C2]">{project.code}</span>
                   <strong className="text-sm text-slate-900">{project.name}</strong>
+                  {(() => {
+                    const health = projectHealth.find((item) => item.id === project.id);
+                    if (!health) return null;
+                    const label = health.level === 'rui_ro_cao' ? '🔴 Rủi ro cao' : health.level === 'tre_tien_do' ? '🟠 Trễ tiến độ' : health.level === 'can_chu_y' ? '🟡 Cần chú ý' : '🟢 Bình thường';
+                    return <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">{label} · {health.percent}%</span>;
+                  })()}
                   {!project.isActive && <span className="text-xs font-semibold text-rose-600">Ngừng hoạt động</span>}
                 </div>
                 <p className="mt-1 text-xs text-slate-500">Trưởng dự án: {project.lead?.name || 'Chưa chỉ định'} · {project.members?.length || 0} thành viên</p>

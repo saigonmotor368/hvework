@@ -3,11 +3,13 @@ import { AdminService } from './admin.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import { NotFoundException } from '@nestjs/common';
+import { JwtStrategy } from '../auth/jwt.strategy.js';
 
 describe('AdminService', () => {
   let service: AdminService;
   let prisma: any;
   let auditService: any;
+  let jwtStrategy: any;
 
   beforeEach(async () => {
     prisma = {
@@ -28,12 +30,14 @@ describe('AdminService', () => {
     auditService = {
       logEvent: vi.fn().mockResolvedValue({ id: 1 }),
     };
+    jwtStrategy = { invalidateUser: vi.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AdminService,
         { provide: PrismaService, useValue: prisma },
         { provide: AuditService, useValue: auditService },
+        { provide: JwtStrategy, useValue: jwtStrategy },
       ],
     }).compile();
 
@@ -136,6 +140,73 @@ describe('AdminService', () => {
       expect(auditService.logEvent).toHaveBeenCalledWith(
         expect.objectContaining({ action: 'update_user_roles' }),
       );
+    });
+  });
+
+  describe('updateUserDelegation', () => {
+    it('sets a temporary delegate, audits it and invalidates both auth contexts', async () => {
+      prisma.user.findUnique
+        .mockResolvedValueOnce({
+          id: 5,
+          name: 'Trưởng dự án',
+          delegateToUserId: null,
+          delegateUntil: null,
+        })
+        .mockResolvedValueOnce({
+          id: 8,
+          name: 'Người duyệt thay',
+          status: 'active',
+          delegateToUserId: null,
+          delegateUntil: null,
+        });
+      prisma.user.update.mockResolvedValue({
+        id: 5,
+        delegateToUserId: 8,
+        delegateUntil: new Date(Date.now() + 86_400_000),
+      });
+
+      await service.updateUserDelegation(
+        5,
+        {
+          delegateToUserId: 8,
+          delegateUntil: new Date(Date.now() + 86_400_000).toISOString(),
+        },
+        1,
+      );
+
+      expect(prisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ delegateToUserId: 8 }),
+        }),
+      );
+      expect(jwtStrategy.invalidateUser).toHaveBeenCalledWith(5);
+      expect(jwtStrategy.invalidateUser).toHaveBeenCalledWith(8);
+      expect(auditService.logEvent).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'set_approval_delegate' }),
+      );
+    });
+
+    it('requires a future expiry and blocks self-delegation', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: 5,
+        name: 'Trưởng dự án',
+        delegateToUserId: null,
+        delegateUntil: null,
+      });
+      await expect(
+        service.updateUserDelegation(
+          5,
+          { delegateToUserId: 8, delegateUntil: new Date(Date.now() - 1000).toISOString() },
+          1,
+        ),
+      ).rejects.toThrow('Ngày hết hạn ủy quyền phải ở tương lai');
+      await expect(
+        service.updateUserDelegation(
+          5,
+          { delegateToUserId: 5, delegateUntil: new Date(Date.now() + 1000).toISOString() },
+          1,
+        ),
+      ).rejects.toThrow('Không thể tự ủy quyền cho chính mình');
     });
   });
 });

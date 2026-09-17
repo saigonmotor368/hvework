@@ -7,9 +7,10 @@ describe('DashboardService role scopes', () => {
 
   beforeEach(() => {
     prismaMock = {
-      document: { findMany: vi.fn() },
-      task: { findMany: vi.fn() },
+      document: { findMany: vi.fn(), groupBy: vi.fn() },
+      task: { findMany: vi.fn(), groupBy: vi.fn() },
       department: { findMany: vi.fn() },
+      project: { findMany: vi.fn() },
     };
     service = new DashboardService(prismaMock);
   });
@@ -125,5 +126,41 @@ describe('DashboardService role scopes', () => {
     service.clearCache(user.id);
     await service.getDashboardData(user);
     expect(prismaMock.document.findMany).toHaveBeenCalledTimes(callsAfterFirstRequest * 2);
+  });
+
+  it('computes project health with grouped database queries and caches it', async () => {
+    prismaMock.project.findMany.mockResolvedValue([
+      { id: 1, code: 'A', name: 'Dự án A' },
+      { id: 2, code: 'B', name: 'Dự án B' },
+    ]);
+    prismaMock.task.groupBy
+      .mockResolvedValueOnce([
+        { projectId: 1, _count: { _all: 8 } },
+        { projectId: 2, _count: { _all: 2 } },
+      ])
+      .mockResolvedValueOnce([{ projectId: 1, _count: { _all: 3 } }]);
+    prismaMock.document.groupBy
+      .mockResolvedValueOnce([{ projectId: 1, _count: { _all: 2 } }])
+      .mockResolvedValueOnce([{ projectId: 1, _count: { _all: 1 } }]);
+
+    const result = await service.getProjectHealth();
+    expect(result[0]).toMatchObject({
+      id: 1,
+      total: 10,
+      overdue: 4,
+      percent: 40,
+      level: 'tre_tien_do',
+    });
+    expect(result[1]).toMatchObject({
+      id: 2,
+      total: 2,
+      overdue: 0,
+      level: 'binh_thuong',
+    });
+
+    await service.getProjectHealth();
+    expect(prismaMock.project.findMany).toHaveBeenCalledTimes(1);
+    expect(prismaMock.task.groupBy).toHaveBeenCalledTimes(2);
+    expect(prismaMock.document.groupBy).toHaveBeenCalledTimes(2);
   });
 });

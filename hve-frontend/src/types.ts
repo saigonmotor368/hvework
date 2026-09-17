@@ -98,7 +98,31 @@ export interface AdminUser {
   roles: RoleItem[];
   ledProjects?: Array<{ id: number; code: string; name: string }>;
   projectMemberships?: Array<{ project: { id: number; code: string; name: string } }>;
+  delegateToUserId?: number | null;
+  delegateUntil?: string | null;
+  delegateTo?: { id: number; name: string; email: string; status?: string } | null;
+  delegatedFrom?: Array<{ id: number; name: string; email: string; delegateUntil: string }>;
   createdAt?: string;
+}
+
+export interface WorkloadSummaryItem {
+  userId: number;
+  name: string;
+  email: string;
+  activeCount: number;
+  overdueCount: number;
+  level: 'ranh' | 'vua' | 'qua_tai';
+}
+
+export interface ProjectHealthItem {
+  id: number;
+  code: string;
+  name: string;
+  total: number;
+  overdue: number;
+  ratio: number;
+  percent: number;
+  level: 'binh_thuong' | 'can_chu_y' | 'tre_tien_do' | 'rui_ro_cao';
 }
 
 export const ROLE_LABELS: Record<string, string> = {

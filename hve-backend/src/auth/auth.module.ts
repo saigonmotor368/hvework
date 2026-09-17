@@ -32,6 +32,6 @@ import { LoginVerificationMailer } from './login-verification-mailer.service.js'
   ],
   providers: [AuthService, LoginVerificationMailer, JwtStrategy, JwtAuthGuard, RolesGuard],
   controllers: [AuthController],
-  exports: [AuthService, JwtAuthGuard, RolesGuard, PassportModule, JwtModule],
+  exports: [AuthService, JwtStrategy, JwtAuthGuard, RolesGuard, PassportModule, JwtModule],
 })
 export class AuthModule {}

@@ -54,6 +54,13 @@ model User {
   departmentId Int?
   department   Department? @relation(fields: [departmentId], references: [id])
 
+  // Quyền phê duyệt tạm thời. Hai trường phải cùng có giá trị và thời hạn
+  // luôn bắt buộc để tránh vô tình cấp quyền vĩnh viễn.
+  delegateToUserId Int?
+  delegateTo       User?     @relation("ApprovalDelegate", fields: [delegateToUserId], references: [id], onDelete: SetNull)
+  delegateUntil    DateTime?
+  delegatedFrom    User[]    @relation("ApprovalDelegate")
+
   roles Role[]
 
   // References for created documents/tasks
@@ -68,6 +75,8 @@ model User {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([delegateToUserId, delegateUntil])
 }
 
 model TrustedDevice {

@@ -47,6 +47,7 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
   const [search, setSearch] = useState<string>('');
   const [projectFilter, setProjectFilter] = useState<string>('all');
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [renderedAt] = useState(() => Date.now());
 
   // Stuck Data State
   const [stuckTasks, setStuckTasks] = useState<StuckTask[]>([]);
@@ -69,6 +70,8 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
   const [editEmail, setEditEmail] = useState<string>('');
   const [editRoleIds, setEditRoleIds] = useState<number[]>([]);
   const [editProjectIds, setEditProjectIds] = useState<number[]>([]);
+  const [editDelegateToUserId, setEditDelegateToUserId] = useState<string>('');
+  const [editDelegateUntil, setEditDelegateUntil] = useState<string>('');
   const [isSavingUser, setIsSavingUser] = useState<boolean>(false);
 
   // Reset Password Modal State
@@ -251,6 +254,8 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
         ...(user.projectMemberships || []).map((m) => m.project.id),
       ]),
     ]);
+    setEditDelegateToUserId(user.delegateToUserId ? String(user.delegateToUserId) : '');
+    setEditDelegateUntil(user.delegateUntil ? user.delegateUntil.slice(0, 10) : '');
   };
 
   // Toggle Role Checkbox in Edit Modal
@@ -277,6 +282,10 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
       showToast('Phải chọn ít nhất 1 vai trò', 'error');
       return;
     }
+    if (editDelegateToUserId && !editDelegateUntil) {
+      showToast('Vui lòng chọn ngày hết hạn ủy quyền', 'error');
+      return;
+    }
 
     setIsSavingUser(true);
     const token = localStorage.getItem('access_token');
@@ -296,17 +305,42 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
         }),
       });
 
-      if (res.ok) {
-        const updated = await res.json();
-        showToast(`Đã cập nhật thông tin cho ${updated.name}`, 'success');
-        await fetchUsersAndMeta();
-        setEditUser(null);
-      } else {
-        const err = await res.json();
-        showToast(err.message || 'Lỗi cập nhật thông tin', 'error');
+      const updated = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(updated.message || 'Lỗi cập nhật thông tin');
+
+      const delegationChanged =
+        String(editUser.delegateToUserId || '') !== editDelegateToUserId ||
+        (editUser.delegateUntil?.slice(0, 10) || '') !== editDelegateUntil;
+      if (delegationChanged) {
+        const delegationRes = await fetchWithSession(
+          `${apiBaseUrl}/admin/users/${editUser.id}/delegate`,
+          {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(
+              editDelegateToUserId
+                ? {
+                    delegateToUserId: Number(editDelegateToUserId),
+                    delegateUntil: new Date(`${editDelegateUntil}T23:59:59`).toISOString(),
+                  }
+                : { delegateToUserId: null, delegateUntil: null },
+            ),
+          },
+        );
+        const delegationBody = await delegationRes.json().catch(() => ({}));
+        if (!delegationRes.ok) {
+          throw new Error(delegationBody.message || 'Không thể cập nhật ủy quyền duyệt');
+        }
       }
-    } catch {
-      showToast('Lỗi kết nối máy chủ', 'error');
+
+      showToast(`Đã cập nhật thông tin cho ${updated.name}`, 'success');
+      await fetchUsersAndMeta();
+      setEditUser(null);
+    } catch (error: any) {
+      showToast(error.message || 'Lỗi kết nối máy chủ', 'error');
     } finally {
       setIsSavingUser(false);
     }
@@ -523,6 +557,16 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                           {user.id === currentUser?.id && (
                             <span className="ml-2 text-[10px] font-bold bg-blue-100 text-[#0A66C2] px-1.5 py-0.5 rounded">
                               Bạn
+                            </span>
+                          )}
+                          {user.delegateTo && user.delegateUntil && new Date(user.delegateUntil).getTime() >= renderedAt && (
+                            <span className="ml-2 rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-bold text-violet-700" title={`Ủy quyền duyệt cho ${user.delegateTo.name} đến ${new Date(user.delegateUntil).toLocaleDateString('vi-VN')}`}>
+                              🔄 Đang ủy quyền
+                            </span>
+                          )}
+                          {(user.delegatedFrom?.length || 0) > 0 && (
+                            <span className="ml-2 rounded bg-cyan-100 px-1.5 py-0.5 text-[10px] font-bold text-cyan-700" title={`Đang nhận ủy quyền từ ${user.delegatedFrom?.map((item) => item.name).join(', ')}`}>
+                              🔄 Duyệt thay
                             </span>
                           )}
                         </td>
@@ -1004,7 +1048,7 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
       {/* ===================== MODAL 2: EDIT USER (NAME, EMAIL, DEPT, ROLES) ===================== */}
       {editUser && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-slate-200">
+          <div className="mobile-scroll max-h-[90vh] overflow-y-auto bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-slate-200">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
               <h4 className="text-base font-bold text-gray-900 flex items-center">
                 <span className="mr-2">✏️</span> Sửa thông tin & Phân quyền
@@ -1117,6 +1161,40 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                     );
                   })}
                 </div>
+              </div>
+
+              <div className="rounded-xl border border-violet-200 bg-violet-50/50 p-3">
+                <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-violet-800">
+                  Ủy quyền duyệt tạm thời
+                </label>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <select
+                    value={editDelegateToUserId}
+                    onChange={(event) => {
+                      setEditDelegateToUserId(event.target.value);
+                      if (!event.target.value) setEditDelegateUntil('');
+                    }}
+                    className="w-full rounded-lg border border-violet-200 bg-white p-2.5 text-xs"
+                  >
+                    <option value="">-- Không ủy quyền --</option>
+                    {users
+                      .filter((candidate) => candidate.status === 'active' && candidate.id !== editUser.id)
+                      .map((candidate) => (
+                        <option key={candidate.id} value={candidate.id}>{candidate.name} — {candidate.email}</option>
+                      ))}
+                  </select>
+                  <input
+                    type="date"
+                    value={editDelegateUntil}
+                    min={new Date().toISOString().slice(0, 10)}
+                    disabled={!editDelegateToUserId}
+                    onChange={(event) => setEditDelegateUntil(event.target.value)}
+                    className="w-full rounded-lg border border-violet-200 bg-white p-2.5 text-xs disabled:opacity-50"
+                  />
+                </div>
+                <p className="mt-2 text-[11px] leading-relaxed text-violet-700">
+                  Người nhận chỉ mượn quyền phê duyệt theo đúng vai trò và dự án của {editUser.name}; không nhận quyền quản trị hay giao việc.
+                </p>
               </div>
             </div>
 

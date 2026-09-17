@@ -1,5 +1,7 @@
 import { Controller, Get, Post, Request, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
+import { RolesGuard } from '../auth/roles.guard.js';
+import { Roles } from '../auth/roles.decorator.js';
 import { DashboardService } from './dashboard.service.js';
 
 @Controller('dashboard')
@@ -10,6 +12,13 @@ export class DashboardController {
   @Get()
   async getDashboard(@Request() req: any) {
     return this.dashboardService.getDashboardData(req.user);
+  }
+
+  @Get('project-health')
+  @UseGuards(RolesGuard)
+  @Roles('ceo', 'bgd', 'it_admin')
+  async getProjectHealth() {
+    return this.dashboardService.getProjectHealth();
   }
 
   @Post('clear-cache')

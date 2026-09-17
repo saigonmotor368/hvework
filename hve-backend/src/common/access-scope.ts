@@ -8,6 +8,13 @@ export type UserWithBusinessScope = {
     projectId?: number;
     project?: { id: number; name?: string | null; isActive?: boolean } | null;
   }>;
+  delegatedFrom?: Array<
+    UserWithBusinessScope & {
+      name?: string;
+      email?: string;
+      delegateUntil?: Date | string | null;
+    }
+  >;
 };
 
 export function getRoleNames(user: UserWithBusinessScope): string[] {
@@ -31,6 +38,92 @@ export function getUserProjectIds(user: UserWithBusinessScope): number[] {
       .filter((id): id is number => typeof id === 'number'),
   ];
   return [...new Set(ids)].sort((a, b) => a - b);
+}
+
+/**
+ * Luôn kiểm tra hạn ngay tại thời điểm request. Nhờ vậy quyền duyệt hết hạn
+ * tức thì ngay cả khi ngữ cảnh xác thực đang nằm trong cache ngắn hạn.
+ */
+export function getActiveDelegators(
+  user: UserWithBusinessScope,
+  now: Date = new Date(),
+) {
+  return (user.delegatedFrom || []).filter((delegator) => {
+    if (!delegator.delegateUntil) return false;
+    const until = new Date(delegator.delegateUntil);
+    return !Number.isNaN(until.getTime()) && until.getTime() >= now.getTime();
+  });
+}
+
+export function getEffectiveRoleNames(
+  user: UserWithBusinessScope,
+  now: Date = new Date(),
+): string[] {
+  return [
+    ...new Set([
+      ...getRoleNames(user),
+      ...getActiveDelegators(user, now).flatMap((delegator) =>
+        getRoleNames(delegator),
+      ),
+    ]),
+  ].sort();
+}
+
+export function getEffectiveUserProjectIds(
+  user: UserWithBusinessScope,
+  now: Date = new Date(),
+): number[] {
+  return [
+    ...new Set([
+      ...getUserProjectIds(user),
+      ...getActiveDelegators(user, now).flatMap((delegator) =>
+        getUserProjectIds(delegator),
+      ),
+    ]),
+  ].sort((a, b) => a - b);
+}
+
+export function getApprovalDelegator(
+  user: UserWithBusinessScope,
+  roleRequired: string,
+  document?: {
+    projectId?: number | null;
+    linkedProjectIds?: unknown;
+    createdBy?: { departmentId?: number | null } | null;
+  },
+  now: Date = new Date(),
+): (UserWithBusinessScope & { name?: string; delegateUntil?: Date | string | null }) | null {
+  const matchesDepartmentScope = (candidate: UserWithBusinessScope) => {
+    if (!document) return true;
+    const projectIds = getUserProjectIds(candidate);
+    const documentProjectIds = [
+      document.projectId,
+      ...(Array.isArray(document.linkedProjectIds)
+        ? document.linkedProjectIds
+        : []),
+    ].filter((id): id is number => typeof id === 'number');
+    if (documentProjectIds.some((id) => projectIds.includes(id))) return true;
+    return (
+      !document.projectId &&
+      !!getDepartmentId(candidate) &&
+      getDepartmentId(candidate) === document.createdBy?.departmentId
+    );
+  };
+
+  if (
+    getRoleNames(user).includes(roleRequired) &&
+    (roleRequired !== 'department_head' || matchesDepartmentScope(user))
+  ) {
+    return null;
+  }
+
+  return (
+    getActiveDelegators(user, now).find((delegator) => {
+      if (!getRoleNames(delegator).includes(roleRequired)) return false;
+      if (roleRequired !== 'department_head' || !document) return true;
+      return matchesDepartmentScope(delegator);
+    }) || null
+  );
 }
 
 function linkedProjectConditions(projectIds: number[]) {
@@ -97,7 +190,93 @@ export function buildDocumentAccessWhere(user: UserWithBusinessScope): any {
     });
   }
 
+  // Quyền ủy quyền chỉ mở đúng hồ sơ đang chờ vai trò của người ủy quyền;
+  // không kế thừa quyền xem rộng hay quyền quản trị khác của họ.
+  for (const delegator of getActiveDelegators(user)) {
+    const delegatedRoles = getRoleNames(delegator).filter(
+      (role) => !['employee', 'it_admin', 'bgd'].includes(role),
+    );
+    for (const role of delegatedRoles) {
+      if (role !== 'department_head') {
+        conditions.push({
+          steps: { some: { status: 'pending', roleRequired: role } },
+        });
+        continue;
+      }
+
+      const delegatedProjectIds = getUserProjectIds(delegator);
+      const delegatedScope: any[] = [];
+      if (delegatedProjectIds.length > 0) {
+        delegatedScope.push({ projectId: { in: delegatedProjectIds } });
+        delegatedScope.push(...linkedProjectConditions(delegatedProjectIds));
+      }
+      const delegatedDepartmentId = getDepartmentId(delegator);
+      if (delegatedDepartmentId) {
+        delegatedScope.push({
+          AND: [
+            { projectId: null },
+            { createdBy: { departmentId: delegatedDepartmentId } },
+          ],
+        });
+      }
+      if (delegatedScope.length > 0) {
+        conditions.push({
+          AND: [
+            { steps: { some: { status: 'pending', roleRequired: role } } },
+            { OR: delegatedScope },
+          ],
+        });
+      }
+    }
+  }
+
   return { OR: conditions };
+}
+
+/** Điều kiện bên trong `steps.some` cho các bước mà user được phép xử lý. */
+export function buildApprovalStepAccessConditions(
+  user: UserWithBusinessScope,
+): any[] {
+  const conditions: any[] = [];
+  const candidates: UserWithBusinessScope[] = [
+    user,
+    ...getActiveDelegators(user),
+  ];
+
+  for (const candidate of candidates) {
+    for (const role of getRoleNames(candidate)) {
+      if (['employee', 'it_admin', 'bgd'].includes(role)) continue;
+      if (role !== 'department_head') {
+        conditions.push({ status: 'pending', roleRequired: role });
+        continue;
+      }
+
+      const scopedDocuments: any[] = [];
+      const projectIds = getUserProjectIds(candidate);
+      if (projectIds.length > 0) {
+        scopedDocuments.push({ projectId: { in: projectIds } });
+        scopedDocuments.push(...linkedProjectConditions(projectIds));
+      }
+      const departmentId = getDepartmentId(candidate);
+      if (departmentId) {
+        scopedDocuments.push({
+          AND: [
+            { projectId: null },
+            { createdBy: { departmentId } },
+          ],
+        });
+      }
+      if (scopedDocuments.length > 0) {
+        conditions.push({
+          status: 'pending',
+          roleRequired: role,
+          document: { OR: scopedDocuments },
+        });
+      }
+    }
+  }
+
+  return conditions;
 }
 
 /**

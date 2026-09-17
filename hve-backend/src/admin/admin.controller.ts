@@ -19,6 +19,7 @@ import { UpdateUserStatusDto } from './dto/update-user-status.dto.js';
 import { CreateUserDto } from './dto/create-user.dto.js';
 import { UpdateUserDto } from './dto/update-user.dto.js';
 import { ResetPasswordDto } from './dto/reset-password.dto.js';
+import { UpdateUserDelegationDto } from './dto/update-user-delegation.dto.js';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/roles.guard.js';
 import { Roles } from '../auth/roles.decorator.js';
@@ -48,6 +49,21 @@ export class AdminController {
     @Req() req: any,
   ) {
     return this.adminService.updateUser(id, dto, req.user.id, req.ip);
+  }
+
+  @Put('users/:id/delegate')
+  @HttpCode(HttpStatus.OK)
+  async updateUserDelegation(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateUserDelegationDto,
+    @Req() req: any,
+  ) {
+    return this.adminService.updateUserDelegation(
+      id,
+      dto,
+      req.user.id,
+      req.ip,
+    );
   }
 
   @Post('users/:id/reset-password')

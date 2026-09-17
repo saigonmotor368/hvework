@@ -19,7 +19,7 @@ describe('JwtStrategy auth context cache', () => {
 
   it('reuses the user context during the short cache window', async () => {
     const prisma = {
-      user: { findUnique: vi.fn().mockResolvedValue(activeUser) },
+      user: { findUnique: vi.fn().mockResolvedValue(activeUser), findMany: vi.fn().mockResolvedValue([]) },
       department: { findUnique: vi.fn() },
       role: { findMany: vi.fn().mockResolvedValue(activeUser.roles) },
       project: { findMany: vi.fn().mockResolvedValue([]) },
@@ -38,7 +38,7 @@ describe('JwtStrategy auth context cache', () => {
       resolveUser = resolve;
     });
     const prisma = {
-      user: { findUnique: vi.fn().mockReturnValue(pendingUser) },
+      user: { findUnique: vi.fn().mockReturnValue(pendingUser), findMany: vi.fn().mockResolvedValue([]) },
       department: { findUnique: vi.fn() },
       role: { findMany: vi.fn().mockResolvedValue(activeUser.roles) },
       project: { findMany: vi.fn().mockResolvedValue([]) },
@@ -50,8 +50,8 @@ describe('JwtStrategy auth context cache', () => {
     resolveUser(activeUser);
 
     await expect(Promise.all([first, second])).resolves.toEqual([
-      activeUser,
-      activeUser,
+      expect.objectContaining({ ...activeUser, delegatedFrom: [] }),
+      expect.objectContaining({ ...activeUser, delegatedFrom: [] }),
     ]);
     expect(prisma.user.findUnique).toHaveBeenCalledTimes(1);
   });
@@ -65,6 +65,16 @@ describe('JwtStrategy auth context cache', () => {
           status: 'active',
           departmentId: 3,
         }),
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: 9,
+            name: 'Trưởng dự án',
+            delegateUntil: new Date(Date.now() + 86400000),
+            roles: [{ name: 'department_head' }],
+            ledProjects: [{ id: 13, isActive: true }],
+            projectMemberships: [],
+          },
+        ]),
       },
       department: {
         findUnique: vi.fn().mockResolvedValue({ id: 3, name: 'Vận hành' }),
@@ -94,6 +104,8 @@ describe('JwtStrategy auth context cache', () => {
         project: { id: 12, name: 'Dự án B', isActive: true },
       },
     ]);
+    expect(result.delegatedFrom).toHaveLength(1);
+    expect(result.delegatedFrom[0].roles[0].name).toBe('department_head');
   });
 
   it('rejects invalid subjects and inactive users', async () => {
@@ -102,6 +114,7 @@ describe('JwtStrategy auth context cache', () => {
         findUnique: vi
           .fn()
           .mockResolvedValue({ ...activeUser, status: 'locked' }),
+        findMany: vi.fn().mockResolvedValue([]),
       },
       department: { findUnique: vi.fn() },
       role: { findMany: vi.fn().mockResolvedValue(activeUser.roles) },

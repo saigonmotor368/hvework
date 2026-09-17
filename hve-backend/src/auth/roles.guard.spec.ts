@@ -90,6 +90,23 @@ describe('RolesGuard', () => {
 
       expect(() => guard.canActivate(contextWithoutRoles)).toThrow(ForbiddenException);
     });
+
+    it('does not treat delegated approval roles as system-admin roles', () => {
+      vi.spyOn(reflector, 'getAllAndOverride').mockReturnValue(['ceo', 'it_admin']);
+      const context = createMockContext({
+        id: 20,
+        roles: [{ name: 'employee' }],
+        delegatedFrom: [
+          {
+            id: 1,
+            roles: [{ name: 'ceo' }, { name: 'it_admin' }],
+            delegateUntil: new Date(Date.now() + 60_000),
+          },
+        ],
+      });
+
+      expect(() => guard.canActivate(context)).toThrow(ForbiddenException);
+    });
   });
 
   describe('Real decorator metadata (không mock Reflector) — bắt lỗi @Roles() đặt sai cấp', () => {

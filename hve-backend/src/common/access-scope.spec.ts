@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   buildDocumentAccessWhere,
   buildTaskAccessWhere,
+  buildApprovalStepAccessConditions,
   describeBusinessScope,
+  getEffectiveRoleNames,
+  getEffectiveUserProjectIds,
 } from './access-scope.js';
 
 describe('business access scopes', () => {
@@ -87,5 +90,64 @@ describe('business access scopes', () => {
     // quản trị hệ thống dù xem được toàn bộ dữ liệu như CEO.
     expect(scope.capabilities.canAssignTasks).toBe(false);
     expect(scope.capabilities.canManageSystem).toBe(false);
+  });
+
+  it('adds only active delegated approval roles and project scope', () => {
+    const user = {
+      id: 20,
+      roles: ['employee'],
+      delegatedFrom: [
+        {
+          id: 7,
+          roles: ['department_head'],
+          delegateUntil: new Date(Date.now() + 60_000),
+          ledProjects: [{ id: 11, isActive: true }],
+        },
+      ],
+    };
+
+    expect(getEffectiveRoleNames(user)).toContain('department_head');
+    expect(getEffectiveUserProjectIds(user)).toContain(11);
+    expect(buildApprovalStepAccessConditions(user)).toContainEqual(
+      expect.objectContaining({
+        status: 'pending',
+        roleRequired: 'department_head',
+      }),
+    );
+  });
+
+  it('drops delegated rights immediately after expiry', () => {
+    const user = {
+      id: 20,
+      roles: ['employee'],
+      delegatedFrom: [
+        {
+          id: 7,
+          roles: ['ceo'],
+          delegateUntil: new Date(Date.now() - 1),
+        },
+      ],
+    };
+    expect(getEffectiveRoleNames(user)).toEqual(['employee']);
+    expect(buildApprovalStepAccessConditions(user)).toEqual([]);
+  });
+
+  it('never elevates task or system-management scope through delegation', () => {
+    const user = {
+      id: 20,
+      roles: ['employee'],
+      delegatedFrom: [
+        {
+          id: 1,
+          roles: ['ceo', 'it_admin'],
+          delegateUntil: new Date(Date.now() + 60_000),
+        },
+      ],
+    };
+    expect(buildTaskAccessWhere(user)).toEqual({
+      OR: [{ assigneeId: 20 }, { createdById: 20 }],
+    });
+    expect(describeBusinessScope(user).capabilities.canManageSystem).toBe(false);
+    expect(describeBusinessScope(user).capabilities.canAssignTasks).toBe(false);
   });
 });

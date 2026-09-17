@@ -4,6 +4,7 @@ import {
   TASK_STATUS_LABELS,
   type TaskItem,
   type ProjectItem,
+  type WorkloadSummaryItem,
 } from '../types';
 import { MOCK_TASKS } from '../mockData';
 import { ENABLE_MOCK_DATA } from '../config';
@@ -21,6 +22,7 @@ interface TaskListViewProps {
     tab: 'all' | 'assigned_to_me' | 'assigned_by_me' | 'department';
     status: string;
     isOverdueOnly: boolean;
+    projectId?: number;
   } | null;
   projects: ProjectItem[];
 }
@@ -53,7 +55,10 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
   );
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [viewMode, setViewMode] = useState<'board' | 'list'>('board');
-  const [projectFilter, setProjectFilter] = useState('');
+  const [projectFilter, setProjectFilter] = useState(
+    navigationFilter?.projectId ? String(navigationFilter.projectId) : '',
+  );
+  const [workload, setWorkload] = useState<WorkloadSummaryItem[]>([]);
 
   // Expandable subtasks state
   const [expandedTaskIds, setExpandedTaskIds] = useState<number[]>([]);
@@ -105,6 +110,23 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
     fetchTasks();
   }, [activeTab, statusFilter, priorityFilter, isOverdueOnly, projectFilter]);
 
+  useEffect(() => {
+    if (!currentUser?.roles?.some((role: string) => ['ceo', 'department_head'].includes(role))) {
+      return;
+    }
+    const token = localStorage.getItem('access_token');
+    if (!token) return;
+    const params = new URLSearchParams();
+    if (projectFilter) params.set('projectId', projectFilter);
+    fetchWithSession(`${apiBaseUrl}/tasks/workload?${params.toString()}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(async (response) => {
+        if (response.ok) setWorkload(await response.json());
+      })
+      .catch(() => undefined);
+  }, [apiBaseUrl, currentUser, projectFilter]);
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     fetchTasks();
@@ -150,6 +172,10 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
     { status: 'Chờ duyệt', label: 'Chờ duyệt', accent: 'border-amber-300', dot: 'bg-amber-500' },
     { status: 'Hoàn thành', label: 'Hoàn thành', accent: 'border-emerald-300', dot: 'bg-emerald-500' },
   ] as const;
+  const busiestPeople = [...workload]
+    .filter((item) => item.activeCount > 0)
+    .sort((a, b) => b.activeCount - a.activeCount || b.overdueCount - a.overdueCount)
+    .slice(0, 5);
 
   return (
     <div className="min-w-0 space-y-4 md:space-y-6 md:p-6 max-w-7xl mx-auto">
@@ -196,6 +222,31 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
           )}
         </div>
       </div>
+
+      {busiestPeople.length > 0 && (
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900">Phân bổ khối lượng</h3>
+              <p className="text-[11px] text-slate-500">Nhân sự đang có nhiều việc mở nhất trong phạm vi hiện tại.</p>
+            </div>
+            <span className="text-[11px] font-semibold text-slate-400">Cập nhật theo bộ lọc dự án</span>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+            {busiestPeople.map((item) => (
+              <div key={item.userId} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2.5">
+                <div className="flex items-center gap-2">
+                  <span>{item.level === 'qua_tai' ? '🔴' : item.level === 'vua' ? '🟡' : '🟢'}</span>
+                  <strong className="min-w-0 truncate text-xs text-slate-800">{item.name}</strong>
+                </div>
+                <p className="mt-1 text-[11px] text-slate-500">
+                  {item.activeCount} việc mở · <span className={item.overdueCount ? 'font-bold text-rose-600' : ''}>{item.overdueCount} quá hạn</span>
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* 4 Tabs Phân Loại */}
       <div className="mobile-scroll flex items-center space-x-1 border-b border-slate-200 overflow-x-auto pb-px">

@@ -16,6 +16,9 @@ import { NotificationsService } from '../notifications/notifications.service.js'
 import { AuthService } from '../auth/auth.service.js';
 import {
   buildDocumentAccessWhere,
+  buildApprovalStepAccessConditions,
+  getApprovalDelegator,
+  getEffectiveRoleNames,
   getRoleNames,
   getUserProjectIds,
 } from '../common/access-scope.js';
@@ -95,6 +98,26 @@ export class DocumentsService {
     }
   }
 
+  private resolveApprovalDelegator(doc: any, user: any, roleRequired: string) {
+    if (!getEffectiveRoleNames(user).includes(roleRequired)) {
+      throw new ForbiddenException(
+        `Bạn không có vai trò '${roleRequired}' để xử lý bước này`,
+      );
+    }
+
+    const delegator = getApprovalDelegator(user, roleRequired, doc);
+    if (roleRequired === 'department_head') {
+      if (delegator) return delegator;
+      if (!getRoleNames(user).includes('department_head')) {
+        throw new ForbiddenException(
+          'Quyền ủy quyền không áp dụng cho dự án/phòng ban của hồ sơ này',
+        );
+      }
+      this.assertDepartmentHeadDocumentScope(doc, user);
+    }
+    return delegator;
+  }
+
   async generateDocumentCode(prefix: string): Promise<string> {
     const year = new Date().getFullYear();
     const codePrefix = `${prefix}-${year}-`;
@@ -165,6 +188,25 @@ export class DocumentsService {
           select: { id: true },
         });
         approverIds = roleUsers.map((u) => u.id);
+      }
+
+      if (approverIds.length > 0) {
+        const activeDelegations = await this.prisma.user.findMany({
+          where: {
+            id: { in: approverIds },
+            delegateToUserId: { not: null },
+            delegateUntil: { gte: new Date() },
+          },
+          select: { delegateToUserId: true },
+        });
+        approverIds = [
+          ...new Set([
+            ...approverIds,
+            ...activeDelegations
+              .map((item) => item.delegateToUserId)
+              .filter((id): id is number => typeof id === 'number'),
+          ]),
+        ];
       }
 
       for (const approverId of approverIds) {
@@ -717,19 +759,11 @@ export class DocumentsService {
       );
     }
 
-    // Check user role
-    const userRoleNames = getRoleNames(user);
-    if (!userRoleNames.includes(step.roleRequired)) {
-      throw new ForbiddenException(
-        `Bạn không có vai trò '${step.roleRequired}' để phê duyệt bước này`,
-      );
-    }
-
-    // Project scope replaces department scope for project records. Legacy
-    // records without projectId continue using department scope.
-    if (step.roleRequired === 'department_head') {
-      this.assertDepartmentHeadDocumentScope(doc, user);
-    }
+    const approvalDelegator = this.resolveApprovalDelegator(
+      doc,
+      user,
+      step.roleRequired,
+    );
 
     // Bắt buộc mã PIN xác nhận duyệt cho bước phê duyệt CUỐI CÙNG do CEO thực
     // hiện — xác định động theo cấu hình luồng hiện tại (stepOrder lớn nhất),
@@ -812,6 +846,8 @@ export class DocumentsService {
           status: newDocumentStatus,
           approvedStep: step.stepOrder,
           comment: dto?.comment || null,
+          actedOnBehalfOf: approvalDelegator?.id || null,
+          actedOnBehalfOfName: approvalDelegator?.name || null,
         },
         ip,
       });
@@ -869,12 +905,10 @@ export class DocumentsService {
       );
     }
 
-    const roleNames = (user.roles || []).map((role: any) =>
-      typeof role === 'string' ? role : role.name,
-    );
-    if (!roleNames.includes('ceo')) {
+    if (!getEffectiveRoleNames(user).includes('ceo')) {
       throw new ForbiddenException('Chỉ CEO mới có quyền duyệt thẳng hồ sơ');
     }
+    const approvalDelegator = this.resolveApprovalDelegator(doc, user, 'ceo');
 
     const pinRequired = await this.authService.isApprovalPinEnabled(user.id);
     if (pinRequired) {
@@ -916,6 +950,8 @@ export class DocumentsService {
         afterJson: {
           status: newStatus,
           comment: dto?.comment || 'CEO duyệt thẳng toàn bộ quy trình',
+          actedOnBehalfOf: approvalDelegator?.id || null,
+          actedOnBehalfOfName: approvalDelegator?.name || null,
         },
         ip,
       });
@@ -979,16 +1015,11 @@ export class DocumentsService {
       throw new ForbiddenException('Người tạo không được thao tác trên bước phê duyệt của mình');
     }
 
-    const userRoleNames = getRoleNames(user);
-    if (!userRoleNames.includes(step.roleRequired)) {
-      throw new ForbiddenException(
-        `Bạn không có vai trò '${step.roleRequired}' để thực hiện trả lại hồ sơ`,
-      );
-    }
-
-    if (step.roleRequired === 'department_head') {
-      this.assertDepartmentHeadDocumentScope(doc, user);
-    }
+    const approvalDelegator = this.resolveApprovalDelegator(
+      doc,
+      user,
+      step.roleRequired,
+    );
 
     const result = await this.prisma.$transaction(async (tx) => {
       // Mark step as returned
@@ -1021,7 +1052,12 @@ export class DocumentsService {
         action: 'return_document',
         actorId: user.id,
         beforeJson: { status: 'Chờ duyệt', stepOrder: step.stepOrder },
-        afterJson: { status: 'Nháp', reason: dto.comment },
+        afterJson: {
+          status: 'Nháp',
+          reason: dto.comment,
+          actedOnBehalfOf: approvalDelegator?.id || null,
+          actedOnBehalfOfName: approvalDelegator?.name || null,
+        },
         ip,
       });
 
@@ -1085,16 +1121,11 @@ export class DocumentsService {
       throw new ForbiddenException('Người tạo không được thao tác trên bước phê duyệt của mình');
     }
 
-    const userRoleNames = getRoleNames(user);
-    if (!userRoleNames.includes(step.roleRequired)) {
-      throw new ForbiddenException(
-        `Bạn không có vai trò '${step.roleRequired}' để từ chối hồ sơ`,
-      );
-    }
-
-    if (step.roleRequired === 'department_head') {
-      this.assertDepartmentHeadDocumentScope(doc, user);
-    }
+    const approvalDelegator = this.resolveApprovalDelegator(
+      doc,
+      user,
+      step.roleRequired,
+    );
 
     const result = await this.prisma.$transaction(async (tx) => {
       // Mark step as rejected
@@ -1127,7 +1158,12 @@ export class DocumentsService {
         action: 'reject_document',
         actorId: user.id,
         beforeJson: { status: 'Chờ duyệt', stepOrder: step.stepOrder },
-        afterJson: { status: 'Từ chối', reason: dto.comment },
+        afterJson: {
+          status: 'Từ chối',
+          reason: dto.comment,
+          actedOnBehalfOf: approvalDelegator?.id || null,
+          actedOnBehalfOfName: approvalDelegator?.name || null,
+        },
         ip,
       });
 
@@ -1152,7 +1188,6 @@ export class DocumentsService {
     user: any,
     query: { status?: string; type?: string; tab?: string; projectId?: number },
   ) {
-    const userRoleNames: string[] = user.roles ? user.roles.map((r: any) => r.name) : [];
     const where: any = {};
     const accessScope = buildDocumentAccessWhere(user);
 
@@ -1173,42 +1208,7 @@ export class DocumentsService {
     if (query.tab === 'my') {
       where.AND = [accessScope, { createdById: user.id }];
     } else if (query.tab === 'to_review') {
-      const userDeptId = user.departmentId || user.department?.id;
-      const conditions: any[] = [];
-      const nonDeptRoles = userRoleNames.filter((r) => r !== 'department_head');
-      if (nonDeptRoles.length > 0) {
-        conditions.push({
-          status: 'pending',
-          roleRequired: { in: nonDeptRoles },
-        });
-      }
-      const userProjectIds = getUserProjectIds(user);
-      if (userRoleNames.includes('department_head') && userProjectIds.length > 0) {
-        conditions.push({
-          status: 'pending',
-          roleRequired: 'department_head',
-          document: {
-            OR: [
-              { projectId: { in: userProjectIds } },
-              ...userProjectIds.map((projectId) => ({
-                linkedProjectIds: { array_contains: [projectId] },
-              })),
-            ],
-          },
-        });
-      }
-      if (userRoleNames.includes('department_head') && userDeptId) {
-        conditions.push({
-          status: 'pending',
-          roleRequired: 'department_head',
-          document: {
-            projectId: null,
-            createdBy: {
-              departmentId: userDeptId,
-            },
-          },
-        });
-      }
+      const conditions = buildApprovalStepAccessConditions(user);
 
       where.AND = [
         accessScope,

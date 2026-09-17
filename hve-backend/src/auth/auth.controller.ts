@@ -84,6 +84,20 @@ export class AuthController {
       name: user.name,
       departmentId: user.departmentId,
       roles: user.roles ? user.roles.map((r: { name: string }) => r.name) : [],
+      delegatedFrom: (user.delegatedFrom || []).map((delegator: any) => ({
+        id: delegator.id,
+        name: delegator.name,
+        email: delegator.email,
+        departmentId: delegator.departmentId,
+        delegateUntil: delegator.delegateUntil,
+        roles: (delegator.roles || []).map((role: any) => role.name),
+        projects: [
+          ...(delegator.ledProjects || []),
+          ...(delegator.projectMemberships || []).map(
+            (membership: any) => membership.project,
+          ),
+        ].filter(Boolean),
+      })),
     };
   }
 

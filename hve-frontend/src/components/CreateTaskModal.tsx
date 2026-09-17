@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { TASK_PRIORITY_LABELS, type ProjectItem, type TaskItem } from '../types';
+import React, { useEffect, useMemo, useState } from 'react';
+import { TASK_PRIORITY_LABELS, type ProjectItem, type TaskItem, type WorkloadSummaryItem } from '../types';
 import { fetchWithSession, uploadAttachment } from '../api/client';
 
 interface CreateTaskModalProps {
@@ -38,6 +38,27 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [projectId, setProjectId] = useState<string>(parentTask?.projectId ? String(parentTask.projectId) : '');
   const [linkedProjectIds, setLinkedProjectIds] = useState<number[]>(parentTask?.linkedProjectIds || []);
+  const [workload, setWorkload] = useState<WorkloadSummaryItem[]>([]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const token = localStorage.getItem('access_token');
+    if (!token) return;
+    const params = new URLSearchParams();
+    if (projectId) params.set('projectId', projectId);
+    fetchWithSession(`${apiBaseUrl}/tasks/workload?${params.toString()}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(async (response) => {
+        if (response.ok) setWorkload(await response.json());
+      })
+      .catch(() => undefined);
+  }, [apiBaseUrl, isOpen, projectId]);
+
+  const workloadByUser = useMemo(
+    () => new Map(workload.map((item) => [item.userId, item])),
+    [workload],
+  );
 
   if (!isOpen) return null;
 
@@ -213,7 +234,10 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                 <option value="">-- Chưa chỉ định --</option>
                 {users.map((u) => (
                   <option key={u.id} value={u.id}>
-                    {u.name} {u.department ? `(${u.department.name})` : ''}
+                    {u.name} {u.department ? `(${u.department.name})` : ''}{' '}
+                    {workloadByUser.has(u.id)
+                      ? `${workloadByUser.get(u.id)?.level === 'qua_tai' ? '🔴' : workloadByUser.get(u.id)?.level === 'vua' ? '🟡' : '🟢'} ${workloadByUser.get(u.id)?.activeCount} việc`
+                      : ''}
                   </option>
                 ))}
               </select>

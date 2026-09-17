@@ -12,12 +12,15 @@ import { UpdateUserStatusDto } from './dto/update-user-status.dto.js';
 import { CreateUserDto } from './dto/create-user.dto.js';
 import { UpdateUserDto } from './dto/update-user.dto.js';
 import { ResetPasswordDto } from './dto/reset-password.dto.js';
+import { UpdateUserDelegationDto } from './dto/update-user-delegation.dto.js';
+import { JwtStrategy } from '../auth/jwt.strategy.js';
 
 @Injectable()
 export class AdminService {
   constructor(
     private prisma: PrismaService,
     private auditService: AuditService,
+    private jwtStrategy: JwtStrategy,
   ) {}
 
   async findAllUsers() {
@@ -34,6 +37,15 @@ export class AdminService {
         },
         roles: {
           select: { id: true, name: true, description: true },
+        },
+        delegateToUserId: true,
+        delegateUntil: true,
+        delegateTo: {
+          select: { id: true, name: true, email: true, status: true },
+        },
+        delegatedFrom: {
+          where: { delegateUntil: { gte: new Date() }, status: 'active' },
+          select: { id: true, name: true, email: true, delegateUntil: true },
         },
         ledProjects: { select: { id: true, code: true, name: true } },
         projectMemberships: {
@@ -264,6 +276,104 @@ export class AdminService {
     });
 
     return updatedUser;
+  }
+
+  async updateUserDelegation(
+    targetUserId: number,
+    dto: UpdateUserDelegationDto,
+    currentUserId: number,
+    ip?: string,
+  ) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: targetUserId },
+      select: {
+        id: true,
+        name: true,
+        delegateToUserId: true,
+        delegateUntil: true,
+      },
+    });
+    if (!user) throw new NotFoundException('Không tìm thấy người dùng');
+
+    const isClearing = dto.delegateToUserId == null && dto.delegateUntil == null;
+    if (!isClearing && (!dto.delegateToUserId || !dto.delegateUntil)) {
+      throw new BadRequestException(
+        'Phải chọn người nhận và ngày hết hạn khi thiết lập ủy quyền',
+      );
+    }
+
+    let delegateUntil: Date | null = null;
+    let delegateToUserId: number | null = null;
+    if (!isClearing) {
+      delegateToUserId = dto.delegateToUserId!;
+      delegateUntil = new Date(dto.delegateUntil!);
+      if (delegateToUserId === targetUserId) {
+        throw new BadRequestException('Không thể tự ủy quyền cho chính mình');
+      }
+      if (
+        Number.isNaN(delegateUntil.getTime()) ||
+        delegateUntil.getTime() <= Date.now()
+      ) {
+        throw new BadRequestException('Ngày hết hạn ủy quyền phải ở tương lai');
+      }
+
+      const delegate = await this.prisma.user.findUnique({
+        where: { id: delegateToUserId },
+        select: {
+          id: true,
+          name: true,
+          status: true,
+          delegateToUserId: true,
+          delegateUntil: true,
+        },
+      });
+      if (!delegate || delegate.status !== 'active') {
+        throw new BadRequestException(
+          'Người nhận ủy quyền không tồn tại hoặc đang bị khóa',
+        );
+      }
+      if (
+        delegate.delegateToUserId === targetUserId &&
+        delegate.delegateUntil &&
+        delegate.delegateUntil.getTime() >= Date.now()
+      ) {
+        throw new BadRequestException('Không thể tạo vòng lặp ủy quyền hai chiều');
+      }
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id: targetUserId },
+      data: { delegateToUserId, delegateUntil },
+      select: {
+        id: true,
+        name: true,
+        delegateToUserId: true,
+        delegateUntil: true,
+        delegateTo: { select: { id: true, name: true, email: true } },
+      },
+    });
+
+    this.jwtStrategy.invalidateUser(targetUserId);
+    if (user.delegateToUserId) this.jwtStrategy.invalidateUser(user.delegateToUserId);
+    if (delegateToUserId) this.jwtStrategy.invalidateUser(delegateToUserId);
+
+    await this.auditService.logEvent({
+      entityType: 'User',
+      entityId: targetUserId,
+      action: isClearing ? 'clear_approval_delegate' : 'set_approval_delegate',
+      actorId: currentUserId,
+      beforeJson: {
+        delegateToUserId: user.delegateToUserId,
+        delegateUntil: user.delegateUntil?.toISOString() || null,
+      },
+      afterJson: {
+        delegateToUserId,
+        delegateUntil: delegateUntil?.toISOString() || null,
+      },
+      ip,
+    });
+
+    return updated;
   }
 
   async resetPassword(

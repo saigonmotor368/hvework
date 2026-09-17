@@ -36,6 +36,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       : 30000;
   }
 
+  invalidateUser(userId: number) {
+    this.userCache.delete(userId);
+    this.inFlightLoads.delete(userId);
+  }
+
   private async loadUser(userId: number) {
     const now = Date.now();
     const cached = this.userCache.get(userId);
@@ -77,7 +82,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) return null;
 
-    const [department, roles, ledProjects, memberProjects] = await Promise.all([
+    const [department, roles, ledProjects, memberProjects, delegatedFrom] = await Promise.all([
       user.departmentId
         ? this.prisma.department.findUnique({
             where: { id: user.departmentId },
@@ -94,6 +99,34 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         where: { members: { some: { userId } } },
         select: { id: true, name: true, isActive: true },
       }),
+      this.prisma.user.findMany({
+        relationLoadStrategy: 'join',
+        where: {
+          delegateToUserId: userId,
+          delegateUntil: { gte: new Date() },
+          status: 'active',
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          departmentId: true,
+          department: { select: { id: true, name: true } },
+          delegateUntil: true,
+          roles: { select: { id: true, name: true } },
+          ledProjects: {
+            where: { isActive: true },
+            select: { id: true, name: true, isActive: true },
+          },
+          projectMemberships: {
+            where: { project: { isActive: true } },
+            select: {
+              projectId: true,
+              project: { select: { id: true, name: true, isActive: true } },
+            },
+          },
+        },
+      }),
     ]);
 
     return {
@@ -105,6 +138,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         projectId: project.id,
         project,
       })),
+      delegatedFrom,
     };
   }
 

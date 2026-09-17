@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import {
   buildDocumentAccessWhere,
+  buildApprovalStepAccessConditions,
   buildTaskAccessWhere,
   describeBusinessScope,
   getRoleNames,
@@ -24,9 +25,98 @@ export class DashboardService {
       this.cache.clear();
       return;
     }
+    this.cache.delete('project_health_company');
     for (const key of this.cache.keys()) {
       if (key.startsWith(`dashboard_${userId}_`)) this.cache.delete(key);
     }
+  }
+
+  async getProjectHealth() {
+    const cacheKey = 'project_health_company';
+    const nowMs = Date.now();
+    const cached = this.cache.get(cacheKey);
+    if (cached && cached.expiresAt > nowMs) return cached.data;
+
+    const now = new Date();
+    const fiveDaysAgo = new Date(nowMs - 5 * 24 * 60 * 60 * 1000);
+    const [projects, openTasks, overdueTasks, pendingDocuments, overdueDocuments] =
+      await Promise.all([
+        this.prisma.project.findMany({
+          where: { isActive: true },
+          select: { id: true, code: true, name: true },
+          orderBy: { name: 'asc' },
+        }),
+        this.prisma.task.groupBy({
+          by: ['projectId'],
+          where: { projectId: { not: null }, status: { not: 'Hoàn thành' } },
+          _count: { _all: true },
+        }),
+        this.prisma.task.groupBy({
+          by: ['projectId'],
+          where: {
+            projectId: { not: null },
+            status: { not: 'Hoàn thành' },
+            dueDate: { lt: now },
+          },
+          _count: { _all: true },
+        }),
+        this.prisma.document.groupBy({
+          by: ['projectId'],
+          where: { projectId: { not: null }, status: 'Chờ duyệt' },
+          _count: { _all: true },
+        }),
+        this.prisma.document.groupBy({
+          by: ['projectId'],
+          where: {
+            projectId: { not: null },
+            status: 'Chờ duyệt',
+            createdAt: { lt: fiveDaysAgo },
+          },
+          _count: { _all: true },
+        }),
+      ]);
+
+    const toCountMap = (rows: any[]) =>
+      new Map<number, number>(
+        rows
+          .filter((row) => typeof row.projectId === 'number')
+          .map((row) => [row.projectId, Number(row._count._all)]),
+      );
+    const openTaskMap = toCountMap(openTasks);
+    const overdueTaskMap = toCountMap(overdueTasks);
+    const pendingDocumentMap = toCountMap(pendingDocuments);
+    const overdueDocumentMap = toCountMap(overdueDocuments);
+
+    const data = projects.map((project) => {
+      const total =
+        (openTaskMap.get(project.id) || 0) +
+        (pendingDocumentMap.get(project.id) || 0);
+      const overdue =
+        (overdueTaskMap.get(project.id) || 0) +
+        (overdueDocumentMap.get(project.id) || 0);
+      const ratio = total > 0 ? overdue / total : 0;
+      return {
+        ...project,
+        total,
+        overdue,
+        ratio,
+        percent: Math.round(ratio * 100),
+        level:
+          ratio === 0
+            ? 'binh_thuong'
+            : ratio <= 0.2
+              ? 'can_chu_y'
+              : ratio <= 0.5
+                ? 'tre_tien_do'
+                : 'rui_ro_cao',
+      };
+    });
+
+    this.cache.set(cacheKey, {
+      data,
+      expiresAt: nowMs + this.CACHE_TTL_MS,
+    });
+    return data;
   }
 
   async getDashboardData(user: any) {
@@ -59,30 +149,7 @@ export class DashboardService {
     const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
     const documentScope = buildDocumentAccessWhere(user);
     const taskScope = buildTaskAccessWhere(user);
-    const actionableRoles = scope.roles.filter(
-      (role) => !['employee', 'it_admin'].includes(role),
-    );
-    const pendingStepConditions: any[] = [];
-    if (scope.roles.includes('ceo')) {
-      pendingStepConditions.push({ status: 'pending', roleRequired: 'ceo' });
-    } else {
-      if (scope.roles.includes('department_head') && scope.departmentId) {
-        pendingStepConditions.push({
-          status: 'pending',
-          roleRequired: 'department_head',
-          document: { createdBy: { departmentId: scope.departmentId } },
-        });
-      }
-      const nonDepartmentRoles = actionableRoles.filter(
-        (role) => role !== 'department_head',
-      );
-      if (nonDepartmentRoles.length > 0) {
-        pendingStepConditions.push({
-          status: 'pending',
-          roleRequired: { in: nonDepartmentRoles },
-        });
-      }
-    }
+    const pendingStepConditions = buildApprovalStepAccessConditions(user);
 
     const documentSelect = {
       id: true,

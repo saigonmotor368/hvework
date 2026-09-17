@@ -20,8 +20,6 @@ import { CreateContractDto } from './dto/create-contract.dto.js';
 import { UpdatePaymentRequestDto } from './dto/update-payment-request.dto.js';
 import { ActionStepDto, RejectOrReturnStepDto } from './dto/action-step.dto.js';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
-import { RolesGuard } from '../auth/roles.guard.js';
-import { Roles } from '../auth/roles.decorator.js';
 
 @UseGuards(JwtAuthGuard)
 @Controller('documents')
@@ -132,8 +130,6 @@ export class DocumentsController {
   }
 
   @Post(':id/approve-direct')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ceo')
   @HttpCode(HttpStatus.OK)
   async approveDirect(
     @Param('id', ParseIntPipe) id: number,
