@@ -83,6 +83,19 @@ export const UserProfileModal: React.FC<{ apiBaseUrl: string }> = ({
     [profile?.name],
   );
 
+  const assignedProjects = useMemo(() => {
+    if (!profile) return [];
+    const projects = new Map<
+      number,
+      { id: number; code: string; name: string }
+    >();
+    profile.ledProjects.forEach((project) => projects.set(project.id, project));
+    profile.projectMemberships.forEach(({ project }) =>
+      projects.set(project.id, project),
+    );
+    return [...projects.values()];
+  }, [profile]);
+
   if (!userId) return null;
 
   return (
@@ -135,16 +148,18 @@ export const UserProfileModal: React.FC<{ apiBaseUrl: string }> = ({
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                  Phòng ban
+                  Dự án
                 </p>
-                <p className="mt-1 text-sm font-bold text-gray-900">
-                  {profile.department?.name || "Chưa phân phòng ban"}
+                <p className="mt-1 line-clamp-2 text-sm font-bold text-gray-900">
+                  {assignedProjects.length > 0
+                    ? assignedProjects.map((project) => project.name).join(", ")
+                    : "Huy Võ Education"}
                 </p>
-                {profile.department?.code && (
-                  <p className="mt-0.5 text-xs text-gray-500">
-                    Mã: {profile.department.code}
-                  </p>
-                )}
+                <p className="mt-0.5 text-xs text-gray-500">
+                  {assignedProjects.length > 0
+                    ? `Mã: ${assignedProjects.map((project) => project.code).join(", ")}`
+                    : "Đơn vị tổng công ty"}
+                </p>
               </div>
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
@@ -225,8 +240,15 @@ export const UserProfileModal: React.FC<{ apiBaseUrl: string }> = ({
                 ))}
                 {profile.ledProjects.length === 0 &&
                   profile.projectMemberships.length === 0 && (
-                    <div className="rounded-2xl border border-dashed border-slate-300 p-4 text-center text-sm text-gray-400">
-                      Chưa tham gia dự án nào.
+                    <div className="rounded-2xl border border-blue-200 bg-blue-50/70 p-3.5 shadow-sm">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-sm font-bold text-gray-900">
+                          HVE — Huy Võ Education
+                        </p>
+                        <span className="rounded-full bg-blue-100 px-2.5 py-1 text-[10px] font-black text-blue-800">
+                          TỔNG CÔNG TY
+                        </span>
+                      </div>
                     </div>
                   )}
               </div>
