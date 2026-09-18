@@ -264,5 +264,5 @@ Bám theo [02_KE_HOACH_TRIEN_KHAI.md](02_KE_HOACH_TRIEN_KHAI.md) và [01_KIEN_TR
 - [x] Gửi notification cho người nhận đề xuất trực tiếp
 - [x] Giữ toàn bộ dữ liệu cũ ở phạm vi `scoped`, không mở quyền hồi tố
 - [x] Prisma validate/generate, backend build/lint và 199/199 test pass; frontend build/lint và 10/10 test pass
-- [ ] Áp dụng migration `20260918170000_add_project_positions_and_targeted_visibility` và deploy Railway/Vercel
+- [x] Áp dụng migration `20260918170000_add_project_positions_and_targeted_visibility`; Railway `0982c034-72ca-4a43-b59a-bf12641aedef` đạt `SUCCESS`, Vercel `dpl_5R3iZBQkbBgXkLBBRH26jzTEqoBg` đạt `READY/PROMOTED`
 - [ ] UAT bằng ba tài khoản BGĐ/người nhận/người không được chỉ định để xác nhận cô lập dữ liệu

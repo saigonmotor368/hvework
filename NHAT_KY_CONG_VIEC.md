@@ -489,3 +489,6 @@ Dự án đã hoàn thành toàn bộ các giai đoạn (Phase 0 ➔ Phase 5) v�
 - Nội dung BGĐ tạo mới dùng phạm vi riêng: có người nhận là `targeted`, chỉ người tạo/người nhận/người phối hợp và bước duyệt bắt buộc được xem; không chỉ định là `company`, mọi tài khoản HVE được xem. Dữ liệu cũ tiếp tục là `scoped`, không bị mở quyền hồi tố.
 - Đề xuất gửi riêng tạo notification in-app/Web Push cho người nhận và mở thẳng hồ sơ.
 - Migration `20260918170000_add_project_positions_and_targeted_visibility`; baseline: Prisma validate/generate pass, backend build/lint và 199/199 test pass, frontend build và 10/10 test pass, lint không có error; main bundle 374,92 KB (gzip 104,50 KB).
+- Migration đã áp dụng trên Supabase production. Backend Railway deployment `0982c034-72ca-4a43-b59a-bf12641aedef` đạt `SUCCESS`; health HTTP 200, API hồ sơ không có JWT trả 401 và không ghi nhận HTTP 5xx sau phát hành.
+- Frontend Vercel deployment `dpl_5R3iZBQkbBgXkLBBRH26jzTEqoBg` đạt `READY/PROMOTED`, giữ alias `work.huyvoeducation.vn`; bundle production chứa đúng URL Railway và API hồ sơ mới.
+- GitHub Actions CI run `35318830200` pass; commit tính năng `8e5a6db` và commit sửa wiring AuthModule `185c2e6` đã push lên `main`.
