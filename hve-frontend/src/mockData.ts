@@ -454,11 +454,10 @@ export const MOCK_DASHBOARD_DATA = {
     documents: { pending: 3, approved: 12, draft: 1 },
     tasks: { inProgress: 8, overdue: 1, completed: 15 },
   },
-  departmentStats: [
-    { id: 1, name: 'Phòng Công nghệ Thông tin', completionRate: 94, completedTasks: 16, totalTasks: 17 },
-    { id: 2, name: 'Phòng Tài chính - Kế toán', completionRate: 88, completedTasks: 14, totalTasks: 16 },
-    { id: 3, name: 'Phòng Kinh doanh & Tuyển sinh', completionRate: 75, completedTasks: 9, totalTasks: 12 },
-    { id: 4, name: 'Ban Pháp chế & Thẩm định', completionRate: 80, completedTasks: 8, totalTasks: 10 },
+  projectStats: [
+    { id: 1, code: 'HB', name: 'Hồ bơi', completionRate: 94, completedTasks: 16, totalTasks: 17 },
+    { id: 2, code: 'TPS1', name: 'Văn phòng TPS1', completionRate: 88, completedTasks: 14, totalTasks: 16 },
+    { id: 3, code: 'GD', name: 'Giáo dục', completionRate: 75, completedTasks: 9, totalTasks: 12 },
   ],
 };
 

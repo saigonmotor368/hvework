@@ -456,7 +456,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
         </div>
       )}
 
-      {/* KHỐI 3: TIẾN ĐỘ PHÒNG BAN (NẾU LÀ CEO) HOẶC CHI TIẾT TÀI CHÍNH */}
+      {/* KHỐI 3: SỨC KHỎE VÀ TIẾN ĐỘ DỰ ÁN */}
       {capabilities.canViewCompany && projectHealth.length > 0 && (
         <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-6">
           <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
@@ -536,11 +536,11 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
         </section>
       )}
 
-      {capabilities.canViewCompany && dashboardData?.departmentStats && (
+      {capabilities.canViewCompany && dashboardData?.projectStats && (
         <div className="bg-white rounded-2xl p-4 md:p-6 shadow-sm border border-slate-200">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
             <h3 className="text-base font-bold text-gray-900">
-              Tỷ lệ hoàn thành công việc theo Phòng ban
+              Tỷ lệ hoàn thành công việc theo Dự án
             </h3>
             <span className="text-xs text-gray-400 font-medium">
               Cập nhật tự động
@@ -548,40 +548,48 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {dashboardData.departmentStats.map((dept: any) => (
-              <div
-                key={dept.id}
-                className="p-4 rounded-xl border border-slate-100 bg-slate-50/50"
+            {dashboardData.projectStats.map((project: any) => (
+              <button
+                type="button"
+                key={project.id}
+                onClick={() => onOpenTasks({ projectId: project.id })}
+                className="rounded-xl border border-slate-100 bg-slate-50/50 p-4 text-left transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md"
+                aria-label={`Xem công việc dự án ${project.name}`}
               >
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-bold text-gray-800">
-                    {dept.name}
-                  </span>
+                  <div className="min-w-0 pr-3">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-[#0A66C2]">
+                      {project.code}
+                    </span>
+                    <span className="block truncate text-sm font-bold text-gray-800">
+                      {project.name}
+                    </span>
+                  </div>
                   <span
                     className={`text-xs font-extrabold px-2 py-0.5 rounded-md ${
-                      dept.totalTasks === 0
+                      project.totalTasks === 0
                         ? "text-gray-400 bg-gray-100"
                         : "text-[#0A66C2] bg-blue-50"
                     }`}
                   >
-                    {dept.totalTasks === 0
+                    {project.totalTasks === 0
                       ? "Chưa có việc"
-                      : `${dept.completionRate}%`}
+                      : `${project.completionRate}%`}
                   </span>
                 </div>
                 <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden mb-2">
                   <div
                     className="bg-[#0A66C2] h-2 rounded-full transition-all duration-500"
                     style={{
-                      width: `${dept.totalTasks === 0 ? 0 : dept.completionRate}%`,
+                      width: `${project.totalTasks === 0 ? 0 : project.completionRate}%`,
                     }}
                   />
                 </div>
                 <div className="flex justify-between text-[11px] text-gray-500">
-                  <span>Hoàn thành: {dept.completedTasks}</span>
-                  <span>Tổng số: {dept.totalTasks} việc</span>
+                  <span>Hoàn thành: {project.completedTasks}</span>
+                  <span>Tổng số: {project.totalTasks} việc</span>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         </div>

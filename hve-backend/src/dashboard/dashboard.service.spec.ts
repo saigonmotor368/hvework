@@ -15,7 +15,7 @@ describe('DashboardService role scopes', () => {
     service = new DashboardService(prismaMock);
   });
 
-  it('gives CEO company-wide metrics and department statistics', async () => {
+  it('gives CEO company-wide metrics and project statistics', async () => {
     prismaMock.document.findMany
       .mockResolvedValueOnce([
         { id: 1, type: 'proposal', status: 'Chờ duyệt', dataJson: {} },
@@ -26,8 +26,17 @@ describe('DashboardService role scopes', () => {
     prismaMock.task.findMany.mockResolvedValue([
       { id: 10, status: 'Đang làm', dueDate: new Date(Date.now() - 4 * 86400000) },
     ]);
-    prismaMock.department.findMany.mockResolvedValue([
-      { id: 1, name: 'IT', code: 'IT', users: [{ assignedTasks: [{ status: 'Hoàn thành' }] }] },
+    prismaMock.project.findMany.mockResolvedValue([
+      { id: 1, name: 'Hồ bơi', code: 'HB' },
+    ]);
+    prismaMock.task.findMany.mockResolvedValue([
+      {
+        id: 10,
+        projectId: 1,
+        status: 'Đang làm',
+        dueDate: new Date(Date.now() - 4 * 86400000),
+      },
+      { id: 11, projectId: 1, status: 'Hoàn thành', dueDate: null },
     ]);
 
     const result = await service.getDashboardData({ id: 1, roles: [{ name: 'ceo' }] });
@@ -36,7 +45,11 @@ describe('DashboardService role scopes', () => {
     expect(result.capabilities.canViewCompany).toBe(true);
     expect(result.metrics.documents.total).toBe(2);
     expect(result.metrics.tasks.overdue).toBe(1);
-    expect(result.departmentStats[0].completionRate).toBe(100);
+    expect(result.projectStats[0]).toMatchObject({
+      code: 'HB',
+      totalTasks: 2,
+      completionRate: 50,
+    });
   });
 
   it('scopes a department head to the department', async () => {
@@ -60,7 +73,7 @@ describe('DashboardService role scopes', () => {
     expect(result.scope.label).toContain('Vận hành');
     expect(result.metrics.tasks.total).toBe(2);
     expect(result.actionRequired.pendingApprovalsCount).toBe(1);
-    expect(prismaMock.department.findMany).not.toHaveBeenCalled();
+    expect(prismaMock.project.findMany).not.toHaveBeenCalled();
   });
 
   it('merges accountant and legal capabilities without duplicate dashboards', async () => {
@@ -109,13 +122,13 @@ describe('DashboardService role scopes', () => {
     expect(result.metrics.documents.total).toBe(2);
     expect(result.metrics.tasks.total).toBe(1);
     expect(result.actionRequired.returnedDocumentsCount).toBe(1);
-    expect(result.departmentStats).toBeUndefined();
+    expect(result.projectStats).toBeUndefined();
   });
 
   it('uses cache per user, department and complete role set', async () => {
     prismaMock.document.findMany.mockResolvedValue([]);
     prismaMock.task.findMany.mockResolvedValue([]);
-    prismaMock.department.findMany.mockResolvedValue([]);
+    prismaMock.project.findMany.mockResolvedValue([]);
     const user = { id: 1, roles: [{ name: 'ceo' }] };
 
     await service.getDashboardData(user);

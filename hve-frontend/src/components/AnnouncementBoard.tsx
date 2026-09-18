@@ -220,24 +220,22 @@ export function AnnouncementBoard({ apiBaseUrl }: Props) {
 
   return (
     <>
-      <section className="relative isolate overflow-hidden rounded-3xl border border-blue-300/70 bg-white shadow-[0_18px_50px_-24px_rgba(10,102,194,0.55)] ring-1 ring-blue-100">
-        <div className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-cyan-300/20 blur-2xl" />
-        <div className="pointer-events-none absolute -left-20 top-16 h-48 w-48 rounded-full bg-violet-300/15 blur-2xl" />
-        <div className="relative flex items-center justify-between gap-3 bg-gradient-to-r from-[#075AA8] via-[#0A66C2] to-[#6554C0] px-4 py-4 text-white sm:px-6 sm:py-5">
+      <section className="overflow-hidden rounded-2xl border border-blue-200 bg-white shadow-[0_12px_35px_-24px_rgba(10,102,194,0.7)]">
+        <div className="flex items-center justify-between gap-3 bg-gradient-to-r from-[#075AA8] via-[#0A66C2] to-[#6554C0] px-4 py-3 text-white sm:px-5">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/25 bg-white/15 text-2xl shadow-inner backdrop-blur sm:h-12 sm:w-12">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 text-lg shadow-inner backdrop-blur">
               <span aria-hidden="true">📣</span>
             </div>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-base font-black tracking-tight sm:text-lg">
+                <h2 className="text-sm font-black tracking-tight sm:text-base">
                   Bảng tin nội bộ HVE
                 </h2>
-                <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-white ring-1 ring-white/25">
+                <span className="hidden rounded-full bg-white/20 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-white ring-1 ring-white/25 sm:inline-flex">
                   Chính thức
                 </span>
               </div>
-              <p className="mt-0.5 line-clamp-1 text-xs font-medium text-blue-50/90 sm:text-sm">
+              <p className="mt-0.5 line-clamp-1 text-[11px] font-medium text-blue-50/90 sm:text-xs">
                 Tin tức, lịch họp và hướng dẫn mới dành cho bạn
               </p>
             </div>
@@ -247,7 +245,7 @@ export function AnnouncementBoard({ apiBaseUrl }: Props) {
               <button
                 type="button"
                 onClick={() => void openAll()}
-                className="rounded-xl bg-white/15 px-2.5 py-2 text-xs font-extrabold text-white ring-1 ring-white/20 transition hover:bg-white/25 sm:px-3"
+                className="rounded-lg bg-white/15 px-2.5 py-1.5 text-[11px] font-extrabold text-white ring-1 ring-white/20 transition hover:bg-white/25 sm:px-3"
               >
                 Xem tất cả
               </button>
@@ -255,7 +253,7 @@ export function AnnouncementBoard({ apiBaseUrl }: Props) {
             <button
               type="button"
               onClick={() => setIsCollapsed((value) => !value)}
-              className="rounded-xl px-2.5 py-2 text-xs font-bold text-blue-50 transition hover:bg-white/15 sm:px-3"
+              className="rounded-lg px-2 py-1.5 text-[11px] font-bold text-blue-50 transition hover:bg-white/15 sm:px-3"
               aria-expanded={!isCollapsed}
             >
               {isCollapsed ? "Mở" : "Thu gọn"}
@@ -264,99 +262,73 @@ export function AnnouncementBoard({ apiBaseUrl }: Props) {
         </div>
 
         {!isCollapsed && (
-          <div className="relative bg-gradient-to-b from-blue-50/70 via-white to-white p-3 sm:p-5">
+          <div className="bg-slate-50/70 p-2.5 sm:p-3">
             {error && (
               <p className="mb-3 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800">
                 {error}
               </p>
             )}
-            <div className="grid gap-4 lg:grid-cols-3">
-              {items.slice(0, 3).map((item, index) => {
+            <div className="space-y-2">
+              {items.slice(0, 3).map((item) => {
                 const meta = TYPE_META[item.type] || TYPE_META.news;
                 const priority =
                   PRIORITY_META[item.priority] || PRIORITY_META.normal;
-                const emphasized =
-                  index === 0 && (item.isPinned || item.priority !== "normal");
                 return (
-                  <article
+                  <button
+                    type="button"
                     key={item.id}
-                    className={`group relative min-w-0 overflow-hidden rounded-2xl border-2 p-4 shadow-[0_10px_26px_-20px_rgba(15,23,42,0.8)] transition duration-200 hover:-translate-y-0.5 hover:shadow-lg sm:p-5 ${priority.card} ${emphasized ? "lg:col-span-3" : ""}`}
+                    onClick={() => void openDetail(item)}
+                    className={`group relative flex w-full min-w-0 flex-col gap-2 overflow-hidden rounded-xl border px-3 py-3 text-left shadow-sm transition hover:-translate-y-px hover:border-blue-300 hover:shadow-md sm:flex-row sm:items-center sm:gap-3 sm:px-4 ${priority.card}`}
                   >
                     <span
-                      className={`absolute inset-y-0 left-0 w-1.5 ${priority.accent}`}
+                      className={`absolute inset-y-0 left-0 w-1 ${priority.accent}`}
                       aria-hidden="true"
                     />
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span
-                        className={`rounded-full px-2 py-1 text-[11px] font-bold ${meta.color}`}
-                      >
-                        {meta.icon} {meta.label}
-                      </span>
-                      {item.isPinned && (
-                        <span className="rounded-full bg-white/80 px-2 py-1 text-[11px] font-extrabold text-amber-700 shadow-sm ring-1 ring-amber-200">
-                          📌 Đã ghim
-                        </span>
-                      )}
-                      {item.priority !== "normal" && (
-                        <span
-                          className={`rounded-full px-2 py-1 text-[11px] font-extrabold ${priority.badge}`}
-                        >
-                          {item.priority === "urgent" ? "● " : ""}
-                          {priority.label}
-                        </span>
-                      )}
-                      {item.project ? (
-                        <span className="max-w-full truncate rounded-full bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-600">
-                          {item.project.code} · {item.project.name}
-                        </span>
-                      ) : (
-                        <span className="rounded-full bg-cyan-50 px-2 py-1 text-[11px] font-semibold text-cyan-700">
-                          Toàn hệ thống
-                        </span>
-                      )}
-                    </div>
-                    <h3 className="mt-3 line-clamp-2 text-base font-black leading-snug text-slate-950 sm:text-lg">
-                      {item.title}
-                    </h3>
-                    {item.summary && (
-                      <p className="mt-1.5 line-clamp-2 text-sm font-medium leading-6 text-slate-600">
-                        {item.summary}
-                      </p>
-                    )}
-                    {item.type === "meeting" && item.meetingStartAt && (
-                      <div className="mt-3 rounded-lg bg-violet-50 px-3 py-2 text-xs text-violet-800">
-                        <p className="font-bold">
-                          {formatDate(item.meetingStartAt, true)}
-                        </p>
-                        {item.location && (
-                          <p className="mt-0.5 truncate">📍 {item.location}</p>
+                    <span
+                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-base ${meta.color}`}
+                      aria-hidden="true"
+                    >
+                      {meta.icon}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-bold">
+                        <span className={meta.color}>{meta.label}</span>
+                        {item.isPinned && (
+                          <span className="text-amber-700">📌 Đã ghim</span>
                         )}
-                      </div>
-                    )}
-                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-                      <span className="text-[11px] text-slate-400">
-                        {formatDate(item.publishedAt)}
-                      </span>
-                      <div className="flex flex-wrap gap-2">
-                        {item.type === "meeting" && item.meetingStartAt && (
-                          <button
-                            type="button"
-                            onClick={() => void downloadCalendar(item)}
-                            className="rounded-lg bg-violet-50 px-3 py-1.5 text-xs font-bold text-violet-700 hover:bg-violet-100"
+                        {item.priority !== "normal" && (
+                          <span
+                            className={`rounded-full px-2 py-0.5 ${priority.badge}`}
                           >
-                            Thêm vào lịch
-                          </button>
+                            {priority.label}
+                          </span>
                         )}
-                        <button
-                          type="button"
-                          onClick={() => void openDetail(item)}
-                          className="rounded-xl bg-[#0A66C2] px-3.5 py-2 text-xs font-extrabold text-white shadow-sm transition hover:bg-[#075AA8] hover:shadow-md"
-                        >
-                          Xem chi tiết
-                        </button>
+                        <span className="truncate text-slate-500">
+                          · {item.project?.code || "Toàn hệ thống"}
+                        </span>
                       </div>
+                      <h3 className="mt-1 line-clamp-1 text-sm font-extrabold text-slate-950 sm:text-[15px]">
+                        {item.title}
+                      </h3>
                     </div>
-                  </article>
+                    <div className="flex shrink-0 items-center justify-between gap-3 pl-12 sm:pl-0">
+                      <div className="text-right text-[10px] font-semibold text-slate-500 sm:min-w-28">
+                        {item.type === "meeting" && item.meetingStartAt ? (
+                          <span className="text-violet-700">
+                            🕒 {formatDate(item.meetingStartAt, true)}
+                          </span>
+                        ) : (
+                          <span>{formatDate(item.publishedAt)}</span>
+                        )}
+                      </div>
+                      <span
+                        className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-lg text-[#0A66C2] shadow-sm ring-1 ring-slate-200 transition group-hover:bg-[#0A66C2] group-hover:text-white"
+                        aria-hidden="true"
+                      >
+                        ›
+                      </span>
+                    </div>
+                  </button>
                 );
               })}
             </div>

@@ -179,6 +179,7 @@ export class DashboardService {
       status: true,
       priority: true,
       progressPercent: true,
+      projectId: true,
       assignee: {
         select: {
           id: true,
@@ -190,7 +191,7 @@ export class DashboardService {
       createdBy: { select: { id: true, name: true, departmentId: true } },
     } as const;
 
-    const [documents, tasks, pendingDocuments, returnedDocuments, departments] =
+    const [documents, tasks, pendingDocuments, returnedDocuments, projects] =
       await Promise.all([
         this.prisma.document.findMany({
           relationLoadStrategy: 'join',
@@ -236,18 +237,10 @@ export class DashboardService {
           orderBy: { updatedAt: 'desc' },
         }),
         scope.capabilities.canViewCompany
-          ? this.prisma.department.findMany({
-              relationLoadStrategy: 'join',
-              include: {
-                users: {
-                  select: {
-                    assignedTasks: {
-                      where: { parentTaskId: null },
-                      select: { status: true },
-                    },
-                  },
-                },
-              },
+          ? this.prisma.project.findMany({
+              where: { isActive: true },
+              select: { id: true, code: true, name: true },
+              orderBy: { name: 'asc' },
             })
           : Promise.resolve([]),
       ]);
@@ -284,22 +277,22 @@ export class DashboardService {
       0,
     );
 
-    const departmentStats = departments.map((department: any) => {
-      const departmentTasks = department.users.flatMap(
-        (member: any) => member.assignedTasks,
+    const projectStats = projects.map((project: any) => {
+      const projectTasks = tasks.filter(
+        (task: any) => task.projectId === project.id,
       );
-      const completed = departmentTasks.filter(
+      const completed = projectTasks.filter(
         (task: any) => task.status === 'Hoàn thành',
       ).length;
       return {
-        id: department.id,
-        name: department.name,
-        code: department.code,
-        totalTasks: departmentTasks.length,
+        id: project.id,
+        name: project.name,
+        code: project.code,
+        totalTasks: projectTasks.length,
         completedTasks: completed,
         completionRate:
-          departmentTasks.length > 0
-            ? Math.round((completed / departmentTasks.length) * 100)
+          projectTasks.length > 0
+            ? Math.round((completed / projectTasks.length) * 100)
             : 0,
       };
     });
@@ -364,8 +357,8 @@ export class DashboardService {
           : null,
       },
       recentDocuments: documents.slice(0, 5),
-      departmentStats: scope.capabilities.canViewCompany
-        ? departmentStats
+      projectStats: scope.capabilities.canViewCompany
+        ? projectStats
         : undefined,
     };
   }
