@@ -1,10 +1,13 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
 import { AuditService } from '../audit/audit.service.js';
 import { getUserProjectIds } from '../common/access-scope.js';
+import { NotificationsService } from '../notifications/notifications.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
   CreateAnnouncementDto,
@@ -33,12 +36,14 @@ type CachedList = { expiresAt: number; items: unknown[] };
 
 @Injectable()
 export class AnnouncementsService {
+  private readonly logger = new Logger(AnnouncementsService.name);
   private readonly listCache = new Map<string, CachedList>();
   private readonly cacheTtlMs = 60_000;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   private visibilityWhere(user: any, now: Date) {
@@ -222,6 +227,109 @@ export class AnnouncementsService {
     this.listCache.clear();
   }
 
+  private queueNotifications(id: number) {
+    void this.dispatchAnnouncementNotifications(id).catch((error) =>
+      this.logger.error(
+        `Không thể phát thông báo cho bài #${id}: ${error?.message || error}`,
+      ),
+    );
+  }
+
+  private async dispatchAnnouncementNotifications(id: number) {
+    const now = new Date();
+    const item = await this.prisma.announcement.findUnique({ where: { id } });
+    if (
+      !item ||
+      item.status !== 'published' ||
+      item.notifiedAt ||
+      !item.publishedAt ||
+      item.publishedAt > now
+    ) {
+      return 0;
+    }
+
+    // Claim trước khi gửi để hai request publish đồng thời không phát Web Push
+    // hai lần. Dedupe key ở Notification tiếp tục là lớp bảo vệ thứ hai.
+    const claimed = await this.prisma.announcement.updateMany({
+      where: { id, notifiedAt: null },
+      data: { notifiedAt: now },
+    });
+    if (claimed.count === 0) return 0;
+
+    const recipients = await this.prisma.user.findMany({
+      where: {
+        status: 'active',
+        ...(item.projectId
+          ? {
+              OR: [
+                { ledProjects: { some: { id: item.projectId } } },
+                {
+                  projectMemberships: {
+                    some: { projectId: item.projectId },
+                  },
+                },
+              ],
+            }
+          : {}),
+      },
+      select: { id: true },
+    });
+
+    const title =
+      item.priority === 'urgent'
+        ? `🚨 Thông báo khẩn: ${item.title}`
+        : item.type === 'meeting'
+          ? `📅 Lịch họp mới: ${item.title}`
+          : item.type === 'guide'
+            ? `📘 Hướng dẫn mới: ${item.title}`
+            : `📢 Thông báo mới: ${item.title}`;
+    const content = (item.summary || item.content).slice(0, 220);
+
+    // Chia lô nhỏ để không dồn kết nối Supabase khi đăng bài toàn hệ thống.
+    for (let index = 0; index < recipients.length; index += 10) {
+      const batch = recipients.slice(index, index + 10);
+      await Promise.allSettled(
+        batch.map(({ id: userId }) =>
+          this.notificationsService.dispatchNotification(
+            {
+              userId,
+              eventType: 'announcement_published',
+              entityRef: `announcement:${item.id}`,
+              title,
+              content,
+              link: `/announcements?id=${item.id}`,
+              dedupeKey: `announcement_${item.id}_user${userId}`,
+            },
+            ['in_app'],
+          ),
+        ),
+      );
+    }
+
+    this.logger.log(
+      `Đã phát thông báo bài #${item.id} tới ${recipients.length} người dùng`,
+    );
+    return recipients.length;
+  }
+
+  @Cron('*/5 * * * *')
+  async dispatchScheduledAnnouncementNotifications() {
+    const dueItems = await this.prisma.announcement.findMany({
+      where: {
+        status: 'published',
+        notifiedAt: null,
+        publishedAt: { lte: new Date() },
+      },
+      select: { id: true },
+      orderBy: { publishedAt: 'asc' },
+      take: 20,
+    });
+    for (const item of dueItems) {
+      await this.dispatchAnnouncementNotifications(item.id);
+    }
+    return dueItems.length;
+  }
+
   async create(dto: CreateAnnouncementDto, actorId: number, ip?: string) {
     const normalized = await this.normalize(dto);
     const status = dto.status || 'draft';
@@ -250,6 +358,7 @@ export class AnnouncementsService {
       afterJson: item,
       ip,
     });
+    if (item.status === 'published') this.queueNotifications(item.id);
     return item;
   }
 
@@ -279,6 +388,9 @@ export class AnnouncementsService {
       afterJson: item,
       ip,
     });
+    if (current.status !== 'published' && item.status === 'published') {
+      this.queueNotifications(item.id);
+    }
     return item;
   }
 

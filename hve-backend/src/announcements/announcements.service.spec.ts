@@ -1,6 +1,7 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AuditService } from '../audit/audit.service.js';
+import { NotificationsService } from '../notifications/notifications.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AnnouncementsService } from './announcements.service.js';
 
@@ -8,6 +9,7 @@ describe('AnnouncementsService', () => {
   let service: AnnouncementsService;
   let prisma: any;
   let auditService: any;
+  let notificationsService: any;
 
   beforeEach(async () => {
     prisma = {
@@ -17,15 +19,19 @@ describe('AnnouncementsService', () => {
         findUnique: vi.fn(),
         create: vi.fn(),
         update: vi.fn(),
+        updateMany: vi.fn(),
       },
       project: { count: vi.fn().mockResolvedValue(1) },
+      user: { findMany: vi.fn().mockResolvedValue([]) },
     };
     auditService = { logEvent: vi.fn() };
+    notificationsService = { dispatchNotification: vi.fn() };
     const module = await Test.createTestingModule({
       providers: [
         AnnouncementsService,
         { provide: PrismaService, useValue: prisma },
         { provide: AuditService, useValue: auditService },
+        { provide: NotificationsService, useValue: notificationsService },
       ],
     }).compile();
     service = module.get(AnnouncementsService);
@@ -134,5 +140,50 @@ describe('AnnouncementsService', () => {
     expect(refreshed).toHaveLength(2);
     expect(prisma.announcement.findMany).toHaveBeenCalledTimes(2);
     expect(auditService.logEvent).toHaveBeenCalled();
+  });
+
+  it('dispatches in-app and Web Push notifications to the direct project audience', async () => {
+    prisma.announcement.findMany.mockResolvedValue([{ id: 7 }]);
+    prisma.announcement.findUnique.mockResolvedValue({
+      id: 7,
+      title: 'Lịch họp dự án HVE',
+      summary: 'Họp triển khai tuần mới',
+      content: 'Mời thành viên dự án tham dự.',
+      type: 'meeting',
+      priority: 'important',
+      status: 'published',
+      projectId: 12,
+      publishedAt: new Date(Date.now() - 1_000),
+      notifiedAt: null,
+    });
+    prisma.announcement.updateMany.mockResolvedValue({ count: 1 });
+    prisma.user.findMany.mockResolvedValue([{ id: 4 }, { id: 8 }]);
+    notificationsService.dispatchNotification.mockResolvedValue({
+      in_app: true,
+    });
+
+    await service.dispatchScheduledAnnouncementNotifications();
+
+    expect(prisma.user.findMany).toHaveBeenCalledWith({
+      where: {
+        status: 'active',
+        OR: [
+          { ledProjects: { some: { id: 12 } } },
+          { projectMemberships: { some: { projectId: 12 } } },
+        ],
+      },
+      select: { id: true },
+    });
+    expect(notificationsService.dispatchNotification).toHaveBeenCalledTimes(2);
+    expect(notificationsService.dispatchNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 4,
+        eventType: 'announcement_published',
+        entityRef: 'announcement:7',
+        link: '/announcements?id=7',
+        dedupeKey: 'announcement_7_user4',
+      }),
+      ['in_app'],
+    );
   });
 });

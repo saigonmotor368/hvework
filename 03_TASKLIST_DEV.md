@@ -246,4 +246,7 @@ Bám theo [02_KE_HOACH_TRIEN_KHAI.md](02_KE_HOACH_TRIEN_KHAI.md) và [01_KIEN_TR
 - [x] Prisma validate, backend type-check/lint và 193/193 test pass; frontend build và 10/10 test pass
 - [x] Migration production đã áp dụng; Railway `c5520e5f-5db0-40c1-bfc6-22f17d113dde` đạt `SUCCESS`; Vercel `dpl_DgYiMjko3wFRw8r22KBLdZ36KSMt` đạt `READY`
 - [x] Đăng bài hướng dẫn mẫu toàn hệ thống trên production (Announcement ID `1`), có ghim và Audit Log
+- [x] Tách nhận diện bảng tin bằng header màu và thẻ ưu tiên Bình thường/Quan trọng/Khẩn cấp
+- [x] Gửi in-app + Web Push khi phát hành bài, đúng phạm vi toàn hệ thống/dự án và chống gửi trùng
+- [x] Thêm cron 5 phút cho bài hẹn giờ và migration `20260918143000_add_announcement_push_tracking`
 - [ ] UAT bằng tài khoản thành viên dự án để xác nhận bài theo dự án chỉ hiển thị đúng phạm vi

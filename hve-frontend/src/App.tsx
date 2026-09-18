@@ -447,6 +447,18 @@ export default function App() {
           setSelectedTaskId(parseInt(idStr, 10));
         }
         setActiveTab("tasks");
+      } else if (link.startsWith("/announcements")) {
+        const url = new URL(link, "http://localhost");
+        const id = Number(url.searchParams.get("id"));
+        window.history.pushState({}, "", link);
+        setActiveTab("overview");
+        if (Number.isInteger(id) && id > 0) {
+          window.setTimeout(() => {
+            window.dispatchEvent(
+              new CustomEvent("hve-open-announcement", { detail: { id } }),
+            );
+          }, 50);
+        }
       }
     } catch {
       // ignore

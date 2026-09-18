@@ -262,6 +262,7 @@ model Announcement {
 
   publishedAt DateTime?
   expiresAt   DateTime?
+  notifiedAt  DateTime? // đã tạo in-app/Web Push cho đúng phạm vi người nhận
 
   createdById Int
   createdBy   User     @relation("AnnouncementAuthor", fields: [createdById], references: [id])
@@ -271,6 +272,7 @@ model Announcement {
   @@index([status, isPinned, publishedAt])
   @@index([projectId, status, publishedAt])
   @@index([expiresAt])
+  @@index([status, notifiedAt, publishedAt])
 }
 
 model ProjectMember {

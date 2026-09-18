@@ -474,3 +474,6 @@ Dự án đã hoàn thành toàn bộ các giai đoạn (Phase 0 ➔ Phase 5) v�
 - Frontend Vercel deployment `dpl_DgYiMjko3wFRw8r22KBLdZ36KSMt` đạt `READY` và giữ alias `work.huyvoeducation.vn`; bundle production chứa đúng URL Railway và module announcements.
 - GitHub Actions CI run `35313562964` pass; commit phát hành `fab19b9` đã push lên `main`.
 - Đã đăng bài toàn hệ thống, ghim đầu trang “Hướng dẫn nhanh sử dụng HVE Work” (Announcement ID `1`) và ghi Audit Log; thao tác tạo có kiểm tra idempotent để tránh bài trùng.
+- Nâng cấp nhận diện bảng tin: header xanh–tím tương phản cao, nhãn “Chính thức”, thẻ màu riêng theo mức Bình thường/Quan trọng/Khẩn cấp và dải nhấn bên trái; vẫn giữ bố cục responsive, không nhập chung với khối cảnh báo vận hành.
+- Khi bài được phát hành, hệ thống tạo notification in-app và Web Push cho toàn bộ user active hoặc chỉ Trưởng dự án/thành viên trực tiếp của dự án đã chọn; notification mở thẳng modal chi tiết bài. Bài hẹn giờ có cron 5 phút, gửi theo lô 10 người và dùng `notifiedAt` + `dedupeKey` để chống gửi trùng.
+- Migration mới `20260918143000_add_announcement_push_tracking` đánh dấu các bài cũ là đã xử lý để không gửi push hồi tố. Baseline sau nâng cấp: backend 194/194 test, build/lint pass; frontend 10/10 test, build pass, lint 0 error; main bundle 365,82 KB (gzip 102,30 KB).
