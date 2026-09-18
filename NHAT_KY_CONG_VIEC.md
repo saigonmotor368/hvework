@@ -492,3 +492,16 @@ Dự án đã hoàn thành toàn bộ các giai đoạn (Phase 0 ➔ Phase 5) v�
 - Migration đã áp dụng trên Supabase production. Backend Railway deployment `0982c034-72ca-4a43-b59a-bf12641aedef` đạt `SUCCESS`; health HTTP 200, API hồ sơ không có JWT trả 401 và không ghi nhận HTTP 5xx sau phát hành.
 - Frontend Vercel deployment `dpl_5R3iZBQkbBgXkLBBRH26jzTEqoBg` đạt `READY/PROMOTED`, giữ alias `work.huyvoeducation.vn`; bundle production chứa đúng URL Railway và API hồ sơ mới.
 - GitHub Actions CI run `35318830200` pass; commit tính năng `8e5a6db` và commit sửa wiring AuthModule `185c2e6` đã push lên `main`.
+
+---
+
+## 17. RÀ SOÁT RESPONSIVE CUỐI TRƯỚC GO-LIVE (18/09/2026)
+
+- Rà soát trực quan toàn bộ luồng nhân viên và quản trị trên các viewport 320×568, 360×640, 390×844, tablet 768×1024 và desktop 1440×900; tất cả màn hình kiểm tra đều có `scrollWidth = innerWidth`, không tràn ngang toàn trang.
+- Tablet dọc dưới 1024 px chuyển sang menu trượt để không bị sidebar chiếm gần một phần ba chiều rộng; desktop từ 1024 px tiếp tục dùng sidebar cố định.
+- Màn Quản lý người dùng dùng thẻ responsive trên mobile/tablet, hiển thị đủ dự án, vị trí, vai trò, trạng thái và các thao tác Sửa/Reset mật khẩu/Khóa mà không cần kéo bảng ngang; màn hình lớn vẫn giữ bảng quản trị đầy đủ.
+- Khung nội dung tự cuộn về đầu khi chuyển màn hình, tránh trường hợp người dùng rời một trang dài rồi mở trang mới ở giữa nội dung.
+- Đã kiểm tra riêng đăng nhập, dashboard theo vai trò, danh sách/chi tiết/tạo hồ sơ, board/chi tiết/tạo công việc, báo cáo, dự án, quy trình và quản lý người dùng; modal dài cuộn độc lập và nút thao tác vẫn truy cập được trên màn hình nhỏ.
+- Baseline: frontend lint không có error (còn warning React hooks hiện hữu), build pass, 10/10 test pass; main bundle 375,43 KB (gzip 104,68 KB), thấp hơn baseline cũ 434 KB.
+- Commit giao diện `2265261` đã push lên `main`; GitHub Actions CI run `35321293720` pass.
+- Vercel production deployment `dpl_4rLbVs1iqNLH5F7E1syycAEQbpSu` đạt `READY/PROMOTED`, alias `work.huyvoeducation.vn` hoạt động HTTP 200, bundle production chứa đúng URL backend Railway. Login production đã xác minh không tràn ngang ở 320 px và 1440 px.
