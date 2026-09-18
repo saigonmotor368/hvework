@@ -46,6 +46,7 @@ describe('DocumentsService', () => {
       user: {
         findMany: vi.fn().mockResolvedValue([{ id: 2 }]),
         findFirst: vi.fn(),
+        count: vi.fn(),
       },
       $transaction: vi.fn(async (cb: any) => cb(prisma)),
     };
@@ -251,6 +252,9 @@ describe('DocumentsService', () => {
         status: 'Nháp',
         createdById: 10,
         version: 1,
+        projectId: 5,
+        linkedProjectIds: null,
+        createdBy: { id: 10, departmentId: null },
         dataJson: {
           amount: 5000000,
           receiver: 'Công ty ABC',
@@ -261,6 +265,8 @@ describe('DocumentsService', () => {
         },
       });
       prisma.attachment.count.mockResolvedValue(1);
+      // Có Trưởng dự án đủ điều kiện xử lý bước 1 — không bị tự động bỏ qua.
+      prisma.user.count.mockResolvedValue(1);
 
       prisma.workflowTemplate.findUnique.mockResolvedValue({
         type: 'payment_request',
@@ -271,6 +277,10 @@ describe('DocumentsService', () => {
         ],
       });
 
+      let nextStepId = 1;
+      prisma.documentApprovalStep.create.mockImplementation(({ data }: any) =>
+        Promise.resolve({ id: nextStepId++, ...data }),
+      );
       prisma.document.update.mockResolvedValue({
         id: 1,
         status: 'Chờ duyệt',
@@ -280,8 +290,63 @@ describe('DocumentsService', () => {
       const result = await service.submitForApproval(1, 10);
       expect(result.status).toBe('Chờ duyệt');
       expect(prisma.documentApprovalStep.create).toHaveBeenCalledTimes(3);
+      expect(prisma.documentApprovalStep.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 1 },
+          data: { status: 'pending' },
+        }),
+      );
       expect(auditService.logEvent).toHaveBeenCalledWith(
         expect.objectContaining({ action: 'submit_approval', entityId: 1 }),
+      );
+    });
+
+    it('should skip the "department_head" step and activate CEO directly when the document has no eligible Trưởng Ban (no project)', async () => {
+      prisma.document.findUnique.mockResolvedValue({
+        id: 2,
+        title: 'Đề xuất công ty',
+        type: 'proposal',
+        status: 'Nháp',
+        createdById: 10,
+        version: 1,
+        projectId: null,
+        linkedProjectIds: null,
+        createdBy: { id: 10, departmentId: null },
+        dataJson: { content: 'Nội dung đề xuất' },
+      });
+      // Không có Trưởng Ban nào đủ điều kiện (không thuộc dự án nào, không
+      // có phòng ban khớp) — bước department_head phải được tự động bỏ qua.
+      prisma.user.count.mockResolvedValue(0);
+
+      prisma.workflowTemplate.findUnique.mockResolvedValue({
+        type: 'proposal',
+        steps: [
+          { stepOrder: 1, roleRequired: 'department_head' },
+          { stepOrder: 2, roleRequired: 'ceo' },
+        ],
+      });
+
+      let nextStepId = 1;
+      const createdStepsById: Record<number, any> = {};
+      prisma.documentApprovalStep.create.mockImplementation(({ data }: any) => {
+        const step = { id: nextStepId++, ...data };
+        createdStepsById[step.id] = step;
+        return Promise.resolve(step);
+      });
+      prisma.documentApprovalStep.update.mockImplementation(({ where, data }: any) => {
+        Object.assign(createdStepsById[where.id], data);
+        return Promise.resolve(createdStepsById[where.id]);
+      });
+      prisma.document.update.mockResolvedValue({ id: 2, status: 'Chờ duyệt', version: 2 });
+
+      await service.submitForApproval(2, 10);
+
+      // Bước 1 (department_head) phải được tự động duyệt (skip), bước 2 (ceo) mới là bước đang chờ.
+      expect(createdStepsById[1].status).toBe('approved');
+      expect(createdStepsById[1].comment).toContain('Tự động bỏ qua');
+      expect(createdStepsById[2].status).toBe('pending');
+      expect(prisma.document.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ status: 'Chờ duyệt' }) }),
       );
     });
 
@@ -1072,6 +1137,10 @@ describe('DocumentsService', () => {
       prisma.workflowTemplate.findUnique.mockResolvedValue({
         steps: [{ stepOrder: 1, roleRequired: 'department_head' }],
       });
+      prisma.user.count.mockResolvedValue(1); // có Trưởng phòng khớp phòng ban legacy
+      prisma.documentApprovalStep.create.mockImplementation(({ data }: any) =>
+        Promise.resolve({ id: 1, ...data }),
+      );
       prisma.document.update.mockResolvedValue({
         id: 1,
         code: 'DX-2026-001',

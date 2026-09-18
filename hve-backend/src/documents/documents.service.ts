@@ -136,6 +136,101 @@ export class DocumentsService {
     return delegator;
   }
 
+  // Hồ sơ không thuộc dự án nào (VD: người tạo chưa tham gia dự án nào,
+  // mặc định "Đơn vị tổng công ty") thì không có ai giữ vai trò Trưởng
+  // Ban/Trưởng dự án phù hợp để xử lý — Trưởng Ban giờ chỉ được cấp qua
+  // việc làm Trưởng dự án, không còn theo Phòng ban cố định như trước.
+  // Kiểm tra trước khi kích hoạt bước để tránh hồ sơ bị treo vĩnh viễn.
+  private async hasEligibleDepartmentHeadApprover(doc: {
+    projectId: number | null;
+    linkedProjectIds: unknown;
+    createdBy?: { departmentId?: number | null } | null;
+  }): Promise<boolean> {
+    const linkedProjectIds = Array.isArray(doc.linkedProjectIds)
+      ? (doc.linkedProjectIds as number[])
+      : [];
+    const projectIds = [doc.projectId, ...linkedProjectIds].filter(
+      (id): id is number => typeof id === 'number',
+    );
+
+    if (projectIds.length > 0) {
+      const count = await this.prisma.user.count({
+        where: {
+          status: 'active',
+          roles: { some: { name: 'department_head' } },
+          OR: [
+            { ledProjects: { some: { id: { in: projectIds } } } },
+            { projectMemberships: { some: { projectId: { in: projectIds } } } },
+          ],
+        },
+      });
+      if (count > 0) return true;
+    }
+
+    const creatorDeptId = doc.createdBy?.departmentId;
+    if (!doc.projectId && creatorDeptId) {
+      const count = await this.prisma.user.count({
+        where: {
+          status: 'active',
+          departmentId: creatorDeptId,
+          roles: { some: { name: 'department_head' } },
+        },
+      });
+      if (count > 0) return true;
+    }
+
+    return false;
+  }
+
+  // Kích hoạt bước duyệt bắt đầu từ `fromStepOrder`, tự động bỏ qua liên
+  // tiếp các bước "department_head" không có ai đủ điều kiện xử lý (thay vì
+  // để hồ sơ treo vĩnh viễn chờ một vai trò không tồn tại cho hồ sơ này).
+  // Trả về trạng thái hồ sơ cuối cùng và bước thực sự được kích hoạt (nếu có).
+  private async activateNextEligibleStep(
+    tx: any,
+    doc: {
+      projectId: number | null;
+      linkedProjectIds: unknown;
+      createdBy?: { departmentId?: number | null } | null;
+    },
+    steps: Array<{ id: number; stepOrder: number; roleRequired: string }>,
+    fromStepOrder: number,
+  ): Promise<{
+    finalStatus: 'Chờ duyệt' | 'Đã duyệt';
+    activatedStepOrder: number | null;
+    skippedStepOrders: number[];
+  }> {
+    const skippedStepOrders: number[] = [];
+    let order = fromStepOrder;
+    for (;;) {
+      const step = steps.find((s) => s.stepOrder === order);
+      if (!step) {
+        return { finalStatus: 'Đã duyệt', activatedStepOrder: null, skippedStepOrders };
+      }
+      if (step.roleRequired === 'department_head') {
+        const eligible = await this.hasEligibleDepartmentHeadApprover(doc);
+        if (!eligible) {
+          await tx.documentApprovalStep.update({
+            where: { id: step.id },
+            data: {
+              status: 'approved',
+              comment:
+                'Tự động bỏ qua: hồ sơ không thuộc dự án nào nên không có Trưởng Ban phụ trách. Chuyển thẳng cấp tiếp theo.',
+            },
+          });
+          skippedStepOrders.push(order);
+          order += 1;
+          continue;
+        }
+      }
+      await tx.documentApprovalStep.update({
+        where: { id: step.id },
+        data: { status: 'pending' },
+      });
+      return { finalStatus: 'Chờ duyệt', activatedStepOrder: order, skippedStepOrders };
+    }
+  }
+
   async generateDocumentCode(prefix: string): Promise<string> {
     const year = new Date().getFullYear();
     const codePrefix = `${prefix}-${year}-`;
@@ -770,6 +865,9 @@ export class DocumentsService {
   async submitForApproval(documentId: number, userId: number, ip?: string) {
     const doc = await this.prisma.document.findUnique({
       where: { id: documentId },
+      include: {
+        createdBy: { select: { id: true, name: true, email: true, departmentId: true } },
+      },
     });
     if (!doc) {
       throw new NotFoundException('Không tìm thấy hồ sơ');
@@ -860,26 +958,38 @@ export class DocumentsService {
       );
     }
 
+    let activation: {
+      finalStatus: 'Chờ duyệt' | 'Đã duyệt';
+      activatedStepOrder: number | null;
+      skippedStepOrders: number[];
+    } = { finalStatus: 'Chờ duyệt', activatedStepOrder: 1, skippedStepOrders: [] };
+
     const result = await this.prisma.$transaction(async (tx) => {
       // Clear any prior steps (e.g. if resubmitted after return)
       await tx.documentApprovalStep.deleteMany({ where: { documentId } });
 
-      // Create snapshot of steps
+      // Create snapshot of steps (chưa kích hoạt bước nào — activateNextEligibleStep
+      // sẽ tự tìm bước đầu tiên thực sự có người xử lý được, bỏ qua các bước
+      // Trưởng Ban không áp dụng cho hồ sơ không thuộc dự án nào).
+      const createdSteps: Array<{ id: number; stepOrder: number; roleRequired: string }> = [];
       for (const stepTpl of workflowTemplate.steps) {
-        await tx.documentApprovalStep.create({
+        const created = await tx.documentApprovalStep.create({
           data: {
             documentId,
             stepOrder: stepTpl.stepOrder,
             roleRequired: stepTpl.roleRequired,
-            status: stepTpl.stepOrder === 1 ? 'pending' : 'not_started',
+            status: 'not_started',
           },
         });
+        createdSteps.push(created);
       }
+
+      activation = await this.activateNextEligibleStep(tx, doc, createdSteps, 1);
 
       const updated = await tx.document.update({
         where: { id: documentId },
         data: {
-          status: 'Chờ duyệt',
+          status: activation.finalStatus,
           version: doc.version + 1,
         },
         include: {
@@ -897,8 +1007,9 @@ export class DocumentsService {
         actorId: userId,
         beforeJson: { status: 'Nháp' },
         afterJson: {
-          status: 'Chờ duyệt',
+          status: activation.finalStatus,
           stepsCount: workflowTemplate.steps.length,
+          skippedStepOrders: activation.skippedStepOrders,
         },
         ip,
       });
@@ -906,13 +1017,19 @@ export class DocumentsService {
       return updated;
     });
 
-    // Bắn thông báo tức thời cho người duyệt bước 1
-    if (workflowTemplate.steps.length > 0) {
-      await this.notifyStepApprovers(
-        result,
-        1,
-        workflowTemplate.steps[0].roleRequired,
+    // Bắn thông báo tức thời cho người duyệt bước thực sự được kích hoạt
+    // (có thể không phải bước 1 nếu Trưởng Ban bị tự động bỏ qua).
+    if (activation.activatedStepOrder !== null) {
+      const activatedTpl = workflowTemplate.steps.find(
+        (s) => s.stepOrder === activation.activatedStepOrder,
       );
+      if (activatedTpl) {
+        await this.notifyStepApprovers(
+          result,
+          activatedTpl.stepOrder,
+          activatedTpl.roleRequired,
+        );
+      }
     }
 
     return result;
@@ -1012,6 +1129,12 @@ export class DocumentsService {
       }
     }
 
+    let activation: {
+      finalStatus: 'Chờ duyệt' | 'Đã duyệt';
+      activatedStepOrder: number | null;
+      skippedStepOrders: number[];
+    } = { finalStatus: 'Đã duyệt', activatedStepOrder: null, skippedStepOrders: [] };
+
     const result = await this.prisma.$transaction(async (tx) => {
       // Approve current step
       await tx.documentApprovalStep.update({
@@ -1024,21 +1147,15 @@ export class DocumentsService {
         },
       });
 
-      // Look for next step
-      const nextStep = doc.steps.find(
-        (s) => s.stepOrder === step.stepOrder + 1,
+      // Kích hoạt bước kế tiếp — tự động bỏ qua các bước Trưởng Ban không
+      // có ai đủ điều kiện xử lý (hồ sơ không thuộc dự án nào).
+      activation = await this.activateNextEligibleStep(
+        tx,
+        doc,
+        doc.steps,
+        step.stepOrder + 1,
       );
-      let newDocumentStatus = doc.status;
-
-      if (nextStep) {
-        // Activate next step
-        await tx.documentApprovalStep.update({
-          where: { id: nextStep.id },
-          data: { status: 'pending' },
-        });
-      } else {
-        newDocumentStatus = 'Đã duyệt';
-      }
+      const newDocumentStatus = activation.finalStatus;
 
       const updatedDoc = await tx.document.update({
         where: { id: documentId },
@@ -1068,6 +1185,7 @@ export class DocumentsService {
           comment: dto?.comment || null,
           actedOnBehalfOf: approvalDelegator?.id || null,
           actedOnBehalfOfName: approvalDelegator?.name || null,
+          skippedStepOrders: activation.skippedStepOrders,
         },
         ip,
       });
@@ -1075,14 +1193,19 @@ export class DocumentsService {
       return updatedDoc;
     });
 
-    // Bắn thông báo tức thời cho bước tiếp theo hoặc người tạo hồ sơ (nếu đã duyệt xong toàn bộ)
-    const nextStep = doc.steps.find((s) => s.stepOrder === step.stepOrder + 1);
-    if (nextStep) {
-      await this.notifyStepApprovers(
-        result,
-        nextStep.stepOrder,
-        nextStep.roleRequired,
+    // Bắn thông báo tức thời cho bước thực sự được kích hoạt hoặc người tạo
+    // hồ sơ (nếu đã duyệt xong toàn bộ, kể cả khi các bước cuối bị bỏ qua).
+    if (activation.activatedStepOrder !== null) {
+      const activatedStep = doc.steps.find(
+        (s) => s.stepOrder === activation.activatedStepOrder,
       );
+      if (activatedStep) {
+        await this.notifyStepApprovers(
+          result,
+          activatedStep.stepOrder,
+          activatedStep.roleRequired,
+        );
+      }
     } else {
       // Đã duyệt xong bước cuối
       await this.notificationsService.dispatchNotification({
