@@ -5,6 +5,7 @@ import { ENABLE_MOCK_DATA } from "../config";
 import { fetchWithSession } from "../api/client";
 import { BrandLoader } from "./BrandLoader";
 import { AnnouncementBoard } from "./AnnouncementBoard";
+import { UserNameButton } from "./UserNameButton";
 
 interface OverviewDashboardProps {
   apiBaseUrl: string;
@@ -230,7 +231,8 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                           </span>
                         </div>
                         <p className="text-[11px] text-gray-400 mt-0.5">
-                          Người tạo: {doc.createdBy?.name || "Tôi"}
+                          Người tạo:{" "}
+                          <UserNameButton user={doc.createdBy} fallback="Tôi" />
                         </p>
                       </div>
                       <button className="text-xs font-semibold text-[#0A66C2] hover:underline whitespace-nowrap ml-2">
@@ -296,7 +298,8 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                         </span>
                       </div>
                       <p className="text-[11px] text-gray-400 mt-0.5">
-                        Phụ trách: {t.assignee?.name || "N/A"}{" "}
+                        Phụ trách:{" "}
+                        <UserNameButton user={t.assignee} fallback="N/A" />{" "}
                         {t.assignee?.department
                           ? `(${t.assignee.department.name})`
                           : ""}
@@ -643,7 +646,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                       <>
                         Người lập:{" "}
                         <strong className="text-gray-700">
-                          {doc.createdBy?.name}
+                          <UserNameButton user={doc.createdBy} fallback="---" />
                         </strong>
                       </>
                     )}

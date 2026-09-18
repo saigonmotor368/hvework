@@ -220,7 +220,12 @@ export class ProjectsService {
           leadUserId: data.leadUserId,
           isActive: data.isActive,
           members: {
-            create: data.memberIds.map((userId) => ({ userId })),
+            create: data.memberIds.map((userId) => ({
+              userId,
+              position:
+                existing.members.find((member) => member.userId === userId)
+                  ?.position || null,
+            })),
           },
         },
         include: projectInclude,

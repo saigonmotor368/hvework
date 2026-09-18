@@ -1,0 +1,239 @@
+import React, { useEffect, useMemo, useState } from "react";
+import { fetchWithSession } from "../api/client";
+import { ROLE_LABELS } from "../types";
+import { BrandLoader } from "./BrandLoader";
+
+interface UserProfile {
+  id: number;
+  name: string;
+  email: string;
+  phone?: string | null;
+  status: string;
+  department?: { id: number; code: string; name: string } | null;
+  roles: Array<{ id: number; name: string; description?: string | null }>;
+  ledProjects: Array<{
+    id: number;
+    code: string;
+    name: string;
+    location?: string | null;
+  }>;
+  projectMemberships: Array<{
+    position?: string | null;
+    project: {
+      id: number;
+      code: string;
+      name: string;
+      location?: string | null;
+    };
+  }>;
+}
+
+export const UserProfileModal: React.FC<{ apiBaseUrl: string }> = ({
+  apiBaseUrl,
+}) => {
+  const [userId, setUserId] = useState<number | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const handleOpen = (event: Event) => {
+      const id = Number((event as CustomEvent<{ id?: number }>).detail?.id);
+      if (Number.isInteger(id) && id > 0) {
+        setProfile(null);
+        setError("");
+        setUserId(id);
+      }
+    };
+    window.addEventListener("hve-open-user-profile", handleOpen);
+    return () =>
+      window.removeEventListener("hve-open-user-profile", handleOpen);
+  }, []);
+
+  useEffect(() => {
+    if (!userId) return;
+    const token = localStorage.getItem("access_token");
+    if (!token) return;
+    const controller = new AbortController();
+    fetchWithSession(`${apiBaseUrl}/users/${userId}/profile`, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok)
+          throw new Error(body.message || "Không thể tải hồ sơ người dùng");
+        setProfile(body);
+      })
+      .catch((reason) => {
+        if (reason?.name !== "AbortError") {
+          setError(reason?.message || "Không thể tải hồ sơ người dùng");
+        }
+      });
+    return () => controller.abort();
+  }, [apiBaseUrl, userId]);
+
+  const initials = useMemo(
+    () =>
+      (profile?.name || "HVE")
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(-2)
+        .map((part) => part[0]?.toUpperCase())
+        .join(""),
+    [profile?.name],
+  );
+
+  if (!userId) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-[70] flex items-center justify-center overflow-y-auto bg-slate-950/55 p-3 backdrop-blur-sm sm:p-5"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) setUserId(null);
+      }}
+    >
+      <section className="mobile-scroll max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-3xl border border-white/70 bg-white shadow-2xl">
+        <div className="relative overflow-hidden bg-gradient-to-br from-[#0757a6] via-[#0A66C2] to-violet-600 px-5 pb-6 pt-5 text-white sm:px-7">
+          <div className="absolute -right-16 -top-20 h-52 w-52 rounded-full bg-white/10" />
+          <button
+            type="button"
+            onClick={() => setUserId(null)}
+            className="absolute right-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-lg hover:bg-white/25"
+            aria-label="Đóng hồ sơ"
+          >
+            ✕
+          </button>
+          {profile && (
+            <div className="relative flex items-center gap-4 pr-10">
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-white/30 bg-white/20 text-xl font-black shadow-lg">
+                {initials}
+              </div>
+              <div className="min-w-0">
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-blue-100">
+                  Hồ sơ nhân sự HVE
+                </p>
+                <h2 className="mt-1 break-words text-xl font-black sm:text-2xl">
+                  {profile.name}
+                </h2>
+                <p className="mt-1 break-all text-xs text-blue-50">
+                  {profile.email}
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {!profile && !error ? (
+          <BrandLoader compact label="Đang tải hồ sơ nhân sự..." />
+        ) : error || !profile ? (
+          <div className="p-8 text-center">
+            <p className="font-bold text-red-700">Không thể tải hồ sơ</p>
+            <p className="mt-1 text-sm text-gray-500">{error}</p>
+          </div>
+        ) : (
+          <div className="space-y-5 p-5 sm:p-7">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                  Phòng ban
+                </p>
+                <p className="mt-1 text-sm font-bold text-gray-900">
+                  {profile.department?.name || "Chưa phân phòng ban"}
+                </p>
+                {profile.department?.code && (
+                  <p className="mt-0.5 text-xs text-gray-500">
+                    Mã: {profile.department.code}
+                  </p>
+                )}
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                  Liên hệ
+                </p>
+                <a
+                  href={`mailto:${profile.email}`}
+                  className="mt-1 block break-all text-sm font-bold text-[#0A66C2]"
+                >
+                  {profile.email}
+                </a>
+                <p className="mt-0.5 text-xs text-gray-500">
+                  {profile.phone || "Chưa cập nhật số điện thoại"}
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-gray-500">
+                Vai trò hệ thống
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {profile.roles.map((role) => (
+                  <span
+                    key={role.id}
+                    className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-bold text-[#0A66C2]"
+                  >
+                    {ROLE_LABELS[role.name] || role.name}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-gray-500">
+                Dự án & vị trí công việc
+              </p>
+              <div className="space-y-2">
+                {profile.ledProjects.map((project) => (
+                  <div
+                    key={`lead-${project.id}`}
+                    className="rounded-2xl border border-amber-200 bg-amber-50 p-3.5"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-sm font-bold text-gray-900">
+                        {project.code} — {project.name}
+                      </p>
+                      <span className="rounded-full bg-amber-200 px-2.5 py-1 text-[10px] font-black text-amber-900">
+                        TRƯỞNG DỰ ÁN
+                      </span>
+                    </div>
+                    {project.location && (
+                      <p className="mt-1 text-xs text-gray-500">
+                        📍 {project.location}
+                      </p>
+                    )}
+                  </div>
+                ))}
+                {profile.projectMemberships.map(({ project, position }) => (
+                  <div
+                    key={`member-${project.id}`}
+                    className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-sm font-bold text-gray-900">
+                        {project.code} — {project.name}
+                      </p>
+                      <span className="rounded-full bg-violet-100 px-2.5 py-1 text-[10px] font-black text-violet-800">
+                        {position || "THÀNH VIÊN"}
+                      </span>
+                    </div>
+                    {project.location && (
+                      <p className="mt-1 text-xs text-gray-500">
+                        📍 {project.location}
+                      </p>
+                    )}
+                  </div>
+                ))}
+                {profile.ledProjects.length === 0 &&
+                  profile.projectMemberships.length === 0 && (
+                    <div className="rounded-2xl border border-dashed border-slate-300 p-4 text-center text-sm text-gray-400">
+                      Chưa tham gia dự án nào.
+                    </div>
+                  )}
+              </div>
+            </div>
+          </div>
+        )}
+      </section>
+    </div>
+  );
+};

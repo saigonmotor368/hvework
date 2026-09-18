@@ -18,9 +18,13 @@ export type UserWithBusinessScope = {
 };
 
 export function getRoleNames(user: UserWithBusinessScope): string[] {
-  return [...new Set((user.roles || []).map((role) =>
-    typeof role === 'string' ? role : role.name,
-  ))].sort();
+  return [
+    ...new Set(
+      (user.roles || []).map((role) =>
+        typeof role === 'string' ? role : role.name,
+      ),
+    ),
+  ].sort();
 }
 
 export function getDepartmentId(user: UserWithBusinessScope): number | null {
@@ -92,7 +96,12 @@ export function getApprovalDelegator(
     createdBy?: { departmentId?: number | null } | null;
   },
   now: Date = new Date(),
-): (UserWithBusinessScope & { name?: string; delegateUntil?: Date | string | null }) | null {
+):
+  | (UserWithBusinessScope & {
+      name?: string;
+      delegateUntil?: Date | string | null;
+    })
+  | null {
   const matchesDepartmentScope = (candidate: UserWithBusinessScope) => {
     if (!document) return true;
     const projectIds = getUserProjectIds(candidate);
@@ -149,10 +158,7 @@ export function hasBusinessRole(
  */
 export function buildDocumentAccessWhere(user: UserWithBusinessScope): any {
   const roles = getRoleNames(user);
-  // BGĐ (Ban Giám Đốc) xem toàn bộ như CEO nhưng không có quyền thực thi —
-  // quyền thực thi được chặn ở tầng RolesGuard/@Roles trên từng endpoint ghi
-  // dữ liệu (approve/reject/create/...), không liệt kê 'bgd' ở đó.
-  if (roles.includes('ceo') || roles.includes('bgd')) return {};
+  const canViewScopedCompany = roles.includes('ceo') || roles.includes('bgd');
 
   const departmentId = getDepartmentId(user);
   const conditions: any[] = [{ createdById: user.id }];
@@ -176,8 +182,8 @@ export function buildDocumentAccessWhere(user: UserWithBusinessScope): any {
     conditions.push({ type: 'contract' });
   }
 
-  const actionableRoles = roles.filter((role) =>
-    !['employee', 'it_admin', 'department_head'].includes(role),
+  const actionableRoles = roles.filter(
+    (role) => !['employee', 'it_admin', 'department_head'].includes(role),
   );
   if (actionableRoles.length > 0) {
     conditions.push({
@@ -230,7 +236,30 @@ export function buildDocumentAccessWhere(user: UserWithBusinessScope): any {
     }
   }
 
-  return { OR: conditions };
+  const scopedAccess = canViewScopedCompany ? {} : { OR: conditions };
+  const targetedAccess: any[] = [
+    { createdById: user.id },
+    { targetUserId: user.id },
+  ];
+  const approvalConditions = buildApprovalStepAccessConditions(user);
+  if (approvalConditions.length > 0) {
+    targetedAccess.push({
+      steps: {
+        some:
+          approvalConditions.length === 1
+            ? approvalConditions[0]
+            : { OR: approvalConditions },
+      },
+    });
+  }
+
+  return {
+    OR: [
+      { visibility: 'company' },
+      { AND: [{ visibility: 'targeted' }, { OR: targetedAccess }] },
+      { AND: [{ visibility: 'scoped' }, scopedAccess] },
+    ],
+  };
 }
 
 /** Điều kiện bên trong `steps.some` cho các bước mà user được phép xử lý. */
@@ -260,10 +289,7 @@ export function buildApprovalStepAccessConditions(
       const departmentId = getDepartmentId(candidate);
       if (departmentId) {
         scopedDocuments.push({
-          AND: [
-            { projectId: null },
-            { createdBy: { departmentId } },
-          ],
+          AND: [{ projectId: null }, { createdBy: { departmentId } }],
         });
       }
       if (scopedDocuments.length > 0) {
@@ -285,13 +311,10 @@ export function buildApprovalStepAccessConditions(
  */
 export function buildTaskAccessWhere(user: UserWithBusinessScope): any {
   const roles = getRoleNames(user);
-  if (roles.includes('ceo') || roles.includes('bgd')) return {};
+  const canViewScopedCompany = roles.includes('ceo') || roles.includes('bgd');
 
   const departmentId = getDepartmentId(user);
-  const conditions: any[] = [
-    { assigneeId: user.id },
-    { createdById: user.id },
-  ];
+  const conditions: any[] = [{ assigneeId: user.id }, { createdById: user.id }];
   if (roles.includes('department_head')) {
     const projectIds = getUserProjectIds(user);
     if (projectIds.length > 0) {
@@ -313,7 +336,25 @@ export function buildTaskAccessWhere(user: UserWithBusinessScope): any {
     }
   }
 
-  return { OR: conditions };
+  const scopedAccess = canViewScopedCompany ? {} : { OR: conditions };
+  return {
+    OR: [
+      { visibility: 'company' },
+      {
+        AND: [
+          { visibility: 'targeted' },
+          {
+            OR: [
+              { assigneeId: user.id },
+              { createdById: user.id },
+              { collaboratorIds: { array_contains: [user.id] } },
+            ],
+          },
+        ],
+      },
+      { AND: [{ visibility: 'scoped' }, scopedAccess] },
+    ],
+  };
 }
 
 export function describeBusinessScope(user: UserWithBusinessScope) {
@@ -321,14 +362,15 @@ export function describeBusinessScope(user: UserWithBusinessScope) {
   const departmentId = getDepartmentId(user);
   const projectIds = getUserProjectIds(user);
   const isCeoStrict = roles.includes('ceo');
-  // "isCeo" ở đây chỉ dùng cho phạm vi XEM (view) — BGĐ xem như CEO nhưng
-  // không có quyền thực thi, nên các capability hành động (canAssignTasks...)
-  // phải dùng isCeoStrict, không dùng isCeo.
+  // BGĐ xem dữ liệu doanh nghiệp và có thể giao việc/đề xuất; các quyền duyệt
+  // và quản trị hệ thống vẫn tách riêng, không kế thừa quyền CEO.
   const isCeo = isCeoStrict || roles.includes('bgd');
   const isDepartmentHead = roles.includes('department_head');
   const projectNames = [
     ...(user.ledProjects || []),
-    ...(user.projectMemberships || []).map((membership) => membership.project).filter(Boolean),
+    ...(user.projectMemberships || [])
+      .map((membership) => membership.project)
+      .filter(Boolean),
   ]
     .filter((project: any) => project.isActive !== false)
     .map((project: any) => project.name)
@@ -336,14 +378,20 @@ export function describeBusinessScope(user: UserWithBusinessScope) {
   const uniqueProjectNames = [...new Set(projectNames)];
 
   return {
-    level: isCeo ? 'company' : isDepartmentHead && projectIds.length > 0 ? 'project' : isDepartmentHead ? 'department' : 'personal',
+    level: isCeo
+      ? 'company'
+      : isDepartmentHead && projectIds.length > 0
+        ? 'project'
+        : isDepartmentHead
+          ? 'department'
+          : 'personal',
     label: isCeo
       ? 'Toàn công ty'
       : isDepartmentHead && uniqueProjectNames.length > 0
         ? `Dự án ${uniqueProjectNames.join(', ')}`
         : isDepartmentHead
-        ? `Phòng ban${user.department?.name ? ` ${user.department.name}` : ''}`
-        : 'Dữ liệu của tôi',
+          ? `Phòng ban${user.department?.name ? ` ${user.department.name}` : ''}`
+          : 'Dữ liệu của tôi',
     departmentId,
     projectIds,
     roles,
@@ -351,7 +399,10 @@ export function describeBusinessScope(user: UserWithBusinessScope) {
       canViewCompany: isCeo,
       canViewDepartment: isCeo || isDepartmentHead,
       canViewProject: isCeo || (isDepartmentHead && projectIds.length > 0),
-      canAssignTasks: isCeoStrict || roles.includes('department_head'),
+      canAssignTasks:
+        isCeoStrict ||
+        roles.includes('bgd') ||
+        roles.includes('department_head'),
       canViewFinancials: isCeo || roles.includes('accountant'),
       canViewLegal: isCeo || roles.includes('legal'),
       canManageSystem: roles.includes('it_admin'),

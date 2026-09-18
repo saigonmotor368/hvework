@@ -250,3 +250,19 @@ Bám theo [02_KE_HOACH_TRIEN_KHAI.md](02_KE_HOACH_TRIEN_KHAI.md) và [01_KIEN_TR
 - [x] Gửi in-app + Web Push khi phát hành bài, đúng phạm vi toàn hệ thống/dự án và chống gửi trùng
 - [x] Thêm cron 5 phút cho bài hẹn giờ và migration `20260918143000_add_announcement_push_tracking`
 - [ ] UAT bằng tài khoản thành viên dự án để xác nhận bài theo dự án chỉ hiển thị đúng phạm vi
+
+---
+
+## Vị trí theo dự án, hồ sơ nhân sự và quyền BGĐ — 18/09/2026
+
+- [x] Thêm vị trí nhập tay riêng cho từng thành viên trong từng dự án
+- [x] Giữ nguyên vị trí thành viên khi cập nhật dự án từ màn quản trị dự án
+- [x] Thêm popup hồ sơ nhân sự dùng chung và API hồ sơ có JWT
+- [x] Cho phép bấm tên người dùng ở dashboard, hồ sơ, công việc, bình luận, thông báo, báo cáo và quản trị
+- [x] Mở quyền giao việc cho Ban Giám Đốc nhưng không cấp quyền duyệt/quản trị của CEO
+- [x] Đề xuất/công việc BGĐ có người nhận dùng phạm vi gửi riêng; không chỉ định dùng phạm vi toàn hệ thống
+- [x] Gửi notification cho người nhận đề xuất trực tiếp
+- [x] Giữ toàn bộ dữ liệu cũ ở phạm vi `scoped`, không mở quyền hồi tố
+- [x] Prisma validate/generate, backend build/lint và 199/199 test pass; frontend build/lint và 10/10 test pass
+- [ ] Áp dụng migration `20260918170000_add_project_positions_and_targeted_visibility` và deploy Railway/Vercel
+- [ ] UAT bằng ba tài khoản BGĐ/người nhận/người không được chỉ định để xác nhận cô lập dữ liệu

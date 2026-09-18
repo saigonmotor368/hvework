@@ -1,4 +1,12 @@
-import { IsEmail, IsString, IsArray, IsNumber, IsOptional, IsIn } from 'class-validator';
+import {
+  IsEmail,
+  IsString,
+  IsArray,
+  IsNumber,
+  IsObject,
+  IsOptional,
+  IsIn,
+} from 'class-validator';
 
 export class UpdateUserDto {
   @IsOptional()
@@ -19,11 +27,17 @@ export class UpdateUserDto {
   projectIds?: number[];
 
   @IsOptional()
+  @IsObject({ message: 'Vị trí theo dự án phải là một đối tượng' })
+  projectPositions?: Record<string, string>;
+
+  @IsOptional()
   @IsArray({ message: 'Danh sách vai trò phải là mảng số' })
   @IsNumber({}, { each: true, message: 'Mỗi mã vai trò phải là số' })
   roleIds?: number[];
 
   @IsOptional()
-  @IsIn(['active', 'locked'], { message: 'Trạng thái phải là active hoặc locked' })
+  @IsIn(['active', 'locked'], {
+    message: 'Trạng thái phải là active hoặc locked',
+  })
   status?: string;
 }

@@ -58,7 +58,10 @@ describe('ReportsService', () => {
       prismaMock.task.findMany.mockResolvedValue(mockTasks);
 
       const user = { id: 1, roles: [{ name: 'ceo' }] };
-      const result = await service.getSummary(user, { departmentId: 1, userId: 2 });
+      const result = await service.getSummary(user, {
+        departmentId: 1,
+        userId: 2,
+      });
 
       expect(result.documents.total).toBe(1);
       expect(result.documents.approvalRate).toBe(100);
@@ -70,34 +73,33 @@ describe('ReportsService', () => {
       });
     });
 
-    it('should strictly scope employee data to user.id and hide all contracts', async () => {
+    it('should scope employee data to personal plus explicitly company-visible records and hide contracts', async () => {
       prismaMock.document.findMany.mockResolvedValue([]);
       prismaMock.task.findMany.mockResolvedValue([]);
 
       const user = { id: 10, roles: [{ name: 'employee' }], departmentId: 2 };
       // Employee attempts to query department 999 and user 888
-      const result = await service.getSummary(user, { departmentId: 999, userId: 888 });
+      const result = await service.getSummary(user, {
+        departmentId: 999,
+        userId: 888,
+      });
 
       // Document query MUST be scoped to user.id = 10, ignoring client attempt to probe other users
-      expect(prismaMock.document.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            AND: expect.arrayContaining([
-              { OR: [{ createdById: 10 }] },
-            ]),
-          }),
-        }),
+      const documentWhere = prismaMock.document.findMany.mock.calls[0][0].where;
+      expect(JSON.stringify(documentWhere)).toContain(
+        JSON.stringify({ createdById: 10 }),
+      );
+      expect(JSON.stringify(documentWhere)).toContain(
+        JSON.stringify({ targetUserId: 10 }),
       );
 
       // Task query MUST be scoped to user.id = 10
-      expect(prismaMock.task.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            AND: expect.arrayContaining([
-              { OR: [{ assigneeId: 10 }, { createdById: 10 }] },
-            ]),
-          }),
-        }),
+      const taskWhere = prismaMock.task.findMany.mock.calls[0][0].where;
+      expect(JSON.stringify(taskWhere)).toContain(
+        JSON.stringify({ assigneeId: 10 }),
+      );
+      expect(JSON.stringify(taskWhere)).toContain(
+        JSON.stringify({ createdById: 10 }),
       );
 
       // Contracts must be completely hidden from regular employees
@@ -109,50 +111,27 @@ describe('ReportsService', () => {
       prismaMock.document.findMany.mockResolvedValue([]);
       prismaMock.task.findMany.mockResolvedValue([]);
 
-      const user = { id: 2, roles: [{ name: 'department_head' }], departmentId: 5 };
+      const user = {
+        id: 2,
+        roles: [{ name: 'department_head' }],
+        departmentId: 5,
+      };
       // Dept head attempts to query department 999
       await service.getSummary(user, { departmentId: 999 });
 
       // Document query MUST be scoped to departmentId = 5, overriding client parameter
-      expect(prismaMock.document.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            AND: expect.arrayContaining([
-              expect.objectContaining({
-                OR: expect.arrayContaining([
-                  {
-                    AND: [{ projectId: null }, { createdBy: { departmentId: 5 } }],
-                  },
-                ]),
-              }),
-            ]),
-          }),
-        }),
+      const documentWhere = prismaMock.document.findMany.mock.calls[0][0].where;
+      expect(JSON.stringify(documentWhere)).toContain(
+        JSON.stringify({ createdBy: { departmentId: 5 } }),
       );
 
       // Task query MUST be scoped to departmentId = 5
-      expect(prismaMock.task.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            AND: expect.arrayContaining([
-              expect.objectContaining({
-                OR: expect.arrayContaining([
-                  {
-                    AND: [
-                      { projectId: null },
-                      {
-                        OR: [
-                          { assignee: { departmentId: 5 } },
-                          { createdBy: { departmentId: 5 } },
-                        ],
-                      },
-                    ],
-                  },
-                ]),
-              }),
-            ]),
-          }),
-        }),
+      const taskWhere = prismaMock.task.findMany.mock.calls[0][0].where;
+      expect(JSON.stringify(taskWhere)).toContain(
+        JSON.stringify({ assignee: { departmentId: 5 } }),
+      );
+      expect(JSON.stringify(taskWhere)).toContain(
+        JSON.stringify({ createdBy: { departmentId: 5 } }),
       );
     });
   });
@@ -160,15 +139,26 @@ describe('ReportsService', () => {
   describe('getAuditLogs security scope', () => {
     it('should throw ForbiddenException if user is employee', async () => {
       const user = { id: 10, roles: [{ name: 'employee' }] };
-      await expect(service.getAuditLogs(user, {})).rejects.toThrow(ForbiddenException);
+      await expect(service.getAuditLogs(user, {})).rejects.toThrow(
+        ForbiddenException,
+      );
     });
 
     it('should allow CEO or it_admin to access audit logs', async () => {
       const user = { id: 1, roles: [{ name: 'ceo' }] };
       prismaMock.auditLog.findMany.mockResolvedValue([
-        { id: 1, entityType: 'Document', entityId: 1, action: 'submit_approval', actorId: 2, createdAt: new Date() },
+        {
+          id: 1,
+          entityType: 'Document',
+          entityId: 1,
+          action: 'submit_approval',
+          actorId: 2,
+          createdAt: new Date(),
+        },
       ]);
-      prismaMock.user.findMany.mockResolvedValue([{ id: 2, name: 'Nguyễn Văn A' }]);
+      prismaMock.user.findMany.mockResolvedValue([
+        { id: 2, name: 'Nguyễn Văn A' },
+      ]);
 
       const result = await service.getAuditLogs(user, {});
       expect(result.length).toBe(1);
@@ -204,12 +194,16 @@ describe('ReportsService', () => {
 
     it('should block non-admin from exporting audit_logs', async () => {
       const user = { id: 5, roles: [{ name: 'employee' }] };
-      await expect(service.exportCsv(user, 'audit_logs', {})).rejects.toThrow(ForbiddenException);
+      await expect(service.exportCsv(user, 'audit_logs', {})).rejects.toThrow(
+        ForbiddenException,
+      );
     });
 
     it('should block regular employee from exporting contracts', async () => {
       const user = { id: 10, roles: [{ name: 'employee' }] };
-      await expect(service.exportCsv(user, 'contracts', {})).rejects.toThrow(ForbiddenException);
+      await expect(service.exportCsv(user, 'contracts', {})).rejects.toThrow(
+        ForbiddenException,
+      );
     });
   });
 });

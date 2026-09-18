@@ -45,7 +45,9 @@ describe('TasksService', () => {
       },
       $transaction: vi.fn((cb) => cb(prisma)),
     };
-    prisma.task.findFirst.mockImplementation((args: any) => prisma.task.findUnique(args));
+    prisma.task.findFirst.mockImplementation((args: any) =>
+      prisma.task.findUnique(args),
+    );
 
     auditService = {
       logEvent: vi.fn().mockResolvedValue({ id: 1 }),
@@ -120,9 +122,7 @@ describe('TasksService', () => {
           { assigneeId: 2, _count: { _all: 7 } },
           { assigneeId: 3, _count: { _all: 3 } },
         ])
-        .mockResolvedValueOnce([
-          { assigneeId: 2, _count: { _all: 2 } },
-        ]);
+        .mockResolvedValueOnce([{ assigneeId: 2, _count: { _all: 2 } }]);
       prisma.user.findMany.mockResolvedValue([
         { id: 2, name: 'Quá tải', email: 'busy@hve.vn' },
         { id: 3, name: 'Vừa sức', email: 'medium@hve.vn' },
@@ -136,11 +136,18 @@ describe('TasksService', () => {
 
       expect(prisma.task.groupBy).toHaveBeenCalledTimes(2);
       expect(result).toEqual([
-        expect.objectContaining({ userId: 2, activeCount: 7, overdueCount: 2, level: 'qua_tai' }),
+        expect.objectContaining({
+          userId: 2,
+          activeCount: 7,
+          overdueCount: 2,
+          level: 'qua_tai',
+        }),
         expect.objectContaining({ userId: 3, activeCount: 3, level: 'vua' }),
         expect.objectContaining({ userId: 4, activeCount: 0, level: 'ranh' }),
       ]);
-      expect(prisma.task.groupBy.mock.calls[0][0].where.AND).toContainEqual({ projectId: 9 });
+      expect(prisma.task.groupBy.mock.calls[0][0].where.AND).toContainEqual({
+        projectId: 9,
+      });
     });
   });
 
@@ -156,7 +163,12 @@ describe('TasksService', () => {
       });
 
       prisma.user.findFirst.mockResolvedValue({ departmentId: 10 });
-      const user = { id: 1, name: 'Nguyễn Văn A', roles: ['department_head'], departmentId: 10 };
+      const user = {
+        id: 1,
+        name: 'Nguyễn Văn A',
+        roles: ['department_head'],
+        departmentId: 10,
+      };
       const dto: any = {
         title: 'Làm báo cáo',
         assigneeId: 2,
@@ -184,6 +196,39 @@ describe('TasksService', () => {
       ).rejects.toThrow(ForbiddenException);
     });
 
+    it('lets BGĐ target one user or publish company-wide without changing legacy scope', async () => {
+      prisma.task.findFirst.mockResolvedValue(null);
+      prisma.task.create
+        .mockResolvedValueOnce({
+          id: 20,
+          code: 'CV-2026-020',
+          title: 'Việc gửi riêng',
+          assigneeId: 2,
+          createdById: 8,
+        })
+        .mockResolvedValueOnce({
+          id: 21,
+          code: 'CV-2026-021',
+          title: 'Việc toàn công ty',
+          assigneeId: null,
+          createdById: 8,
+        });
+
+      const boardUser = { id: 8, name: 'Ban Giám Đốc', roles: ['bgd'] };
+      await service.createTask(boardUser, {
+        title: 'Việc gửi riêng',
+        assigneeId: 2,
+      });
+      await service.createTask(boardUser, { title: 'Việc toàn công ty' });
+
+      expect(prisma.task.create.mock.calls[0][0].data.visibility).toBe(
+        'targeted',
+      );
+      expect(prisma.task.create.mock.calls[1][0].data.visibility).toBe(
+        'company',
+      );
+    });
+
     it('should reject creating subtask if parent task is already a subtask (max 2 levels)', async () => {
       prisma.task.findUnique.mockResolvedValue({
         id: 10,
@@ -207,7 +252,11 @@ describe('TasksService', () => {
       await expect(
         service.createTask(
           { id: 1, name: 'User 1', roles: ['department_head'] },
-          { title: 'Subtask with recurrence', parentTaskId: 5, recurrenceRule: 'daily' },
+          {
+            title: 'Subtask with recurrence',
+            parentTaskId: 5,
+            recurrenceRule: 'daily',
+          },
         ),
       ).rejects.toThrow(BadRequestException);
     });
@@ -265,7 +314,7 @@ describe('TasksService', () => {
           1,
           { assigneeId: 3 },
         ),
-      ).rejects.toThrow('Chỉ Trưởng Ban / Trưởng dự án hoặc CEO');
+      ).rejects.toThrow('Ban Giám Đốc hoặc CEO');
     });
 
     it('unauthorized user should be forbidden from changing assignee or dueDate', async () => {
@@ -334,7 +383,11 @@ describe('TasksService', () => {
         subTasks: [],
         createdById: 10,
       });
-      prisma.task.update.mockResolvedValue({ id: 2, progressPercent: 100, status: 'Chờ duyệt' });
+      prisma.task.update.mockResolvedValue({
+        id: 2,
+        progressPercent: 100,
+        status: 'Chờ duyệt',
+      });
 
       // Parent has 2 subtasks: one 100% and one 50%
       prisma.task.findMany.mockResolvedValue([
@@ -361,7 +414,11 @@ describe('TasksService', () => {
         createdById: 10,
         status: 'Đang làm',
       });
-      prisma.task.update.mockResolvedValue({ id: 2, progressPercent: 100, status: 'Chờ duyệt' });
+      prisma.task.update.mockResolvedValue({
+        id: 2,
+        progressPercent: 100,
+        status: 'Chờ duyệt',
+      });
 
       await service.updateProgress({ id: 5 }, 2, { progressPercent: 100 });
 
@@ -382,9 +439,9 @@ describe('TasksService', () => {
         createdById: 10,
       });
 
-      await expect(
-        service.confirmCompletion({ id: 10 }, 1),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.confirmCompletion({ id: 10 }, 1)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should reject if user is not the task creator or CEO', async () => {
@@ -431,7 +488,10 @@ describe('TasksService', () => {
         status: 'Chưa làm',
       });
 
-      const result = await service.confirmCompletion({ id: 10, roles: ['employee'] }, 1);
+      const result = await service.confirmCompletion(
+        { id: 10, roles: ['employee'] },
+        1,
+      );
       expect(result.task.status).toBe('Hoàn thành');
       expect(result.nextTask).toBeDefined();
       expect(prisma.task.create).toHaveBeenCalled();
@@ -451,28 +511,12 @@ describe('TasksService', () => {
       const user = { id: 5, departmentId: 2, roles: ['department_head'] };
       await service.findAll(user, { tab: 'department' });
 
-      expect(prisma.task.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            AND: expect.arrayContaining([
-              expect.objectContaining({
-                OR: expect.arrayContaining([
-                  {
-                    AND: [
-                      { projectId: null },
-                      {
-                        OR: [
-                          { assignee: { departmentId: 2 } },
-                          { createdBy: { departmentId: 2 } },
-                        ],
-                      },
-                    ],
-                  },
-                ]),
-              }),
-            ]),
-          }),
-        }),
+      const call = prisma.task.findMany.mock.calls[0][0];
+      expect(JSON.stringify(call.where)).toContain(
+        JSON.stringify({ assignee: { departmentId: 2 } }),
+      );
+      expect(JSON.stringify(call.where)).toContain(
+        JSON.stringify({ createdBy: { departmentId: 2 } }),
       );
     });
 
@@ -548,7 +592,9 @@ describe('TasksService', () => {
       });
 
       expect(prisma.comment.create).toHaveBeenCalled();
-      expect(notificationsService.dispatchNotification).toHaveBeenCalledTimes(2);
+      expect(notificationsService.dispatchNotification).toHaveBeenCalledTimes(
+        2,
+      );
       expect(notificationsService.dispatchNotification).toHaveBeenCalledWith(
         expect.objectContaining({
           userId: 2,

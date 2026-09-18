@@ -45,6 +45,7 @@ describe('DocumentsService', () => {
       },
       user: {
         findMany: vi.fn().mockResolvedValue([{ id: 2 }]),
+        findFirst: vi.fn(),
       },
       $transaction: vi.fn(async (cb: any) => cb(prisma)),
     };
@@ -54,7 +55,9 @@ describe('DocumentsService', () => {
     };
 
     notificationsService = {
-      dispatchNotification: vi.fn().mockResolvedValue({ in_app: true, email: true }),
+      dispatchNotification: vi
+        .fn()
+        .mockResolvedValue({ in_app: true, email: true }),
     };
 
     authService = {
@@ -105,15 +108,18 @@ describe('DocumentsService', () => {
         createdById: 10,
       });
 
-      const result = await service.createPaymentRequest({ id: 10, roles: ['employee'] }, {
-        title: 'Thanh toán nhà cung cấp',
-        amount: 5000000,
-        receiver: 'Công ty ABC',
-        bankName: 'Vietcombank',
-        bankAccount: '1234567890',
-        content: 'Thanh toán chi phí hosting',
-        deadline: '2026-10-01',
-      });
+      const result = await service.createPaymentRequest(
+        { id: 10, roles: ['employee'] },
+        {
+          title: 'Thanh toán nhà cung cấp',
+          amount: 5000000,
+          receiver: 'Công ty ABC',
+          bankName: 'Vietcombank',
+          bankAccount: '1234567890',
+          content: 'Thanh toán chi phí hosting',
+          deadline: '2026-10-01',
+        },
+      );
 
       expect(result.id).toBe(1);
       expect(result.status).toBe('Nháp');
@@ -136,9 +142,7 @@ describe('DocumentsService', () => {
         dataJson: { amount: 5000000 },
       });
 
-      prisma.document.findMany.mockResolvedValue([
-        { code: 'DNTT-2026-001' },
-      ]);
+      prisma.document.findMany.mockResolvedValue([{ code: 'DNTT-2026-001' }]);
 
       prisma.document.create.mockResolvedValue({
         id: 2,
@@ -203,7 +207,6 @@ describe('DocumentsService', () => {
       );
       expect(result.code).toBe('DNTT-2026-001-v3');
     });
-
 
     it('should throw BadRequestException if document is not yet approved', async () => {
       prisma.document.findUnique.mockResolvedValue({
@@ -333,15 +336,31 @@ describe('DocumentsService', () => {
         createdBy: { id: 10, departmentId: 1 },
         version: 1,
         steps: [
-          { id: 101, stepOrder: 1, roleRequired: 'department_head', status: 'pending' },
-          { id: 102, stepOrder: 2, roleRequired: 'accountant', status: 'not_started' },
+          {
+            id: 101,
+            stepOrder: 1,
+            roleRequired: 'department_head',
+            status: 'pending',
+          },
+          {
+            id: 102,
+            stepOrder: 2,
+            roleRequired: 'accountant',
+            status: 'not_started',
+          },
           { id: 103, stepOrder: 3, roleRequired: 'ceo', status: 'not_started' },
         ],
       });
 
-      const deptHeadUser = { id: 20, departmentId: 1, roles: [{ name: 'department_head' }] };
+      const deptHeadUser = {
+        id: 20,
+        departmentId: 1,
+        roles: [{ name: 'department_head' }],
+      };
 
-      await service.approveStep(1, 101, deptHeadUser, { comment: 'Đồng ý duyệt' });
+      await service.approveStep(1, 101, deptHeadUser, {
+        comment: 'Đồng ý duyệt',
+      });
 
       expect(prisma.documentApprovalStep.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -366,14 +385,25 @@ describe('DocumentsService', () => {
         createdBy: { id: 10, departmentId: 1 }, // Dept 1
         version: 1,
         steps: [
-          { id: 101, stepOrder: 1, roleRequired: 'department_head', status: 'pending' },
+          {
+            id: 101,
+            stepOrder: 1,
+            roleRequired: 'department_head',
+            status: 'pending',
+          },
         ],
       });
 
-      const otherDeptHead = { id: 99, departmentId: 2, roles: [{ name: 'department_head' }] }; // Dept 2
+      const otherDeptHead = {
+        id: 99,
+        departmentId: 2,
+        roles: [{ name: 'department_head' }],
+      }; // Dept 2
 
       await expect(
-        service.approveStep(1, 101, otherDeptHead, { comment: 'Duyệt chéo phòng' }),
+        service.approveStep(1, 101, otherDeptHead, {
+          comment: 'Duyệt chéo phòng',
+        }),
       ).rejects.toThrow(ForbiddenException);
     });
 
@@ -390,7 +420,12 @@ describe('DocumentsService', () => {
         version: 1,
         type: 'proposal',
         steps: [
-          { id: 101, stepOrder: 1, roleRequired: 'department_head', status: 'pending' },
+          {
+            id: 101,
+            stepOrder: 1,
+            roleRequired: 'department_head',
+            status: 'pending',
+          },
         ],
       });
       const delegate = {
@@ -432,7 +467,12 @@ describe('DocumentsService', () => {
         createdBy: { id: 10, departmentId: 1 },
         version: 1,
         steps: [
-          { id: 101, stepOrder: 1, roleRequired: 'department_head', status: 'pending' },
+          {
+            id: 101,
+            stepOrder: 1,
+            roleRequired: 'department_head',
+            status: 'pending',
+          },
         ],
       });
       const expiredDelegate = {
@@ -462,15 +502,28 @@ describe('DocumentsService', () => {
         createdBy: { id: 10, departmentId: 1 },
         version: 3,
         steps: [
-          { id: 101, stepOrder: 1, roleRequired: 'department_head', status: 'approved' },
-          { id: 102, stepOrder: 2, roleRequired: 'accountant', status: 'approved' },
+          {
+            id: 101,
+            stepOrder: 1,
+            roleRequired: 'department_head',
+            status: 'approved',
+          },
+          {
+            id: 102,
+            stepOrder: 2,
+            roleRequired: 'accountant',
+            status: 'approved',
+          },
           { id: 103, stepOrder: 3, roleRequired: 'ceo', status: 'pending' }, // Final step!
         ],
       });
 
       const ceoUser = { id: 30, roles: [{ name: 'ceo' }] };
 
-      await service.approveStep(1, 103, ceoUser, { comment: 'CEO duyệt thanh toán', pin: '123456' });
+      await service.approveStep(1, 103, ceoUser, {
+        comment: 'CEO duyệt thanh toán',
+        pin: '123456',
+      });
 
       expect(authService.verifyApprovalPin).toHaveBeenCalledWith(30, '123456');
       expect(prisma.document.update).toHaveBeenCalledWith(
@@ -489,8 +542,18 @@ describe('DocumentsService', () => {
         createdBy: { id: 10, departmentId: 1 },
         version: 3,
         steps: [
-          { id: 101, stepOrder: 1, roleRequired: 'department_head', status: 'approved' },
-          { id: 102, stepOrder: 2, roleRequired: 'accountant', status: 'approved' },
+          {
+            id: 101,
+            stepOrder: 1,
+            roleRequired: 'department_head',
+            status: 'approved',
+          },
+          {
+            id: 102,
+            stepOrder: 2,
+            roleRequired: 'accountant',
+            status: 'approved',
+          },
           { id: 103, stepOrder: 3, roleRequired: 'ceo', status: 'pending' },
         ],
       });
@@ -498,7 +561,9 @@ describe('DocumentsService', () => {
       const ceoUser = { id: 30, roles: [{ name: 'ceo' }] };
 
       await expect(
-        service.approveStep(1, 103, ceoUser, { comment: 'CEO duyệt thanh toán' }),
+        service.approveStep(1, 103, ceoUser, {
+          comment: 'CEO duyệt thanh toán',
+        }),
       ).rejects.toThrow(BadRequestException);
       expect(authService.verifyApprovalPin).not.toHaveBeenCalled();
     });
@@ -511,8 +576,18 @@ describe('DocumentsService', () => {
         createdBy: { id: 10, departmentId: 1 },
         version: 3,
         steps: [
-          { id: 101, stepOrder: 1, roleRequired: 'department_head', status: 'approved' },
-          { id: 102, stepOrder: 2, roleRequired: 'accountant', status: 'approved' },
+          {
+            id: 101,
+            stepOrder: 1,
+            roleRequired: 'department_head',
+            status: 'approved',
+          },
+          {
+            id: 102,
+            stepOrder: 2,
+            roleRequired: 'accountant',
+            status: 'approved',
+          },
           { id: 103, stepOrder: 3, roleRequired: 'ceo', status: 'pending' },
         ],
       });
@@ -520,7 +595,9 @@ describe('DocumentsService', () => {
 
       const ceoUser = { id: 30, roles: [{ name: 'ceo' }] };
 
-      await service.approveStep(1, 103, ceoUser, { comment: 'CEO duyệt thanh toán' });
+      await service.approveStep(1, 103, ceoUser, {
+        comment: 'CEO duyệt thanh toán',
+      });
 
       expect(authService.isApprovalPinEnabled).toHaveBeenCalledWith(30);
       expect(authService.verifyApprovalPin).not.toHaveBeenCalled();
@@ -540,12 +617,21 @@ describe('DocumentsService', () => {
         createdBy: { id: 10, departmentId: 1 },
         version: 1,
         steps: [
-          { id: 101, stepOrder: 1, roleRequired: 'department_head', status: 'pending' },
+          {
+            id: 101,
+            stepOrder: 1,
+            roleRequired: 'department_head',
+            status: 'pending',
+          },
           { id: 102, stepOrder: 2, roleRequired: 'ceo', status: 'not_started' },
         ],
       });
 
-      const deptHeadUser = { id: 20, departmentId: 1, roles: [{ name: 'department_head' }] };
+      const deptHeadUser = {
+        id: 20,
+        departmentId: 1,
+        roles: [{ name: 'department_head' }],
+      };
 
       await service.approveStep(1, 101, deptHeadUser, { comment: 'Đồng ý' });
 
@@ -564,8 +650,18 @@ describe('DocumentsService', () => {
         createdBy: { id: 10, name: 'Nhân viên', email: 'employee@hve.vn' },
         version: 2,
         steps: [
-          { id: 101, stepOrder: 1, roleRequired: 'department_head', status: 'pending' },
-          { id: 102, stepOrder: 2, roleRequired: 'accountant', status: 'not_started' },
+          {
+            id: 101,
+            stepOrder: 1,
+            roleRequired: 'department_head',
+            status: 'pending',
+          },
+          {
+            id: 102,
+            stepOrder: 2,
+            roleRequired: 'accountant',
+            status: 'not_started',
+          },
           { id: 103, stepOrder: 3, roleRequired: 'ceo', status: 'not_started' },
         ],
       });
@@ -624,11 +720,20 @@ describe('DocumentsService', () => {
         createdBy: { id: 10, departmentId: 1 },
         version: 1,
         steps: [
-          { id: 101, stepOrder: 1, roleRequired: 'department_head', status: 'pending' },
+          {
+            id: 101,
+            stepOrder: 1,
+            roleRequired: 'department_head',
+            status: 'pending',
+          },
         ],
       });
 
-      const approver = { id: 20, departmentId: 1, roles: [{ name: 'department_head' }] };
+      const approver = {
+        id: 20,
+        departmentId: 1,
+        roles: [{ name: 'department_head' }],
+      };
 
       // Missing comment should fail
       await expect(
@@ -659,11 +764,20 @@ describe('DocumentsService', () => {
         createdBy: { id: 10, departmentId: 1 },
         version: 1,
         steps: [
-          { id: 101, stepOrder: 1, roleRequired: 'department_head', status: 'pending' },
+          {
+            id: 101,
+            stepOrder: 1,
+            roleRequired: 'department_head',
+            status: 'pending',
+          },
         ],
       });
 
-      const approver = { id: 20, departmentId: 1, roles: [{ name: 'department_head' }] };
+      const approver = {
+        id: 20,
+        departmentId: 1,
+        roles: [{ name: 'department_head' }],
+      };
 
       await service.rejectStep(1, 101, approver, {
         comment: 'Khoản chi không phù hợp với kế hoạch ngân sách',
@@ -690,7 +804,12 @@ describe('DocumentsService', () => {
         createdBy: { id: 10, departmentId: 1 },
         version: 1,
         steps: [
-          { id: 101, stepOrder: 1, roleRequired: 'department_head', status: 'pending' },
+          {
+            id: 101,
+            stepOrder: 1,
+            roleRequired: 'department_head',
+            status: 'pending',
+          },
         ],
       });
       const otherProjectHead = {
@@ -718,7 +837,12 @@ describe('DocumentsService', () => {
         createdById: 10,
         version: 5, // DB version is 5
         steps: [
-          { id: 101, stepOrder: 1, roleRequired: 'department_head', status: 'pending' },
+          {
+            id: 101,
+            stepOrder: 1,
+            roleRequired: 'department_head',
+            status: 'pending',
+          },
         ],
       });
 
@@ -755,6 +879,51 @@ describe('DocumentsService', () => {
       expect(result.status).toBe('Nháp');
       expect(auditService.logEvent).toHaveBeenCalledWith(
         expect.objectContaining({ action: 'create_document' }),
+      );
+    });
+
+    it('scopes BGĐ proposals to one recipient or the whole company', async () => {
+      prisma.document.findFirst.mockResolvedValue(null);
+      prisma.user.findFirst.mockResolvedValue({ id: 25 });
+      prisma.document.create
+        .mockResolvedValueOnce({
+          id: 202,
+          code: 'DX-2026-002',
+          title: 'Đề xuất gửi riêng',
+          type: 'proposal',
+          status: 'Nháp',
+          createdById: 8,
+          targetUserId: 25,
+        })
+        .mockResolvedValueOnce({
+          id: 203,
+          code: 'DX-2026-003',
+          title: 'Đề xuất toàn công ty',
+          type: 'proposal',
+          status: 'Nháp',
+          createdById: 8,
+          targetUserId: null,
+        });
+
+      const boardUser = { id: 8, name: 'Ban Giám Đốc', roles: ['bgd'] };
+      await service.createProposal(boardUser, {
+        title: 'Đề xuất gửi riêng',
+        content: 'Chỉ gửi người nhận',
+        targetUserId: 25,
+      });
+      await service.createProposal(boardUser, {
+        title: 'Đề xuất toàn công ty',
+        content: 'Mọi người đều xem',
+      });
+
+      expect(prisma.document.create.mock.calls[0][0].data).toEqual(
+        expect.objectContaining({ visibility: 'targeted', targetUserId: 25 }),
+      );
+      expect(prisma.document.create.mock.calls[1][0].data).toEqual(
+        expect.objectContaining({ visibility: 'company', targetUserId: null }),
+      );
+      expect(notificationsService.dispatchNotification).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: 25, eventType: 'proposal_received' }),
       );
     });
 
@@ -808,19 +977,25 @@ describe('DocumentsService', () => {
       const now = new Date();
 
       // Expired: 10 days ago
-      const pastDate = new Date(now.getTime() - 10 * 86400000).toISOString().split('T')[0];
+      const pastDate = new Date(now.getTime() - 10 * 86400000)
+        .toISOString()
+        .split('T')[0];
       const expiredRes = service.calculateContractExpiry({ endDate: pastDate });
       expect(expiredRes.expiringStatus).toBe('expired');
       expect(expiredRes.isExpiringSoon).toBe(true);
 
       // Expiring soon: 15 days in future (<= 30 days)
-      const soonDate = new Date(now.getTime() + 15 * 86400000).toISOString().split('T')[0];
+      const soonDate = new Date(now.getTime() + 15 * 86400000)
+        .toISOString()
+        .split('T')[0];
       const soonRes = service.calculateContractExpiry({ endDate: soonDate });
       expect(soonRes.expiringStatus).toBe('expiring_soon');
       expect(soonRes.isExpiringSoon).toBe(true);
 
       // Valid: 90 days in future (> 30 days)
-      const futureDate = new Date(now.getTime() + 90 * 86400000).toISOString().split('T')[0];
+      const futureDate = new Date(now.getTime() + 90 * 86400000)
+        .toISOString()
+        .split('T')[0];
       const validRes = service.calculateContractExpiry({ endDate: futureDate });
       expect(validRes.expiringStatus).toBe('valid');
       expect(validRes.isExpiringSoon).toBe(false);
@@ -922,12 +1097,23 @@ describe('DocumentsService', () => {
         status: 'Chờ duyệt',
         createdById: 10,
         version: 1,
-        steps: [{ id: 5, stepOrder: 1, roleRequired: 'department_head', status: 'pending' }],
+        steps: [
+          {
+            id: 5,
+            stepOrder: 1,
+            roleRequired: 'department_head',
+            status: 'pending',
+          },
+        ],
         createdBy: { departmentId: 2 },
       });
       prisma.document.update.mockResolvedValue({ id: 1, status: 'Nháp' });
 
-      const user = { id: 2, roles: [{ name: 'department_head' }], departmentId: 2 };
+      const user = {
+        id: 2,
+        roles: [{ name: 'department_head' }],
+        departmentId: 2,
+      };
       await service.returnStep(1, 5, user, { comment: 'Bổ sung báo giá' }, 1);
 
       expect(notificationsService.dispatchNotification).toHaveBeenCalledWith(
@@ -947,13 +1133,30 @@ describe('DocumentsService', () => {
         status: 'Chờ duyệt',
         createdById: 10,
         version: 1,
-        steps: [{ id: 5, stepOrder: 1, roleRequired: 'department_head', status: 'pending' }],
+        steps: [
+          {
+            id: 5,
+            stepOrder: 1,
+            roleRequired: 'department_head',
+            status: 'pending',
+          },
+        ],
         createdBy: { departmentId: 2 },
       });
       prisma.document.update.mockResolvedValue({ id: 1, status: 'Từ chối' });
 
-      const user = { id: 2, roles: [{ name: 'department_head' }], departmentId: 2 };
-      await service.rejectStep(1, 5, user, { comment: 'Không phù hợp ngân sách' }, 1);
+      const user = {
+        id: 2,
+        roles: [{ name: 'department_head' }],
+        departmentId: 2,
+      };
+      await service.rejectStep(
+        1,
+        5,
+        user,
+        { comment: 'Không phù hợp ngân sách' },
+        1,
+      );
 
       expect(notificationsService.dispatchNotification).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -977,7 +1180,12 @@ describe('DocumentsService', () => {
       version: 3,
       steps: [
         { id: 901, stepOrder: 1, roleRequired: 'ceo', status: 'approved' },
-        { id: 902, stepOrder: 2, roleRequired: 'accountant', status: 'pending' },
+        {
+          id: 902,
+          stepOrder: 2,
+          roleRequired: 'accountant',
+          status: 'pending',
+        },
       ],
     };
 
@@ -1022,5 +1230,4 @@ describe('DocumentsService', () => {
       );
     });
   });
-
 });

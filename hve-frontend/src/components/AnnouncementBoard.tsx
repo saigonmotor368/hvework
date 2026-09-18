@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { fetchWithSession } from "../api/client";
 import { ENABLE_MOCK_DATA } from "../config";
 import type { AnnouncementItem } from "../types";
+import { UserNameButton } from "./UserNameButton";
 
 interface Props {
   apiBaseUrl: string;
@@ -451,8 +452,12 @@ export function AnnouncementBoard({ apiBaseUrl }: Props) {
                   {selected.content}
                 </div>
                 <p className="mt-7 border-t border-slate-100 pt-4 text-xs text-slate-400">
-                  Đăng bởi {selected.createdBy?.name || "Quản trị IT"} ·{" "}
-                  {formatDate(selected.publishedAt, true)}
+                  Đăng bởi{" "}
+                  <UserNameButton
+                    user={selected.createdBy}
+                    fallback="Quản trị IT"
+                  />{" "}
+                  · {formatDate(selected.publishedAt, true)}
                 </p>
               </div>
             ) : (

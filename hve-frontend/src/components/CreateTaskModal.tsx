@@ -1,17 +1,33 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { TASK_PRIORITY_LABELS, type ProjectItem, type TaskItem, type WorkloadSummaryItem } from '../types';
-import { fetchWithSession, uploadAttachment } from '../api/client';
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  TASK_PRIORITY_LABELS,
+  type ProjectItem,
+  type TaskItem,
+  type WorkloadSummaryItem,
+} from "../types";
+import { fetchWithSession, uploadAttachment } from "../api/client";
 
 interface CreateTaskModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
   apiBaseUrl: string;
-  users: Array<{ id: number; name: string; email: string; department?: { name: string } }>;
+  users: Array<{
+    id: number;
+    name: string;
+    email: string;
+    department?: { name: string };
+    ledProjects?: Array<{ id: number }>;
+    projectMemberships?: Array<{
+      position?: string | null;
+      project: { id: number };
+    }>;
+  }>;
   parentTask?: TaskItem | null;
-  showToast: (msg: string, type?: 'success' | 'error') => void;
+  showToast: (msg: string, type?: "success" | "error") => void;
   projects: ProjectItem[];
   primaryProjects: ProjectItem[];
+  currentUser: any;
 }
 
 export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
@@ -24,28 +40,35 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
   showToast,
   projects,
   primaryProjects,
+  currentUser,
 }) => {
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [priority, setPriority] = useState<'low' | 'normal' | 'high' | 'urgent'>('normal');
-  const [assigneeId, setAssigneeId] = useState<string>('');
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [priority, setPriority] = useState<
+    "low" | "normal" | "high" | "urgent"
+  >("normal");
+  const [assigneeId, setAssigneeId] = useState<string>("");
   const [collaboratorIds, setCollaboratorIds] = useState<number[]>([]);
-  const [startDate, setStartDate] = useState('');
-  const [dueDate, setDueDate] = useState('');
-  const [tags, setTags] = useState('');
-  const [recurrenceRule, setRecurrenceRule] = useState<string>('');
+  const [startDate, setStartDate] = useState("");
+  const [dueDate, setDueDate] = useState("");
+  const [tags, setTags] = useState("");
+  const [recurrenceRule, setRecurrenceRule] = useState<string>("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [projectId, setProjectId] = useState<string>(parentTask?.projectId ? String(parentTask.projectId) : '');
-  const [linkedProjectIds, setLinkedProjectIds] = useState<number[]>(parentTask?.linkedProjectIds || []);
+  const [projectId, setProjectId] = useState<string>(
+    parentTask?.projectId ? String(parentTask.projectId) : "",
+  );
+  const [linkedProjectIds, setLinkedProjectIds] = useState<number[]>(
+    parentTask?.linkedProjectIds || [],
+  );
   const [workload, setWorkload] = useState<WorkloadSummaryItem[]>([]);
 
   useEffect(() => {
     if (!isOpen) return;
-    const token = localStorage.getItem('access_token');
+    const token = localStorage.getItem("access_token");
     if (!token) return;
     const params = new URLSearchParams();
-    if (projectId) params.set('projectId', projectId);
+    if (projectId) params.set("projectId", projectId);
     fetchWithSession(`${apiBaseUrl}/tasks/workload?${params.toString()}`, {
       headers: { Authorization: `Bearer ${token}` },
     })
@@ -59,6 +82,26 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
     () => new Map(workload.map((item) => [item.userId, item])),
     [workload],
   );
+  const projectPositionByUser = useMemo(() => {
+    const selectedProjectId = Number(projectId);
+    if (!selectedProjectId) return new Map<number, string>();
+    return new Map(
+      users.map((candidate) => {
+        if (
+          candidate.ledProjects?.some(
+            (project) => project.id === selectedProjectId,
+          )
+        ) {
+          return [candidate.id, "Trưởng dự án"];
+        }
+        const position = candidate.projectMemberships?.find(
+          (membership) => membership.project.id === selectedProjectId,
+        )?.position;
+        return [candidate.id, position || ""];
+      }),
+    );
+  }, [projectId, users]);
+  const isBoard = currentUser?.roles?.includes("bgd");
 
   if (!isOpen) return null;
 
@@ -73,13 +116,13 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) {
-      showToast('Vui lòng nhập tiêu đề công việc', 'error');
+      showToast("Vui lòng nhập tiêu đề công việc", "error");
       return;
     }
 
-    const token = localStorage.getItem('access_token');
+    const token = localStorage.getItem("access_token");
     if (!token) {
-      showToast('Phiên đăng nhập đã hết hạn', 'error');
+      showToast("Phiên đăng nhập đã hết hạn", "error");
       return;
     }
 
@@ -89,7 +132,11 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
 
       // 1. Tải file đính kèm nếu có
       if (selectedFile) {
-        const attachmentId = await uploadAttachment(apiBaseUrl, token, selectedFile);
+        const attachmentId = await uploadAttachment(
+          apiBaseUrl,
+          token,
+          selectedFile,
+        );
         attachmentIds.push(attachmentId);
       }
 
@@ -101,11 +148,13 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
         startDate: startDate || undefined,
         dueDate: dueDate || undefined,
         assigneeId: assigneeId ? parseInt(assigneeId, 10) : undefined,
-        collaboratorIds: collaboratorIds.length > 0 ? collaboratorIds : undefined,
+        collaboratorIds:
+          collaboratorIds.length > 0 ? collaboratorIds : undefined,
         tags: tags.trim() || undefined,
         attachmentIds: attachmentIds.length > 0 ? attachmentIds : undefined,
         projectId: projectId ? Number(projectId) : undefined,
-        linkedProjectIds: linkedProjectIds.length > 0 ? linkedProjectIds : undefined,
+        linkedProjectIds:
+          linkedProjectIds.length > 0 ? linkedProjectIds : undefined,
       };
 
       if (parentTask) {
@@ -115,9 +164,9 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
       }
 
       const res = await fetchWithSession(`${apiBaseUrl}/tasks`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(payload),
@@ -125,14 +174,16 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
 
       if (!res.ok) {
         const errData = await res.json();
-        throw new Error(errData.message || 'Không thể tạo công việc');
+        throw new Error(errData.message || "Không thể tạo công việc");
       }
 
-      showToast(parentTask ? 'Thêm việc con thành công!' : 'Tạo công việc thành công!');
+      showToast(
+        parentTask ? "Thêm việc con thành công!" : "Tạo công việc thành công!",
+      );
       onSuccess();
       onClose();
     } catch (err: any) {
-      showToast(err.message || 'Lỗi khi tạo công việc', 'error');
+      showToast(err.message || "Lỗi khi tạo công việc", "error");
     } finally {
       setIsSubmitting(false);
     }
@@ -145,12 +196,14 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
         <div className="px-4 sm:px-6 py-4 border-b border-slate-100 flex items-start justify-between gap-3 bg-slate-50/50">
           <div className="min-w-0">
             <h3 className="text-base sm:text-lg font-bold text-gray-900 break-words">
-              {parentTask ? `Thêm việc con cho [${parentTask.code}]` : 'Giao việc mới'}
+              {parentTask
+                ? `Thêm việc con cho [${parentTask.code}]`
+                : "Giao việc mới"}
             </h3>
             <p className="text-xs text-gray-500 mt-0.5">
               {parentTask
                 ? `Việc cha: ${parentTask.title}`
-                : 'Khởi tạo công việc và phân công nhiệm vụ cho nhân sự'}
+                : "Khởi tạo công việc và phân công nhiệm vụ cho nhân sự"}
             </p>
           </div>
           <button
@@ -162,7 +215,10 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="mobile-scroll flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <form
+          onSubmit={handleSubmit}
+          className="mobile-scroll flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
+        >
           <div>
             <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
               Tiêu đề công việc <span className="text-red-500">*</span>
@@ -179,7 +235,9 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
-              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-gray-700">Dự án chính</label>
+              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-gray-700">
+                Dự án chính
+              </label>
               <select
                 value={projectId}
                 disabled={!!parentTask}
@@ -187,23 +245,42 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                 className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-[#0A66C2] disabled:opacity-70"
               >
                 <option value="">Không thuộc dự án</option>
-                {primaryProjects.filter((project) => project.isActive).map((project) => (
-                  <option key={project.id} value={project.id}>{project.code} — {project.name}</option>
-                ))}
+                {primaryProjects
+                  .filter((project) => project.isActive)
+                  .map((project) => (
+                    <option key={project.id} value={project.id}>
+                      {project.code} — {project.name}
+                    </option>
+                  ))}
               </select>
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-gray-700">Dự án phối hợp</label>
+              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-gray-700">
+                Dự án phối hợp
+              </label>
               <select
                 multiple
                 value={linkedProjectIds.map(String)}
                 disabled={!!parentTask}
-                onChange={(e) => setLinkedProjectIds(Array.from(e.target.selectedOptions).map((option) => Number(option.value)))}
+                onChange={(e) =>
+                  setLinkedProjectIds(
+                    Array.from(e.target.selectedOptions).map((option) =>
+                      Number(option.value),
+                    ),
+                  )
+                }
                 className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-sm focus:ring-2 focus:ring-[#0A66C2] disabled:opacity-70"
               >
-                {projects.filter((project) => project.isActive && String(project.id) !== projectId).map((project) => (
-                  <option key={project.id} value={project.id}>{project.code} — {project.name}</option>
-                ))}
+                {projects
+                  .filter(
+                    (project) =>
+                      project.isActive && String(project.id) !== projectId,
+                  )
+                  .map((project) => (
+                    <option key={project.id} value={project.id}>
+                      {project.code} — {project.name}
+                    </option>
+                  ))}
               </select>
             </div>
           </div>
@@ -234,13 +311,23 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                 <option value="">-- Chưa chỉ định --</option>
                 {users.map((u) => (
                   <option key={u.id} value={u.id}>
-                    {u.name} {u.department ? `(${u.department.name})` : ''}{' '}
+                    {u.name} {u.department ? `(${u.department.name})` : ""}{" "}
+                    {projectPositionByUser.get(u.id)
+                      ? `— ${projectPositionByUser.get(u.id)} `
+                      : ""}
                     {workloadByUser.has(u.id)
-                      ? `${workloadByUser.get(u.id)?.level === 'qua_tai' ? '🔴' : workloadByUser.get(u.id)?.level === 'vua' ? '🟡' : '🟢'} ${workloadByUser.get(u.id)?.activeCount} việc`
-                      : ''}
+                      ? `${workloadByUser.get(u.id)?.level === "qua_tai" ? "🔴" : workloadByUser.get(u.id)?.level === "vua" ? "🟡" : "🟢"} ${workloadByUser.get(u.id)?.activeCount} việc`
+                      : ""}
                   </option>
                 ))}
               </select>
+              {isBoard && (
+                <p className="mt-1.5 text-[11px] leading-relaxed text-violet-700">
+                  Chọn người thực hiện: chỉ người được giao, người phối hợp và
+                  anh/chị xem được. Để trống: toàn hệ thống HVE xem được công
+                  việc này.
+                </p>
+              )}
             </div>
 
             <div>
@@ -302,11 +389,11 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                     onClick={() => handleToggleCollaborator(u.id)}
                     className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
                       isSelected
-                        ? 'bg-[#0A66C2] text-white shadow-sm'
-                        : 'bg-white text-gray-700 border border-slate-200 hover:bg-slate-100'
+                        ? "bg-[#0A66C2] text-white shadow-sm"
+                        : "bg-white text-gray-700 border border-slate-200 hover:bg-slate-100"
                     }`}
                   >
-                    {isSelected ? '✓ ' : '+ '}
+                    {isSelected ? "✓ " : "+ "}
                     {u.name}
                   </button>
                 );
@@ -381,9 +468,9 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                   Đang lưu...
                 </>
               ) : parentTask ? (
-                'Thêm việc con'
+                "Thêm việc con"
               ) : (
-                'Giao việc'
+                "Giao việc"
               )}
             </button>
           </div>

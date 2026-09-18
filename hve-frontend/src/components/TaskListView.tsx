@@ -1,25 +1,26 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   TASK_PRIORITY_LABELS,
   TASK_STATUS_LABELS,
   type TaskItem,
   type ProjectItem,
   type WorkloadSummaryItem,
-} from '../types';
-import { MOCK_TASKS } from '../mockData';
-import { ENABLE_MOCK_DATA } from '../config';
-import { fetchWithSession } from '../api/client';
-import { BrandLoader } from './BrandLoader';
+} from "../types";
+import { MOCK_TASKS } from "../mockData";
+import { ENABLE_MOCK_DATA } from "../config";
+import { fetchWithSession } from "../api/client";
+import { BrandLoader } from "./BrandLoader";
+import { UserNameButton } from "./UserNameButton";
 
 interface TaskListViewProps {
   apiBaseUrl: string;
   currentUser: any;
-  showToast: (msg: string, type?: 'success' | 'error') => void;
+  showToast: (msg: string, type?: "success" | "error") => void;
   onOpenCreate: () => void;
   onSelectTask: (task: TaskItem) => void;
   navigationFilter?: {
     key: number;
-    tab: 'all' | 'assigned_to_me' | 'assigned_by_me' | 'department';
+    tab: "all" | "assigned_to_me" | "assigned_by_me" | "department";
     status: string;
     isOverdueOnly: boolean;
     projectId?: number;
@@ -41,22 +42,26 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
 
   // Tab và bộ lọc
   const [activeTab, setActiveTab] = useState<
-    'all' | 'assigned_to_me' | 'assigned_by_me' | 'department'
+    "all" | "assigned_to_me" | "assigned_by_me" | "department"
   >(
     navigationFilter?.tab ||
-      (currentUser?.roles?.some((role: string) => ['ceo', 'bgd', 'department_head'].includes(role))
-        ? 'all'
-        : 'assigned_to_me'),
+      (currentUser?.roles?.some((role: string) =>
+        ["ceo", "bgd", "department_head"].includes(role),
+      )
+        ? "all"
+        : "assigned_to_me"),
   );
-  const [statusFilter, setStatusFilter] = useState<string>(navigationFilter?.status || 'all');
-  const [priorityFilter, setPriorityFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>(
+    navigationFilter?.status || "all",
+  );
+  const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [isOverdueOnly, setIsOverdueOnly] = useState<boolean>(
     navigationFilter?.isOverdueOnly || false,
   );
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [viewMode, setViewMode] = useState<'board' | 'list'>('board');
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [viewMode, setViewMode] = useState<"board" | "list">("board");
   const [projectFilter, setProjectFilter] = useState(
-    navigationFilter?.projectId ? String(navigationFilter.projectId) : '',
+    navigationFilter?.projectId ? String(navigationFilter.projectId) : "",
   );
   const [workload, setWorkload] = useState<WorkloadSummaryItem[]>([]);
 
@@ -64,7 +69,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
   const [expandedTaskIds, setExpandedTaskIds] = useState<number[]>([]);
 
   const fetchTasks = async () => {
-    const token = localStorage.getItem('access_token');
+    const token = localStorage.getItem("access_token");
     if (!token) {
       setTasks(ENABLE_MOCK_DATA ? MOCK_TASKS : []);
       return;
@@ -73,32 +78,44 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
     try {
       setIsLoading(true);
       const params = new URLSearchParams();
-      params.append('tab', activeTab);
-      if (statusFilter !== 'all') params.append('status', statusFilter);
-      if (priorityFilter !== 'all') params.append('priority', priorityFilter);
-      if (isOverdueOnly) params.append('isOverdue', 'true');
-      if (searchQuery.trim()) params.append('search', searchQuery.trim());
-      if (projectFilter) params.append('projectId', projectFilter);
+      params.append("tab", activeTab);
+      if (statusFilter !== "all") params.append("status", statusFilter);
+      if (priorityFilter !== "all") params.append("priority", priorityFilter);
+      if (isOverdueOnly) params.append("isOverdue", "true");
+      if (searchQuery.trim()) params.append("search", searchQuery.trim());
+      if (projectFilter) params.append("projectId", projectFilter);
 
-      const res = await fetchWithSession(`${apiBaseUrl}/tasks?${params.toString()}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error('Không thể tải danh sách công việc');
+      const res = await fetchWithSession(
+        `${apiBaseUrl}/tasks?${params.toString()}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+      if (!res.ok) throw new Error("Không thể tải danh sách công việc");
       const data: TaskItem[] = await res.json();
       setTasks(data);
     } catch (error: any) {
       if (!ENABLE_MOCK_DATA) {
         setTasks([]);
-        showToast(error.message || 'Không thể tải danh sách công việc', 'error');
+        showToast(
+          error.message || "Không thể tải danh sách công việc",
+          "error",
+        );
         return;
       }
       let filtered = [...MOCK_TASKS];
-      if (statusFilter !== 'all') filtered = filtered.filter((t) => t.status === statusFilter);
-      if (priorityFilter !== 'all') filtered = filtered.filter((t) => t.priority === priorityFilter);
+      if (statusFilter !== "all")
+        filtered = filtered.filter((t) => t.status === statusFilter);
+      if (priorityFilter !== "all")
+        filtered = filtered.filter((t) => t.priority === priorityFilter);
       if (isOverdueOnly) filtered = filtered.filter((t) => t.isOverdue);
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
-        filtered = filtered.filter((t) => t.title.toLowerCase().includes(q) || t.code.toLowerCase().includes(q));
+        filtered = filtered.filter(
+          (t) =>
+            t.title.toLowerCase().includes(q) ||
+            t.code.toLowerCase().includes(q),
+        );
       }
       setTasks(filtered);
     } finally {
@@ -111,13 +128,17 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
   }, [activeTab, statusFilter, priorityFilter, isOverdueOnly, projectFilter]);
 
   useEffect(() => {
-    if (!currentUser?.roles?.some((role: string) => ['ceo', 'department_head'].includes(role))) {
+    if (
+      !currentUser?.roles?.some((role: string) =>
+        ["ceo", "department_head"].includes(role),
+      )
+    ) {
       return;
     }
-    const token = localStorage.getItem('access_token');
+    const token = localStorage.getItem("access_token");
     if (!token) return;
     const params = new URLSearchParams();
-    if (projectFilter) params.set('projectId', projectFilter);
+    if (projectFilter) params.set("projectId", projectFilter);
     fetchWithSession(`${apiBaseUrl}/tasks/workload?${params.toString()}`, {
       headers: { Authorization: `Bearer ${token}` },
     })
@@ -142,39 +163,65 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
 
   // Tính số lượng thống kê nhanh
   const overdueCount = tasks.filter((t) => t.isOverdue).length;
-  const pendingCount = tasks.filter((t) => t.status === 'Chờ duyệt').length;
+  const pendingCount = tasks.filter((t) => t.status === "Chờ duyệt").length;
   const canCreateTask =
-    currentUser?.roles?.includes('department_head') || currentUser?.roles?.includes('ceo');
-  const isCeo = currentUser?.roles?.includes('ceo') || currentUser?.roles?.includes('bgd');
-  const isDepartmentHead = currentUser?.roles?.includes('department_head');
+    currentUser?.roles?.includes("department_head") ||
+    currentUser?.roles?.includes("ceo") ||
+    currentUser?.roles?.includes("bgd");
+  const isCeo =
+    currentUser?.roles?.includes("ceo") || currentUser?.roles?.includes("bgd");
+  const isDepartmentHead = currentUser?.roles?.includes("department_head");
   const availableTabs: Array<{
-    id: 'all' | 'assigned_to_me' | 'assigned_by_me' | 'department';
+    id: "all" | "assigned_to_me" | "assigned_by_me" | "department";
     label: string;
   }> = isCeo
     ? [
-        { id: 'all', label: 'Toàn công ty' },
-        { id: 'assigned_to_me', label: 'Việc tôi làm' },
-        { id: 'assigned_by_me', label: 'Việc tôi giao' },
+        { id: "all", label: "Toàn công ty" },
+        { id: "assigned_to_me", label: "Việc tôi làm" },
+        { id: "assigned_by_me", label: "Việc tôi giao" },
       ]
     : isDepartmentHead
       ? [
-          { id: 'all', label: 'Toàn bộ trong phòng' },
-          { id: 'assigned_to_me', label: 'Việc tôi làm' },
-          { id: 'assigned_by_me', label: 'Việc tôi giao' },
+          { id: "all", label: "Toàn bộ trong phòng" },
+          { id: "assigned_to_me", label: "Việc tôi làm" },
+          { id: "assigned_by_me", label: "Việc tôi giao" },
         ]
       : [
-          { id: 'assigned_to_me', label: 'Việc tôi làm' },
-          { id: 'all', label: 'Việc liên quan đến tôi' },
+          { id: "assigned_to_me", label: "Việc tôi làm" },
+          { id: "all", label: "Việc liên quan đến tôi" },
         ];
   const boardColumns = [
-    { status: 'Chưa làm', label: 'Chưa làm', accent: 'border-slate-300', dot: 'bg-slate-400' },
-    { status: 'Đang làm', label: 'Đang làm', accent: 'border-blue-300', dot: 'bg-blue-500' },
-    { status: 'Chờ duyệt', label: 'Chờ duyệt', accent: 'border-amber-300', dot: 'bg-amber-500' },
-    { status: 'Hoàn thành', label: 'Hoàn thành', accent: 'border-emerald-300', dot: 'bg-emerald-500' },
+    {
+      status: "Chưa làm",
+      label: "Chưa làm",
+      accent: "border-slate-300",
+      dot: "bg-slate-400",
+    },
+    {
+      status: "Đang làm",
+      label: "Đang làm",
+      accent: "border-blue-300",
+      dot: "bg-blue-500",
+    },
+    {
+      status: "Chờ duyệt",
+      label: "Chờ duyệt",
+      accent: "border-amber-300",
+      dot: "bg-amber-500",
+    },
+    {
+      status: "Hoàn thành",
+      label: "Hoàn thành",
+      accent: "border-emerald-300",
+      dot: "bg-emerald-500",
+    },
   ] as const;
   const busiestPeople = [...workload]
     .filter((item) => item.activeCount > 0)
-    .sort((a, b) => b.activeCount - a.activeCount || b.overdueCount - a.overdueCount)
+    .sort(
+      (a, b) =>
+        b.activeCount - a.activeCount || b.overdueCount - a.overdueCount,
+    )
     .slice(0, 5);
 
   return (
@@ -187,10 +234,10 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
           </h2>
           <p className="text-sm text-gray-500 mt-1">
             {isCeo
-              ? 'Theo dõi công việc toàn công ty'
+              ? "Theo dõi công việc toàn công ty"
               : isDepartmentHead
-                ? 'Theo dõi công việc thuộc các dự án bạn phụ trách'
-                : 'Chỉ hiển thị công việc được giao hoặc liên quan trực tiếp đến bạn'}
+                ? "Theo dõi công việc thuộc các dự án bạn phụ trách"
+                : "Chỉ hiển thị công việc được giao hoặc liên quan trực tiếp đến bạn"}
           </p>
         </div>
 
@@ -198,15 +245,15 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
           <div className="grid grid-cols-2 rounded-xl border border-slate-200 bg-white p-1 text-xs font-bold">
             <button
               type="button"
-              onClick={() => setViewMode('board')}
-              className={`rounded-lg px-3 py-2 ${viewMode === 'board' ? 'bg-blue-50 text-[#0A66C2]' : 'text-gray-500'}`}
+              onClick={() => setViewMode("board")}
+              className={`rounded-lg px-3 py-2 ${viewMode === "board" ? "bg-blue-50 text-[#0A66C2]" : "text-gray-500"}`}
             >
               ◫ Board
             </button>
             <button
               type="button"
-              onClick={() => setViewMode('list')}
-              className={`rounded-lg px-3 py-2 ${viewMode === 'list' ? 'bg-blue-50 text-[#0A66C2]' : 'text-gray-500'}`}
+              onClick={() => setViewMode("list")}
+              className={`rounded-lg px-3 py-2 ${viewMode === "list" ? "bg-blue-50 text-[#0A66C2]" : "text-gray-500"}`}
             >
               ☰ Danh sách
             </button>
@@ -227,20 +274,44 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
         <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="mb-3 flex items-center justify-between gap-2">
             <div>
-              <h3 className="text-sm font-bold text-slate-900">Phân bổ khối lượng</h3>
-              <p className="text-[11px] text-slate-500">Nhân sự đang có nhiều việc mở nhất trong phạm vi hiện tại.</p>
+              <h3 className="text-sm font-bold text-slate-900">
+                Phân bổ khối lượng
+              </h3>
+              <p className="text-[11px] text-slate-500">
+                Nhân sự đang có nhiều việc mở nhất trong phạm vi hiện tại.
+              </p>
             </div>
-            <span className="text-[11px] font-semibold text-slate-400">Cập nhật theo bộ lọc dự án</span>
+            <span className="text-[11px] font-semibold text-slate-400">
+              Cập nhật theo bộ lọc dự án
+            </span>
           </div>
           <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
             {busiestPeople.map((item) => (
-              <div key={item.userId} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2.5">
+              <div
+                key={item.userId}
+                className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2.5"
+              >
                 <div className="flex items-center gap-2">
-                  <span>{item.level === 'qua_tai' ? '🔴' : item.level === 'vua' ? '🟡' : '🟢'}</span>
-                  <strong className="min-w-0 truncate text-xs text-slate-800">{item.name}</strong>
+                  <span>
+                    {item.level === "qua_tai"
+                      ? "🔴"
+                      : item.level === "vua"
+                        ? "🟡"
+                        : "🟢"}
+                  </span>
+                  <strong className="min-w-0 truncate text-xs text-slate-800">
+                    {item.name}
+                  </strong>
                 </div>
                 <p className="mt-1 text-[11px] text-slate-500">
-                  {item.activeCount} việc mở · <span className={item.overdueCount ? 'font-bold text-rose-600' : ''}>{item.overdueCount} quá hạn</span>
+                  {item.activeCount} việc mở ·{" "}
+                  <span
+                    className={
+                      item.overdueCount ? "font-bold text-rose-600" : ""
+                    }
+                  >
+                    {item.overdueCount} quá hạn
+                  </span>
                 </p>
               </div>
             ))}
@@ -256,8 +327,8 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
             onClick={() => setActiveTab(tab.id as any)}
             className={`shrink-0 px-4 py-3 text-sm font-semibold transition-all border-b-2 whitespace-nowrap cursor-pointer ${
               activeTab === tab.id
-                ? 'border-[#0A66C2] text-[#0A66C2]'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-slate-300'
+                ? "border-[#0A66C2] text-[#0A66C2]"
+                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-slate-300"
             }`}
           >
             {tab.label}
@@ -269,7 +340,10 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
       <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm space-y-3">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           {/* Search form */}
-          <form onSubmit={handleSearch} className="flex w-full min-w-0 flex-1 items-center space-x-2 md:max-w-md">
+          <form
+            onSubmit={handleSearch}
+            className="flex w-full min-w-0 flex-1 items-center space-x-2 md:max-w-md"
+          >
             <input
               type="text"
               value={searchQuery}
@@ -320,9 +394,13 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
               className="col-span-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-gray-700 sm:w-auto"
             >
               <option value="">Tất cả dự án</option>
-              {projects.filter((project) => project.isActive).map((project) => (
-                <option key={project.id} value={project.id}>{project.code} — {project.name}</option>
-              ))}
+              {projects
+                .filter((project) => project.isActive)
+                .map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.code} — {project.name}
+                  </option>
+                ))}
             </select>
 
             {/* Checkbox quá hạn */}
@@ -340,10 +418,18 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
 
         {/* Quick summary line */}
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500 pt-1 border-t border-slate-100">
-          <span>Tổng số: <strong className="text-gray-800">{tasks.length}</strong> công việc</span>
-          <span>Chờ duyệt: <strong className="text-amber-700">{pendingCount}</strong></span>
-          <span>Quá hạn: <strong className="text-red-600">{overdueCount}</strong></span>
-          {viewMode === 'board' && (
+          <span>
+            Tổng số: <strong className="text-gray-800">{tasks.length}</strong>{" "}
+            công việc
+          </span>
+          <span>
+            Chờ duyệt:{" "}
+            <strong className="text-amber-700">{pendingCount}</strong>
+          </span>
+          <span>
+            Quá hạn: <strong className="text-red-600">{overdueCount}</strong>
+          </span>
+          {viewMode === "board" && (
             <span className="basis-full text-slate-400 sm:ml-auto sm:basis-auto">
               Mở một thẻ để cập nhật tiến độ, bình luận và @nhắc tên.
             </span>
@@ -358,26 +444,35 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
         ) : tasks.length === 0 ? (
           <div className="p-12 text-center space-y-3">
             <span className="text-4xl">📋</span>
-            <h4 className="text-base font-bold text-gray-800">Không tìm thấy công việc phù hợp</h4>
+            <h4 className="text-base font-bold text-gray-800">
+              Không tìm thấy công việc phù hợp
+            </h4>
             <p className="text-xs text-gray-500 max-w-sm mx-auto">
-              Không có đầu việc nào thuộc bộ lọc hiện tại. Bạn có thể giao việc mới hoặc đổi tiêu chí tìm kiếm.
+              Không có đầu việc nào thuộc bộ lọc hiện tại. Bạn có thể giao việc
+              mới hoặc đổi tiêu chí tìm kiếm.
             </p>
           </div>
-        ) : viewMode === 'board' ? (
+        ) : viewMode === "board" ? (
           <div className="p-3 sm:p-4 md:mobile-scroll md:overflow-x-auto">
             <div className="grid grid-cols-1 gap-3 md:min-w-[1040px] md:grid-cols-4 xl:min-w-0">
               {boardColumns.map((column) => {
-                const columnTasks = tasks.filter((task) => task.status === column.status);
+                const columnTasks = tasks.filter(
+                  (task) => task.status === column.status,
+                );
 
                 return (
                   <section
                     key={column.status}
-                    className={`${columnTasks.length === 0 ? 'hidden md:block' : ''} min-h-0 rounded-2xl border border-slate-200 border-t-4 ${column.accent} bg-slate-50/80 p-3 md:min-h-[360px]`}
+                    className={`${columnTasks.length === 0 ? "hidden md:block" : ""} min-h-0 rounded-2xl border border-slate-200 border-t-4 ${column.accent} bg-slate-50/80 p-3 md:min-h-[360px]`}
                   >
                     <div className="mb-3 flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
-                        <span className={`h-2.5 w-2.5 rounded-full ${column.dot}`} />
-                        <h3 className="text-sm font-bold text-slate-800">{column.label}</h3>
+                        <span
+                          className={`h-2.5 w-2.5 rounded-full ${column.dot}`}
+                        />
+                        <h3 className="text-sm font-bold text-slate-800">
+                          {column.label}
+                        </h3>
                       </div>
                       <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-bold text-slate-500 shadow-sm">
                         {columnTasks.length}
@@ -401,8 +496,11 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
                               <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] font-bold text-slate-600">
                                 {task.code}
                               </span>
-                              <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${TASK_PRIORITY_LABELS[task.priority]?.color || 'bg-gray-100'}`}>
-                                {TASK_PRIORITY_LABELS[task.priority]?.label || task.priority}
+                              <span
+                                className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${TASK_PRIORITY_LABELS[task.priority]?.color || "bg-gray-100"}`}
+                              >
+                                {TASK_PRIORITY_LABELS[task.priority]?.label ||
+                                  task.priority}
                               </span>
                             </div>
 
@@ -411,27 +509,43 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
                             </span>
 
                             {task.tags && (
-                              <span className="mt-1 block truncate text-[10px] text-slate-400">🏷️ {task.tags}</span>
+                              <span className="mt-1 block truncate text-[10px] text-slate-400">
+                                🏷️ {task.tags}
+                              </span>
                             )}
 
                             <div className="mt-3 flex items-center justify-between gap-2 text-[11px] text-slate-500">
                               <span className="min-w-0 truncate font-semibold text-slate-700">
-                                👤 {task.assignee?.name || 'Chưa giao'}
+                                👤{" "}
+                                <UserNameButton
+                                  user={task.assignee}
+                                  fallback="Chưa giao"
+                                />
                               </span>
-                              <span className={task.isOverdue ? 'font-bold text-red-600' : ''}>
-                                {task.dueDate ? new Date(task.dueDate).toLocaleDateString('vi-VN') : 'Không hạn'}
+                              <span
+                                className={
+                                  task.isOverdue ? "font-bold text-red-600" : ""
+                                }
+                              >
+                                {task.dueDate
+                                  ? new Date(task.dueDate).toLocaleDateString(
+                                      "vi-VN",
+                                    )
+                                  : "Không hạn"}
                               </span>
                             </div>
 
                             <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200">
                               <span
-                                className={`block h-full rounded-full ${task.progressPercent === 100 ? 'bg-emerald-500' : 'bg-blue-500'}`}
+                                className={`block h-full rounded-full ${task.progressPercent === 100 ? "bg-emerald-500" : "bg-blue-500"}`}
                                 style={{ width: `${task.progressPercent}%` }}
                               />
                             </div>
                             <div className="mt-1 flex items-center justify-between text-[10px] font-semibold text-slate-400">
                               <span>{task.progressPercent}% hoàn thành</span>
-                              <span className="text-blue-600">Mở trao đổi →</span>
+                              <span className="text-blue-600">
+                                Mở trao đổi →
+                              </span>
                             </div>
                           </button>
                         ))
@@ -444,281 +558,365 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
           </div>
         ) : (
           <>
-          <div className="space-y-3 p-3 md:hidden">
-            {tasks.map((t) => {
-              const hasSub = Boolean(t.subTasks?.length);
-              const isExpanded = expandedTaskIds.includes(t.id);
-              return (
-                <article key={t.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[11px] font-bold text-slate-700">{t.code}</span>
-                      {t.recurrenceRule && <span className="text-xs text-blue-600">🔄</span>}
-                      {t.isOverdue && <span className="rounded bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">Quá hạn</span>}
-                    </div>
-                    <span className={`rounded-lg px-2 py-1 text-[11px] font-bold ${TASK_STATUS_LABELS[t.status]?.color || 'bg-gray-100'}`}>
-                      {t.status}
-                    </span>
-                  </div>
-
-                  <button type="button" onClick={() => onSelectTask(t)} className="mt-3 block w-full break-words text-left text-sm font-bold leading-snug text-gray-900">
-                    {t.title}
-                  </button>
-
-                  <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
-                    <div className="min-w-0">
-                      <span className="block text-[10px] font-bold uppercase text-gray-400">Người thực hiện</span>
-                      <span className="block truncate font-semibold text-gray-800">{t.assignee?.name || 'Chưa giao'}</span>
-                    </div>
-                    <div className="text-right">
-                      <span className="block text-[10px] font-bold uppercase text-gray-400">Hạn hoàn thành</span>
-                      <span className={`font-semibold ${t.isOverdue ? 'text-red-600' : 'text-gray-700'}`}>
-                        {t.dueDate ? new Date(t.dueDate).toLocaleDateString('vi-VN') : '—'}
+            <div className="space-y-3 p-3 md:hidden">
+              {tasks.map((t) => {
+                const hasSub = Boolean(t.subTasks?.length);
+                const isExpanded = expandedTaskIds.includes(t.id);
+                return (
+                  <article
+                    key={t.id}
+                    className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[11px] font-bold text-slate-700">
+                          {t.code}
+                        </span>
+                        {t.recurrenceRule && (
+                          <span className="text-xs text-blue-600">🔄</span>
+                        )}
+                        {t.isOverdue && (
+                          <span className="rounded bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                            Quá hạn
+                          </span>
+                        )}
+                      </div>
+                      <span
+                        className={`rounded-lg px-2 py-1 text-[11px] font-bold ${TASK_STATUS_LABELS[t.status]?.color || "bg-gray-100"}`}
+                      >
+                        {t.status}
                       </span>
                     </div>
-                  </div>
 
-                  <div className="mt-3">
-                    <div className="mb-1 flex items-center justify-between text-[11px] font-bold text-gray-600">
-                      <span className={`rounded px-2 py-0.5 ${TASK_PRIORITY_LABELS[t.priority]?.color || 'bg-gray-100'}`}>
-                        {TASK_PRIORITY_LABELS[t.priority]?.label || t.priority}
-                      </span>
-                      <span>{t.progressPercent}%</span>
-                    </div>
-                    <div className="h-2 overflow-hidden rounded-full bg-slate-200">
-                      <div className={`h-full rounded-full ${t.progressPercent === 100 ? 'bg-emerald-500' : 'bg-[#0A66C2]'}`} style={{ width: `${t.progressPercent}%` }} />
-                    </div>
-                  </div>
-
-                  <div className="mt-4 flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
-                    {hasSub ? (
-                      <button type="button" onClick={() => toggleExpand(t.id)} className="text-xs font-semibold text-gray-600">
-                        {isExpanded ? 'Ẩn việc con ▲' : `${t.subTasks?.length} việc con ▼`}
-                      </button>
-                    ) : <span />}
-                    <button type="button" onClick={() => onSelectTask(t)} className="rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-bold text-[#0A66C2]">
-                      Xem chi tiết
+                    <button
+                      type="button"
+                      onClick={() => onSelectTask(t)}
+                      className="mt-3 block w-full break-words text-left text-sm font-bold leading-snug text-gray-900"
+                    >
+                      {t.title}
                     </button>
-                  </div>
 
-                  {hasSub && isExpanded && (
-                    <div className="mt-3 space-y-2 border-l-2 border-blue-200 pl-3">
-                      {t.subTasks?.map((st) => (
-                        <div key={st.id} className="block w-full rounded-xl bg-slate-50 p-3 text-left">
-                          <span className="font-mono text-[10px] font-bold text-slate-500">{st.code}</span>
-                          <span className="mt-0.5 block break-words text-xs font-semibold text-gray-800">{st.title}</span>
-                          <span className="mt-1 flex items-center justify-between text-[10px] text-gray-500">
-                            <span>{st.assignee?.name || 'Chưa gán'}</span>
-                            <strong className="text-blue-700">{st.progressPercent}%</strong>
-                          </span>
-                        </div>
-                      ))}
+                    <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
+                      <div className="min-w-0">
+                        <span className="block text-[10px] font-bold uppercase text-gray-400">
+                          Người thực hiện
+                        </span>
+                        <span className="block truncate">
+                          <UserNameButton
+                            user={t.assignee}
+                            fallback="Chưa giao"
+                          />
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <span className="block text-[10px] font-bold uppercase text-gray-400">
+                          Hạn hoàn thành
+                        </span>
+                        <span
+                          className={`font-semibold ${t.isOverdue ? "text-red-600" : "text-gray-700"}`}
+                        >
+                          {t.dueDate
+                            ? new Date(t.dueDate).toLocaleDateString("vi-VN")
+                            : "—"}
+                        </span>
+                      </div>
                     </div>
-                  )}
-                </article>
-              );
-            })}
-          </div>
-          <div className="mobile-scroll hidden overflow-x-auto md:block">
-            <table className="min-w-[1050px] w-full text-left text-xs">
-              <thead className="bg-slate-50 border-b border-slate-200/70 text-gray-500 font-semibold uppercase tracking-wider text-[11px]">
-                <tr>
-                  <th className="py-3 px-4 w-10"></th>
-                  <th className="py-3 px-4">Mã & Tiêu đề</th>
-                  <th className="py-3 px-4">Người thực hiện</th>
-                  <th className="py-3 px-4">Hạn hoàn thành</th>
-                  <th className="py-3 px-4">Ưu tiên</th>
-                  <th className="py-3 px-4 w-40">Tiến độ</th>
-                  <th className="py-3 px-4">Trạng thái</th>
-                  <th className="py-3 px-4 text-right">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {tasks.map((t) => {
-                  const hasSub = t.subTasks && t.subTasks.length > 0;
-                  const isExpanded = expandedTaskIds.includes(t.id);
 
-                  return (
-                    <React.Fragment key={t.id}>
-                      <tr className="hover:bg-slate-50/80 transition-colors">
-                        {/* Expand toggle */}
-                        <td className="py-3.5 px-4 text-center">
-                          {hasSub ? (
-                            <button
-                              onClick={() => toggleExpand(t.id)}
-                              className="w-5 h-5 rounded hover:bg-slate-200 text-gray-500 flex items-center justify-center font-bold text-xs"
-                            >
-                              {isExpanded ? '▼' : '▶'}
-                            </button>
-                          ) : (
-                            <span className="text-gray-300">•</span>
-                          )}
-                        </td>
+                    <div className="mt-3">
+                      <div className="mb-1 flex items-center justify-between text-[11px] font-bold text-gray-600">
+                        <span
+                          className={`rounded px-2 py-0.5 ${TASK_PRIORITY_LABELS[t.priority]?.color || "bg-gray-100"}`}
+                        >
+                          {TASK_PRIORITY_LABELS[t.priority]?.label ||
+                            t.priority}
+                        </span>
+                        <span>{t.progressPercent}%</span>
+                      </div>
+                      <div className="h-2 overflow-hidden rounded-full bg-slate-200">
+                        <div
+                          className={`h-full rounded-full ${t.progressPercent === 100 ? "bg-emerald-500" : "bg-[#0A66C2]"}`}
+                          style={{ width: `${t.progressPercent}%` }}
+                        />
+                      </div>
+                    </div>
 
-                        {/* Code & Title */}
-                        <td className="py-3.5 px-4">
-                          <div className="flex items-center space-x-2">
-                            <span className="font-mono font-bold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded text-[11px]">
-                              {t.code}
+                    <div className="mt-4 flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
+                      {hasSub ? (
+                        <button
+                          type="button"
+                          onClick={() => toggleExpand(t.id)}
+                          className="text-xs font-semibold text-gray-600"
+                        >
+                          {isExpanded
+                            ? "Ẩn việc con ▲"
+                            : `${t.subTasks?.length} việc con ▼`}
+                        </button>
+                      ) : (
+                        <span />
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => onSelectTask(t)}
+                        className="rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-bold text-[#0A66C2]"
+                      >
+                        Xem chi tiết
+                      </button>
+                    </div>
+
+                    {hasSub && isExpanded && (
+                      <div className="mt-3 space-y-2 border-l-2 border-blue-200 pl-3">
+                        {t.subTasks?.map((st) => (
+                          <div
+                            key={st.id}
+                            className="block w-full rounded-xl bg-slate-50 p-3 text-left"
+                          >
+                            <span className="font-mono text-[10px] font-bold text-slate-500">
+                              {st.code}
                             </span>
-                            {t.recurrenceRule && (
-                              <span className="text-blue-600 font-bold text-xs" title={`Lặp lại: ${t.recurrenceRule}`}>
-                                🔄
+                            <span className="mt-0.5 block break-words text-xs font-semibold text-gray-800">
+                              {st.title}
+                            </span>
+                            <span className="mt-1 flex items-center justify-between text-[10px] text-gray-500">
+                              <span>
+                                <UserNameButton
+                                  user={st.assignee}
+                                  fallback="Chưa gán"
+                                />
                               </span>
-                            )}
-                            {t.isOverdue && (
-                              <span className="bg-red-500 text-white font-bold text-[10px] px-1.5 py-0.5 rounded shadow-sm">
-                                Quá hạn
-                              </span>
-                            )}
+                              <strong className="text-blue-700">
+                                {st.progressPercent}%
+                              </strong>
+                            </span>
                           </div>
-                          <button
-                            onClick={() => onSelectTask(t)}
-                            className="text-left font-bold text-gray-900 hover:text-[#0A66C2] transition-colors mt-0.5 block"
-                          >
-                            {t.title}
-                          </button>
-                          {t.tags && (
-                            <span className="text-[10px] text-gray-400 mt-0.5 block">
-                              🏷️ {t.tags}
-                            </span>
-                          )}
-                        </td>
+                        ))}
+                      </div>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+            <div className="mobile-scroll hidden overflow-x-auto md:block">
+              <table className="min-w-[1050px] w-full text-left text-xs">
+                <thead className="bg-slate-50 border-b border-slate-200/70 text-gray-500 font-semibold uppercase tracking-wider text-[11px]">
+                  <tr>
+                    <th className="py-3 px-4 w-10"></th>
+                    <th className="py-3 px-4">Mã & Tiêu đề</th>
+                    <th className="py-3 px-4">Người thực hiện</th>
+                    <th className="py-3 px-4">Hạn hoàn thành</th>
+                    <th className="py-3 px-4">Ưu tiên</th>
+                    <th className="py-3 px-4 w-40">Tiến độ</th>
+                    <th className="py-3 px-4">Trạng thái</th>
+                    <th className="py-3 px-4 text-right">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {tasks.map((t) => {
+                    const hasSub = t.subTasks && t.subTasks.length > 0;
+                    const isExpanded = expandedTaskIds.includes(t.id);
 
-                        {/* Assignee */}
-                        <td className="py-3.5 px-4">
-                          <span className="font-semibold text-gray-800">
-                            {t.assignee?.name || <span className="text-gray-400 italic">Chưa giao</span>}
-                          </span>
-                          <span className="text-[10px] text-gray-400 block">
-                            Giao bởi: {t.createdBy?.name || '---'}
-                          </span>
-                        </td>
+                    return (
+                      <React.Fragment key={t.id}>
+                        <tr className="hover:bg-slate-50/80 transition-colors">
+                          {/* Expand toggle */}
+                          <td className="py-3.5 px-4 text-center">
+                            {hasSub ? (
+                              <button
+                                onClick={() => toggleExpand(t.id)}
+                                className="w-5 h-5 rounded hover:bg-slate-200 text-gray-500 flex items-center justify-center font-bold text-xs"
+                              >
+                                {isExpanded ? "▼" : "▶"}
+                              </button>
+                            ) : (
+                              <span className="text-gray-300">•</span>
+                            )}
+                          </td>
 
-                        {/* Due date */}
-                        <td className="py-3.5 px-4">
-                          <span
-                            className={`font-semibold ${
-                              t.isOverdue ? 'text-red-600 font-bold' : 'text-gray-700'
-                            }`}
-                          >
-                            {t.dueDate
-                              ? new Date(t.dueDate).toLocaleDateString('vi-VN')
-                              : '---'}
-                          </span>
-                        </td>
-
-                        {/* Priority */}
-                        <td className="py-3.5 px-4">
-                          <span
-                            className={`px-2 py-0.5 rounded text-[11px] font-bold ${
-                              TASK_PRIORITY_LABELS[t.priority]?.color || 'bg-gray-100'
-                            }`}
-                          >
-                            {TASK_PRIORITY_LABELS[t.priority]?.label || t.priority}
-                          </span>
-                        </td>
-
-                        {/* Progress */}
-                        <td className="py-3.5 px-4">
-                          <div className="space-y-1">
-                            <div className="flex justify-between text-[11px] font-bold text-slate-700">
-                              <span>{t.progressPercent}%</span>
-                              {hasSub && (
-                                <span className="text-[10px] text-gray-400 font-normal">
-                                  ({t.subTasks?.length} việc con)
+                          {/* Code & Title */}
+                          <td className="py-3.5 px-4">
+                            <div className="flex items-center space-x-2">
+                              <span className="font-mono font-bold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded text-[11px]">
+                                {t.code}
+                              </span>
+                              {t.recurrenceRule && (
+                                <span
+                                  className="text-blue-600 font-bold text-xs"
+                                  title={`Lặp lại: ${t.recurrenceRule}`}
+                                >
+                                  🔄
+                                </span>
+                              )}
+                              {t.isOverdue && (
+                                <span className="bg-red-500 text-white font-bold text-[10px] px-1.5 py-0.5 rounded shadow-sm">
+                                  Quá hạn
                                 </span>
                               )}
                             </div>
-                            <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
-                              <div
-                                className={`h-full rounded-full transition-all ${
-                                  t.progressPercent === 100
-                                    ? 'bg-emerald-500'
-                                    : 'bg-[#0A66C2]'
-                                }`}
-                                style={{ width: `${t.progressPercent}%` }}
+                            <button
+                              onClick={() => onSelectTask(t)}
+                              className="text-left font-bold text-gray-900 hover:text-[#0A66C2] transition-colors mt-0.5 block"
+                            >
+                              {t.title}
+                            </button>
+                            {t.tags && (
+                              <span className="text-[10px] text-gray-400 mt-0.5 block">
+                                🏷️ {t.tags}
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Assignee */}
+                          <td className="py-3.5 px-4">
+                            <span className="font-semibold text-gray-800">
+                              <UserNameButton
+                                user={t.assignee}
+                                fallback={
+                                  <span className="text-gray-400 italic">
+                                    Chưa giao
+                                  </span>
+                                }
                               />
-                            </div>
-                          </div>
-                        </td>
+                            </span>
+                            <span className="text-[10px] text-gray-400 block">
+                              Giao bởi: <UserNameButton user={t.createdBy} />
+                            </span>
+                          </td>
 
-                        {/* Status */}
-                        <td className="py-3.5 px-4">
-                          <span
-                            className={`px-2 py-1 rounded-lg text-[11px] font-bold ${
-                              TASK_STATUS_LABELS[t.status]?.color || 'bg-gray-100'
-                            }`}
-                          >
-                            {t.status}
-                          </span>
-                        </td>
+                          {/* Due date */}
+                          <td className="py-3.5 px-4">
+                            <span
+                              className={`font-semibold ${
+                                t.isOverdue
+                                  ? "text-red-600 font-bold"
+                                  : "text-gray-700"
+                              }`}
+                            >
+                              {t.dueDate
+                                ? new Date(t.dueDate).toLocaleDateString(
+                                    "vi-VN",
+                                  )
+                                : "---"}
+                            </span>
+                          </td>
 
-                        {/* Action */}
-                        <td className="py-3.5 px-4 text-right">
-                          <button
-                            onClick={() => onSelectTask(t)}
-                            className="px-2.5 py-1.5 bg-blue-50 text-[#0A66C2] hover:bg-blue-100 font-bold rounded-lg text-xs transition-colors"
-                          >
-                            Xem chi tiết
-                          </button>
-                        </td>
-                      </tr>
+                          {/* Priority */}
+                          <td className="py-3.5 px-4">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                                TASK_PRIORITY_LABELS[t.priority]?.color ||
+                                "bg-gray-100"
+                              }`}
+                            >
+                              {TASK_PRIORITY_LABELS[t.priority]?.label ||
+                                t.priority}
+                            </span>
+                          </td>
 
-                      {/* Render nested subtasks row if expanded */}
-                      {hasSub && isExpanded && (
-                        <tr className="bg-slate-50/60">
-                          <td colSpan={8} className="p-4 pl-12">
-                            <div className="space-y-2 border-l-2 border-blue-300 pl-4">
-                              <div className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
-                                Các việc con trực thuộc ({t.subTasks?.length}):
+                          {/* Progress */}
+                          <td className="py-3.5 px-4">
+                            <div className="space-y-1">
+                              <div className="flex justify-between text-[11px] font-bold text-slate-700">
+                                <span>{t.progressPercent}%</span>
+                                {hasSub && (
+                                  <span className="text-[10px] text-gray-400 font-normal">
+                                    ({t.subTasks?.length} việc con)
+                                  </span>
+                                )}
                               </div>
-                              {t.subTasks?.map((st) => (
+                              <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
                                 <div
-                                  key={st.id}
-                                  className="p-2.5 bg-white border border-slate-200 rounded-xl flex items-center justify-between text-xs"
-                                >
-                                  <div className="flex items-center space-x-2">
-                                    <span className="font-mono font-bold text-slate-600 text-[10px]">
-                                      {st.code}
-                                    </span>
-                                    <span className="font-semibold text-gray-800">
-                                      {st.title}
-                                    </span>
-                                    {st.isOverdue && (
-                                      <span className="bg-red-500 text-white font-bold text-[9px] px-1.5 py-0.2 rounded">
-                                        Quá hạn
-                                      </span>
-                                    )}
-                                  </div>
-
-                                  <div className="flex items-center space-x-4">
-                                    <span className="text-gray-500">
-                                      {st.assignee?.name || 'Chưa gán'}
-                                    </span>
-                                    <span className="font-bold text-blue-700">
-                                      {st.progressPercent}%
-                                    </span>
-                                    <span
-                                      className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                                        TASK_STATUS_LABELS[st.status]?.color || 'bg-gray-100'
-                                      }`}
-                                    >
-                                      {st.status}
-                                    </span>
-                                  </div>
-                                </div>
-                              ))}
+                                  className={`h-full rounded-full transition-all ${
+                                    t.progressPercent === 100
+                                      ? "bg-emerald-500"
+                                      : "bg-[#0A66C2]"
+                                  }`}
+                                  style={{ width: `${t.progressPercent}%` }}
+                                />
+                              </div>
                             </div>
                           </td>
+
+                          {/* Status */}
+                          <td className="py-3.5 px-4">
+                            <span
+                              className={`px-2 py-1 rounded-lg text-[11px] font-bold ${
+                                TASK_STATUS_LABELS[t.status]?.color ||
+                                "bg-gray-100"
+                              }`}
+                            >
+                              {t.status}
+                            </span>
+                          </td>
+
+                          {/* Action */}
+                          <td className="py-3.5 px-4 text-right">
+                            <button
+                              onClick={() => onSelectTask(t)}
+                              className="px-2.5 py-1.5 bg-blue-50 text-[#0A66C2] hover:bg-blue-100 font-bold rounded-lg text-xs transition-colors"
+                            >
+                              Xem chi tiết
+                            </button>
+                          </td>
                         </tr>
-                      )}
-                    </React.Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+
+                        {/* Render nested subtasks row if expanded */}
+                        {hasSub && isExpanded && (
+                          <tr className="bg-slate-50/60">
+                            <td colSpan={8} className="p-4 pl-12">
+                              <div className="space-y-2 border-l-2 border-blue-300 pl-4">
+                                <div className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                                  Các việc con trực thuộc ({t.subTasks?.length}
+                                  ):
+                                </div>
+                                {t.subTasks?.map((st) => (
+                                  <div
+                                    key={st.id}
+                                    className="p-2.5 bg-white border border-slate-200 rounded-xl flex items-center justify-between text-xs"
+                                  >
+                                    <div className="flex items-center space-x-2">
+                                      <span className="font-mono font-bold text-slate-600 text-[10px]">
+                                        {st.code}
+                                      </span>
+                                      <span className="font-semibold text-gray-800">
+                                        {st.title}
+                                      </span>
+                                      {st.isOverdue && (
+                                        <span className="bg-red-500 text-white font-bold text-[9px] px-1.5 py-0.2 rounded">
+                                          Quá hạn
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    <div className="flex items-center space-x-4">
+                                      <span className="text-gray-500">
+                                        <UserNameButton
+                                          user={st.assignee}
+                                          fallback="Chưa gán"
+                                        />
+                                      </span>
+                                      <span className="font-bold text-blue-700">
+                                        {st.progressPercent}%
+                                      </span>
+                                      <span
+                                        className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                          TASK_STATUS_LABELS[st.status]
+                                            ?.color || "bg-gray-100"
+                                        }`}
+                                      >
+                                        {st.status}
+                                      </span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </>
         )}
       </div>

@@ -1,11 +1,18 @@
-import React, { useState, useEffect } from 'react';
-import { type AdminUser, type RoleItem, type ProjectItem, ROLE_LABELS, DOCUMENT_TYPE_LABELS } from '../types';
-import { fetchWithSession } from '../api/client';
+import React, { useState, useEffect } from "react";
+import {
+  type AdminUser,
+  type RoleItem,
+  type ProjectItem,
+  ROLE_LABELS,
+  DOCUMENT_TYPE_LABELS,
+} from "../types";
+import { fetchWithSession } from "../api/client";
+import { UserNameButton } from "./UserNameButton";
 
 interface AdminUserViewProps {
   apiBaseUrl: string;
   currentUser: any;
-  showToast: (message: string, type?: 'success' | 'error') => void;
+  showToast: (message: string, type?: "success" | "error") => void;
 }
 
 interface StuckTask {
@@ -38,14 +45,16 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
   showToast,
 }) => {
   // Main view tabs: 'users' or 'stuck_data'
-  const [activeSubTab, setActiveSubTab] = useState<'users' | 'stuck_data'>('users');
+  const [activeSubTab, setActiveSubTab] = useState<"users" | "stuck_data">(
+    "users",
+  );
 
   // Users & Meta State
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [roles, setRoles] = useState<RoleItem[]>([]);
   const [projects, setProjects] = useState<ProjectItem[]>([]);
-  const [search, setSearch] = useState<string>('');
-  const [projectFilter, setProjectFilter] = useState<string>('all');
+  const [search, setSearch] = useState<string>("");
+  const [projectFilter, setProjectFilter] = useState<string>("all");
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [renderedAt] = useState(() => Date.now());
 
@@ -53,35 +62,41 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
   const [stuckTasks, setStuckTasks] = useState<StuckTask[]>([]);
   const [stuckDocs, setStuckDocs] = useState<StuckDocument[]>([]);
   const [isLoadingStuck, setIsLoadingStuck] = useState<boolean>(false);
-  const [stuckSearch, setStuckSearch] = useState<string>('');
+  const [stuckSearch, setStuckSearch] = useState<string>("");
 
   // Add User Modal State
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
-  const [newName, setNewName] = useState<string>('');
-  const [newEmail, setNewEmail] = useState<string>('');
-  const [newPassword, setNewPassword] = useState<string>('Hve@2026');
+  const [newName, setNewName] = useState<string>("");
+  const [newEmail, setNewEmail] = useState<string>("");
+  const [newPassword, setNewPassword] = useState<string>("Hve@2026");
   const [newProjectIds, setNewProjectIds] = useState<number[]>([]);
+  const [newProjectPositions, setNewProjectPositions] = useState<
+    Record<number, string>
+  >({});
   const [newRoleIds, setNewRoleIds] = useState<number[]>([1]); // default employee
   const [isCreatingUser, setIsCreatingUser] = useState<boolean>(false);
 
   // Edit User Modal State
   const [editUser, setEditUser] = useState<AdminUser | null>(null);
-  const [editName, setEditName] = useState<string>('');
-  const [editEmail, setEditEmail] = useState<string>('');
+  const [editName, setEditName] = useState<string>("");
+  const [editEmail, setEditEmail] = useState<string>("");
   const [editRoleIds, setEditRoleIds] = useState<number[]>([]);
   const [editProjectIds, setEditProjectIds] = useState<number[]>([]);
-  const [editDelegateToUserId, setEditDelegateToUserId] = useState<string>('');
-  const [editDelegateUntil, setEditDelegateUntil] = useState<string>('');
+  const [editProjectPositions, setEditProjectPositions] = useState<
+    Record<number, string>
+  >({});
+  const [editDelegateToUserId, setEditDelegateToUserId] = useState<string>("");
+  const [editDelegateUntil, setEditDelegateUntil] = useState<string>("");
   const [isSavingUser, setIsSavingUser] = useState<boolean>(false);
 
   // Reset Password Modal State
   const [resetUser, setResetUser] = useState<AdminUser | null>(null);
-  const [resetNewPassword, setResetNewPassword] = useState<string>('Hve@2026');
+  const [resetNewPassword, setResetNewPassword] = useState<string>("Hve@2026");
   const [isResetting, setIsResetting] = useState<boolean>(false);
 
   // Delete Confirmation Modal State (for Task or Document)
   const [deleteTarget, setDeleteTarget] = useState<{
-    type: 'task' | 'document';
+    type: "task" | "document";
     id: number;
     code: string;
     title: string;
@@ -89,23 +104,59 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
 
   const DEFAULT_ROLES: RoleItem[] = [
-    { id: 1, name: 'employee', description: 'Nhân viên - Lập hồ sơ và thực hiện công việc' },
-    { id: 2, name: 'department_head', description: 'Trưởng Ban / Trưởng dự án - tự động đồng bộ từ dự án phụ trách' },
-    { id: 3, name: 'accountant', description: 'Kế toán - Rà soát hóa đơn, duyệt chi và ngân sách' },
-    { id: 4, name: 'legal', description: 'Pháp chế - Thẩm định hợp đồng kinh tế và pháp lý' },
-    { id: 5, name: 'ceo', description: 'Chủ tịch / CEO - Phê duyệt cấp cao nhất toàn công ty' },
-    { id: 6, name: 'it_admin', description: 'Quản trị IT - Cấu hình hệ thống & Quản lý phân quyền' },
-    { id: 7, name: 'bgd', description: 'Ban Giám Đốc - Xem toàn bộ dữ liệu công ty, không thực thi lệnh' },
+    {
+      id: 1,
+      name: "employee",
+      description: "Nhân viên - Lập hồ sơ và thực hiện công việc",
+    },
+    {
+      id: 2,
+      name: "department_head",
+      description:
+        "Trưởng Ban / Trưởng dự án - tự động đồng bộ từ dự án phụ trách",
+    },
+    {
+      id: 3,
+      name: "accountant",
+      description: "Kế toán - Rà soát hóa đơn, duyệt chi và ngân sách",
+    },
+    {
+      id: 4,
+      name: "legal",
+      description: "Pháp chế - Thẩm định hợp đồng kinh tế và pháp lý",
+    },
+    {
+      id: 5,
+      name: "ceo",
+      description: "Chủ tịch / CEO - Phê duyệt cấp cao nhất toàn công ty",
+    },
+    {
+      id: 6,
+      name: "it_admin",
+      description: "Quản trị IT - Cấu hình hệ thống & Quản lý phân quyền",
+    },
+    {
+      id: 7,
+      name: "bgd",
+      description:
+        "Ban Giám Đốc - Xem toàn bộ dữ liệu công ty, không thực thi lệnh",
+    },
   ];
 
   const fetchUsersAndMeta = async () => {
     setIsLoading(true);
-    const token = localStorage.getItem('access_token');
+    const token = localStorage.getItem("access_token");
     try {
       const [uRes, rRes, pRes] = await Promise.all([
-        fetchWithSession(`${apiBaseUrl}/admin/users`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetchWithSession(`${apiBaseUrl}/admin/roles`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetchWithSession(`${apiBaseUrl}/projects/admin`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetchWithSession(`${apiBaseUrl}/admin/users`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetchWithSession(`${apiBaseUrl}/admin/roles`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetchWithSession(`${apiBaseUrl}/projects/admin`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
       ]);
 
       if (uRes.ok && rRes.ok) {
@@ -126,7 +177,7 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
 
   const fetchStuckData = async () => {
     setIsLoadingStuck(true);
-    const token = localStorage.getItem('access_token');
+    const token = localStorage.getItem("access_token");
     try {
       const res = await fetchWithSession(`${apiBaseUrl}/admin/stuck-data`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -137,7 +188,7 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
         setStuckDocs(data.documents || []);
       }
     } catch {
-      showToast('Không thể tải dữ liệu hệ thống', 'error');
+      showToast("Không thể tải dữ liệu hệ thống", "error");
     } finally {
       setIsLoadingStuck(false);
     }
@@ -148,45 +199,55 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
   }, []);
 
   useEffect(() => {
-    if (activeSubTab === 'stuck_data') {
+    if (activeSubTab === "stuck_data") {
       fetchStuckData();
     }
   }, [activeSubTab]);
 
   // Toggle user status (lock/unlock)
   const handleToggleStatus = async (user: AdminUser) => {
-    if (user.id === currentUser?.id && user.status === 'active') {
-      showToast('Quy định an toàn: Bạn không được tự khóa tài khoản của chính mình', 'error');
+    if (user.id === currentUser?.id && user.status === "active") {
+      showToast(
+        "Quy định an toàn: Bạn không được tự khóa tài khoản của chính mình",
+        "error",
+      );
       return;
     }
 
-    const nextStatus = user.status === 'active' ? 'locked' : 'active';
-    const token = localStorage.getItem('access_token');
+    const nextStatus = user.status === "active" ? "locked" : "active";
+    const token = localStorage.getItem("access_token");
 
     try {
-      const res = await fetchWithSession(`${apiBaseUrl}/admin/users/${user.id}/status`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+      const res = await fetchWithSession(
+        `${apiBaseUrl}/admin/users/${user.id}/status`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ status: nextStatus }),
         },
-        body: JSON.stringify({ status: nextStatus }),
-      });
+      );
 
       if (res.ok) {
         showToast(
-          nextStatus === 'locked'
+          nextStatus === "locked"
             ? `Đã khóa tài khoản ${user.email}`
             : `Đã mở khóa tài khoản ${user.email}`,
-          'success',
+          "success",
         );
-        setUsers(users.map((u) => (u.id === user.id ? { ...u, status: nextStatus } : u)));
+        setUsers(
+          users.map((u) =>
+            u.id === user.id ? { ...u, status: nextStatus } : u,
+          ),
+        );
       } else {
         const err = await res.json();
-        showToast(err.message || 'Lỗi cập nhật trạng thái', 'error');
+        showToast(err.message || "Lỗi cập nhật trạng thái", "error");
       }
     } catch {
-      showToast('Lỗi kết nối máy chủ', 'error');
+      showToast("Lỗi kết nối máy chủ", "error");
     }
   };
 
@@ -194,49 +255,56 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newName.trim() || !newEmail.trim()) {
-      showToast('Vui lòng điền đầy đủ họ tên và email', 'error');
+      showToast("Vui lòng điền đầy đủ họ tên và email", "error");
       return;
     }
     if (newRoleIds.length === 0) {
-      showToast('Vui lòng chọn ít nhất 1 vai trò cho người dùng', 'error');
+      showToast("Vui lòng chọn ít nhất 1 vai trò cho người dùng", "error");
       return;
     }
 
     setIsCreatingUser(true);
-    const token = localStorage.getItem('access_token');
+    const token = localStorage.getItem("access_token");
 
     try {
       const res = await fetchWithSession(`${apiBaseUrl}/admin/users`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           name: newName.trim(),
           email: newEmail.trim().toLowerCase(),
-          password: newPassword || 'Hve@2026',
+          password: newPassword || "Hve@2026",
           projectIds: newProjectIds,
+          projectPositions: Object.fromEntries(
+            newProjectIds.map((id) => [
+              String(id),
+              newProjectPositions[id]?.trim() || "",
+            ]),
+          ),
           roleIds: newRoleIds,
         }),
       });
 
       if (res.ok) {
         const created = await res.json();
-        showToast(`Đã thêm thành công người dùng ${created.name}`, 'success');
+        showToast(`Đã thêm thành công người dùng ${created.name}`, "success");
         await fetchUsersAndMeta();
         setIsAddModalOpen(false);
-        setNewName('');
-        setNewEmail('');
-        setNewPassword('Hve@2026');
+        setNewName("");
+        setNewEmail("");
+        setNewPassword("Hve@2026");
         setNewProjectIds([]);
+        setNewProjectPositions({});
         setNewRoleIds([1]);
       } else {
         const err = await res.json();
-        showToast(err.message || 'Lỗi khi tạo người dùng', 'error');
+        showToast(err.message || "Lỗi khi tạo người dùng", "error");
       }
     } catch {
-      showToast('Lỗi kết nối máy chủ', 'error');
+      showToast("Lỗi kết nối máy chủ", "error");
     } finally {
       setIsCreatingUser(false);
     }
@@ -251,15 +319,27 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
     setEditProjectIds([
       ...new Set((user.projectMemberships || []).map((m) => m.project.id)),
     ]);
-    setEditDelegateToUserId(user.delegateToUserId ? String(user.delegateToUserId) : '');
-    setEditDelegateUntil(user.delegateUntil ? user.delegateUntil.slice(0, 10) : '');
+    setEditProjectPositions(
+      Object.fromEntries(
+        (user.projectMemberships || []).map((membership) => [
+          membership.project.id,
+          membership.position || "",
+        ]),
+      ),
+    );
+    setEditDelegateToUserId(
+      user.delegateToUserId ? String(user.delegateToUserId) : "",
+    );
+    setEditDelegateUntil(
+      user.delegateUntil ? user.delegateUntil.slice(0, 10) : "",
+    );
   };
 
   // Toggle Role Checkbox in Edit Modal
   const handleToggleEditRole = (roleId: number) => {
     if (editRoleIds.includes(roleId)) {
       if (editRoleIds.length <= 1) {
-        showToast('Người dùng phải có tối thiểu 1 vai trò', 'error');
+        showToast("Người dùng phải có tối thiểu 1 vai trò", "error");
         return;
       }
       setEditRoleIds(editRoleIds.filter((id) => id !== roleId));
@@ -272,56 +352,67 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
   const handleSaveEdit = async () => {
     if (!editUser) return;
     if (!editName.trim() || !editEmail.trim()) {
-      showToast('Họ tên và email không được để trống', 'error');
+      showToast("Họ tên và email không được để trống", "error");
       return;
     }
     if (editRoleIds.length === 0) {
-      showToast('Phải chọn ít nhất 1 vai trò', 'error');
+      showToast("Phải chọn ít nhất 1 vai trò", "error");
       return;
     }
     if (editDelegateToUserId && !editDelegateUntil) {
-      showToast('Vui lòng chọn ngày hết hạn ủy quyền', 'error');
+      showToast("Vui lòng chọn ngày hết hạn ủy quyền", "error");
       return;
     }
 
     setIsSavingUser(true);
-    const token = localStorage.getItem('access_token');
+    const token = localStorage.getItem("access_token");
 
     try {
-      const res = await fetchWithSession(`${apiBaseUrl}/admin/users/${editUser.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+      const res = await fetchWithSession(
+        `${apiBaseUrl}/admin/users/${editUser.id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            name: editName.trim(),
+            email: editEmail.trim().toLowerCase(),
+            roleIds: editRoleIds,
+            projectIds: editProjectIds,
+            projectPositions: Object.fromEntries(
+              editProjectIds.map((id) => [
+                String(id),
+                editProjectPositions[id]?.trim() || "",
+              ]),
+            ),
+          }),
         },
-        body: JSON.stringify({
-          name: editName.trim(),
-          email: editEmail.trim().toLowerCase(),
-          roleIds: editRoleIds,
-          projectIds: editProjectIds,
-        }),
-      });
+      );
 
       const updated = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(updated.message || 'Lỗi cập nhật thông tin');
+      if (!res.ok) throw new Error(updated.message || "Lỗi cập nhật thông tin");
 
       const delegationChanged =
-        String(editUser.delegateToUserId || '') !== editDelegateToUserId ||
-        (editUser.delegateUntil?.slice(0, 10) || '') !== editDelegateUntil;
+        String(editUser.delegateToUserId || "") !== editDelegateToUserId ||
+        (editUser.delegateUntil?.slice(0, 10) || "") !== editDelegateUntil;
       if (delegationChanged) {
         const delegationRes = await fetchWithSession(
           `${apiBaseUrl}/admin/users/${editUser.id}/delegate`,
           {
-            method: 'PUT',
+            method: "PUT",
             headers: {
-              'Content-Type': 'application/json',
+              "Content-Type": "application/json",
               Authorization: `Bearer ${token}`,
             },
             body: JSON.stringify(
               editDelegateToUserId
                 ? {
                     delegateToUserId: Number(editDelegateToUserId),
-                    delegateUntil: new Date(`${editDelegateUntil}T23:59:59`).toISOString(),
+                    delegateUntil: new Date(
+                      `${editDelegateUntil}T23:59:59`,
+                    ).toISOString(),
                   }
                 : { delegateToUserId: null, delegateUntil: null },
             ),
@@ -329,15 +420,17 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
         );
         const delegationBody = await delegationRes.json().catch(() => ({}));
         if (!delegationRes.ok) {
-          throw new Error(delegationBody.message || 'Không thể cập nhật ủy quyền duyệt');
+          throw new Error(
+            delegationBody.message || "Không thể cập nhật ủy quyền duyệt",
+          );
         }
       }
 
-      showToast(`Đã cập nhật thông tin cho ${updated.name}`, 'success');
+      showToast(`Đã cập nhật thông tin cho ${updated.name}`, "success");
       await fetchUsersAndMeta();
       setEditUser(null);
     } catch (error: any) {
-      showToast(error.message || 'Lỗi kết nối máy chủ', 'error');
+      showToast(error.message || "Lỗi kết nối máy chủ", "error");
     } finally {
       setIsSavingUser(false);
     }
@@ -347,31 +440,37 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
   const handleConfirmResetPassword = async () => {
     if (!resetUser) return;
     setIsResetting(true);
-    const token = localStorage.getItem('access_token');
+    const token = localStorage.getItem("access_token");
 
     try {
-      const res = await fetchWithSession(`${apiBaseUrl}/admin/users/${resetUser.id}/reset-password`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+      const res = await fetchWithSession(
+        `${apiBaseUrl}/admin/users/${resetUser.id}/reset-password`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            newPassword: resetNewPassword || "Hve@2026",
+          }),
         },
-        body: JSON.stringify({
-          newPassword: resetNewPassword || 'Hve@2026',
-        }),
-      });
+      );
 
       if (res.ok) {
         const data = await res.json();
-        showToast(data.message || `Đã đặt lại mật khẩu cho ${resetUser.name}`, 'success');
+        showToast(
+          data.message || `Đã đặt lại mật khẩu cho ${resetUser.name}`,
+          "success",
+        );
         setResetUser(null);
-        setResetNewPassword('Hve@2026');
+        setResetNewPassword("Hve@2026");
       } else {
         const err = await res.json();
-        showToast(err.message || 'Lỗi khi đặt lại mật khẩu', 'error');
+        showToast(err.message || "Lỗi khi đặt lại mật khẩu", "error");
       }
     } catch {
-      showToast('Lỗi kết nối máy chủ', 'error');
+      showToast("Lỗi kết nối máy chủ", "error");
     } finally {
       setIsResetting(false);
     }
@@ -381,23 +480,23 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
   const handleConfirmDelete = async () => {
     if (!deleteTarget) return;
     setIsDeleting(true);
-    const token = localStorage.getItem('access_token');
+    const token = localStorage.getItem("access_token");
 
     const url =
-      deleteTarget.type === 'task'
+      deleteTarget.type === "task"
         ? `${apiBaseUrl}/admin/tasks/${deleteTarget.id}`
         : `${apiBaseUrl}/admin/documents/${deleteTarget.id}`;
 
     try {
       const res = await fetchWithSession(url, {
-        method: 'DELETE',
+        method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
 
       if (res.ok) {
         const data = await res.json();
-        showToast(data.message || 'Đã xóa thành công', 'success');
-        if (deleteTarget.type === 'task') {
+        showToast(data.message || "Đã xóa thành công", "success");
+        if (deleteTarget.type === "task") {
           setStuckTasks(stuckTasks.filter((t) => t.id !== deleteTarget.id));
         } else {
           setStuckDocs(stuckDocs.filter((d) => d.id !== deleteTarget.id));
@@ -405,10 +504,10 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
         setDeleteTarget(null);
       } else {
         const err = await res.json();
-        showToast(err.message || 'Lỗi khi xóa dữ liệu', 'error');
+        showToast(err.message || "Lỗi khi xóa dữ liệu", "error");
       }
     } catch {
-      showToast('Lỗi kết nối máy chủ', 'error');
+      showToast("Lỗi kết nối máy chủ", "error");
     } finally {
       setIsDeleting(false);
     }
@@ -422,7 +521,8 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
       ...(u.ledProjects || []).map((p) => p.id),
       ...(u.projectMemberships || []).map((m) => m.project.id),
     ];
-    const matchProject = projectFilter === 'all' || userProjectIds.includes(Number(projectFilter));
+    const matchProject =
+      projectFilter === "all" || userProjectIds.includes(Number(projectFilter));
     return matchSearch && matchProject;
   });
 
@@ -430,14 +530,16 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
     (t) =>
       t.code.toLowerCase().includes(stuckSearch.toLowerCase()) ||
       t.title.toLowerCase().includes(stuckSearch.toLowerCase()) ||
-      (t.assignee?.name && t.assignee.name.toLowerCase().includes(stuckSearch.toLowerCase())),
+      (t.assignee?.name &&
+        t.assignee.name.toLowerCase().includes(stuckSearch.toLowerCase())),
   );
 
   const filteredStuckDocs = stuckDocs.filter(
     (d) =>
       d.code.toLowerCase().includes(stuckSearch.toLowerCase()) ||
       d.title.toLowerCase().includes(stuckSearch.toLowerCase()) ||
-      (d.createdBy?.name && d.createdBy.name.toLowerCase().includes(stuckSearch.toLowerCase())),
+      (d.createdBy?.name &&
+        d.createdBy.name.toLowerCase().includes(stuckSearch.toLowerCase())),
   );
 
   return (
@@ -452,7 +554,8 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                 Quản trị Hệ thống IT
               </h3>
               <p className="text-xs text-gray-500 mt-0.5">
-                Quyền hạn Trưởng phòng IT: Quản lý nhân sự, phân quyền, cấp lại mật khẩu và dọn dẹp dữ liệu treo
+                Quyền hạn Trưởng phòng IT: Quản lý nhân sự, phân quyền, cấp lại
+                mật khẩu và dọn dẹp dữ liệu treo
               </p>
             </div>
           </div>
@@ -461,21 +564,21 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
         {/* View Toggle Tabs */}
         <div className="grid w-full grid-cols-2 bg-slate-100 p-1 rounded-xl md:flex md:w-auto md:items-center md:space-x-1">
           <button
-            onClick={() => setActiveSubTab('users')}
+            onClick={() => setActiveSubTab("users")}
             className={`px-2 sm:px-4 py-2 rounded-lg text-[11px] sm:text-xs font-bold transition-all ${
-              activeSubTab === 'users'
-                ? 'bg-white text-[#0A66C2] shadow-xs'
-                : 'text-gray-600 hover:text-gray-900'
+              activeSubTab === "users"
+                ? "bg-white text-[#0A66C2] shadow-xs"
+                : "text-gray-600 hover:text-gray-900"
             }`}
           >
             👥 Quản lý Người dùng ({users.length})
           </button>
           <button
-            onClick={() => setActiveSubTab('stuck_data')}
+            onClick={() => setActiveSubTab("stuck_data")}
             className={`px-2 sm:px-4 py-2 rounded-lg text-[11px] sm:text-xs font-bold transition-all ${
-              activeSubTab === 'stuck_data'
-                ? 'bg-white text-red-600 shadow-xs'
-                : 'text-gray-600 hover:text-gray-900'
+              activeSubTab === "stuck_data"
+                ? "bg-white text-red-600 shadow-xs"
+                : "text-gray-600 hover:text-gray-900"
             }`}
           >
             🧹 Dữ liệu Bị Treo & Dọn dẹp
@@ -484,7 +587,7 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
       </div>
 
       {/* ===================== TAB 1: USERS MANAGEMENT ===================== */}
-      {activeSubTab === 'users' && (
+      {activeSubTab === "users" && (
         <div className="space-y-6">
           {/* Action Bar */}
           <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
@@ -515,7 +618,8 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
               onClick={() => setIsAddModalOpen(true)}
               className="inline-flex w-full items-center justify-center px-4 py-2 rounded-xl bg-[#0A66C2] text-white text-xs font-bold hover:bg-blue-700 shadow-sm transition-all md:w-auto"
             >
-              <span className="mr-1.5 text-base leading-none">➕</span> Thêm người dùng mới
+              <span className="mr-1.5 text-base leading-none">➕</span> Thêm
+              người dùng mới
             </button>
           </div>
 
@@ -536,33 +640,51 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                 <tbody className="divide-y divide-slate-100">
                   {isLoading ? (
                     <tr>
-                      <td colSpan={6} className="px-6 py-12 text-center text-sm text-gray-400">
+                      <td
+                        colSpan={6}
+                        className="px-6 py-12 text-center text-sm text-gray-400"
+                      >
                         Đang tải danh sách người dùng...
                       </td>
                     </tr>
                   ) : filteredUsers.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-6 py-12 text-center text-sm text-gray-400">
+                      <td
+                        colSpan={6}
+                        className="px-6 py-12 text-center text-sm text-gray-400"
+                      >
                         Không tìm thấy người dùng phù hợp.
                       </td>
                     </tr>
                   ) : (
                     filteredUsers.map((user) => (
-                      <tr key={user.id} className="hover:bg-slate-50/60 transition-colors">
+                      <tr
+                        key={user.id}
+                        className="hover:bg-slate-50/60 transition-colors"
+                      >
                         <td className="px-5 py-4 font-bold text-gray-900 whitespace-nowrap">
-                          {user.name}
+                          <UserNameButton user={user} />
                           {user.id === currentUser?.id && (
                             <span className="ml-2 text-[10px] font-bold bg-blue-100 text-[#0A66C2] px-1.5 py-0.5 rounded">
                               Bạn
                             </span>
                           )}
-                          {user.delegateTo && user.delegateUntil && new Date(user.delegateUntil).getTime() >= renderedAt && (
-                            <span className="ml-2 rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-bold text-violet-700" title={`Ủy quyền duyệt cho ${user.delegateTo.name} đến ${new Date(user.delegateUntil).toLocaleDateString('vi-VN')}`}>
-                              🔄 Đang ủy quyền
-                            </span>
-                          )}
+                          {user.delegateTo &&
+                            user.delegateUntil &&
+                            new Date(user.delegateUntil).getTime() >=
+                              renderedAt && (
+                              <span
+                                className="ml-2 rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-bold text-violet-700"
+                                title={`Ủy quyền duyệt cho ${user.delegateTo.name} đến ${new Date(user.delegateUntil).toLocaleDateString("vi-VN")}`}
+                              >
+                                🔄 Đang ủy quyền
+                              </span>
+                            )}
                           {(user.delegatedFrom?.length || 0) > 0 && (
-                            <span className="ml-2 rounded bg-cyan-100 px-1.5 py-0.5 text-[10px] font-bold text-cyan-700" title={`Đang nhận ủy quyền từ ${user.delegatedFrom?.map((item) => item.name).join(', ')}`}>
+                            <span
+                              className="ml-2 rounded bg-cyan-100 px-1.5 py-0.5 text-[10px] font-bold text-cyan-700"
+                              title={`Đang nhận ủy quyền từ ${user.delegatedFrom?.map((item) => item.name).join(", ")}`}
+                            >
                               🔄 Duyệt thay
                             </span>
                           )}
@@ -572,23 +694,34 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                         </td>
                         <td className="px-5 py-4">
                           <div className="flex flex-wrap gap-1 max-w-[180px]">
-                            {[
-                              ...(user.ledProjects || []).map((p) => p.code),
-                              ...(user.projectMemberships || []).map((m) => m.project.code),
-                            ].length > 0 ? (
-                              [...new Set([
-                                ...(user.ledProjects || []).map((p) => p.code),
-                                ...(user.projectMemberships || []).map((m) => m.project.code),
-                              ])].map((code) => (
+                            {user.ledProjects?.length ||
+                            user.projectMemberships?.length ? (
+                              [
+                                ...(user.ledProjects || []).map((project) => ({
+                                  id: `lead-${project.id}`,
+                                  code: project.code,
+                                  position: "Trưởng dự án",
+                                })),
+                                ...(user.projectMemberships || []).map(
+                                  (membership) => ({
+                                    id: `member-${membership.project.id}`,
+                                    code: membership.project.code,
+                                    position: membership.position,
+                                  }),
+                                ),
+                              ].map((item) => (
                                 <span
-                                  key={code}
+                                  key={item.id}
                                   className="text-xs font-semibold text-gray-700 bg-slate-100 px-2 py-0.5 rounded-md"
                                 >
-                                  {code}
+                                  {item.code}
+                                  {item.position ? ` · ${item.position}` : ""}
                                 </span>
                               ))
                             ) : (
-                              <span className="text-xs text-gray-400">Chưa gán</span>
+                              <span className="text-xs text-gray-400">
+                                Chưa gán
+                              </span>
                             )}
                           </div>
                         </td>
@@ -605,7 +738,7 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                           </div>
                         </td>
                         <td className="px-5 py-4 whitespace-nowrap">
-                          {user.status === 'active' ? (
+                          {user.status === "active" ? (
                             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
                               ● Hoạt động
                             </span>
@@ -630,7 +763,7 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                             <button
                               onClick={() => {
                                 setResetUser(user);
-                                setResetNewPassword('Hve@2026');
+                                setResetNewPassword("Hve@2026");
                               }}
                               title="Cấp lại mật khẩu mặc định (Hve@2026)"
                               className="px-2.5 py-1 rounded-lg border border-amber-200 text-xs font-bold text-amber-700 hover:bg-amber-50 transition-all"
@@ -643,12 +776,12 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                               onClick={() => handleToggleStatus(user)}
                               disabled={user.id === currentUser?.id}
                               className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all disabled:opacity-40 ${
-                                user.status === 'active'
-                                  ? 'border border-red-200 text-red-600 hover:bg-red-50'
-                                  : 'border border-emerald-200 text-emerald-600 hover:bg-emerald-50'
+                                user.status === "active"
+                                  ? "border border-red-200 text-red-600 hover:bg-red-50"
+                                  : "border border-emerald-200 text-emerald-600 hover:bg-emerald-50"
                               }`}
                             >
-                              {user.status === 'active' ? 'Khóa' : 'Mở'}
+                              {user.status === "active" ? "Khóa" : "Mở"}
                             </button>
                           </div>
                         </td>
@@ -663,14 +796,18 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
       )}
 
       {/* ===================== TAB 2: STUCK DATA MANAGEMENT ===================== */}
-      {activeSubTab === 'stuck_data' && (
+      {activeSubTab === "stuck_data" && (
         <div className="space-y-6">
           <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start space-x-3">
             <span className="text-xl">⚠️</span>
             <div className="text-xs text-amber-900 leading-relaxed">
-              <strong className="block font-bold mb-0.5">Lưu ý quản trị IT:</strong>
-              Chức năng này cho phép dọn dẹp các công việc hoặc hồ sơ quy trình bị treo, bị kẹt phê duyệt, hoặc dữ liệu thử nghiệm thừa.
-              Hành động xóa sẽ giải phóng toàn bộ luồng, xóa bình luận và tài liệu đính kèm liên quan. Vui lòng xác nhận kỹ trước khi xóa!
+              <strong className="block font-bold mb-0.5">
+                Lưu ý quản trị IT:
+              </strong>
+              Chức năng này cho phép dọn dẹp các công việc hoặc hồ sơ quy trình
+              bị treo, bị kẹt phê duyệt, hoặc dữ liệu thử nghiệm thừa. Hành động
+              xóa sẽ giải phóng toàn bộ luồng, xóa bình luận và tài liệu đính
+              kèm liên quan. Vui lòng xác nhận kỹ trước khi xóa!
             </div>
           </div>
 
@@ -695,9 +832,12 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
             <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
               <h4 className="text-sm font-bold text-gray-900 flex items-center">
-                <span className="mr-2">📋</span> Danh sách Công việc ({filteredStuckTasks.length})
+                <span className="mr-2">📋</span> Danh sách Công việc (
+                {filteredStuckTasks.length})
               </h4>
-              <span className="text-[11px] text-gray-500">Bao gồm công việc chưa làm, đang làm hoặc bị treo</span>
+              <span className="text-[11px] text-gray-500">
+                Bao gồm công việc chưa làm, đang làm hoặc bị treo
+              </span>
             </div>
 
             <div className="overflow-x-auto">
@@ -716,13 +856,19 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                 <tbody className="divide-y divide-slate-100">
                   {isLoadingStuck ? (
                     <tr>
-                      <td colSpan={7} className="px-4 py-8 text-center text-gray-400">
+                      <td
+                        colSpan={7}
+                        className="px-4 py-8 text-center text-gray-400"
+                      >
                         Đang tải danh sách công việc...
                       </td>
                     </tr>
                   ) : filteredStuckTasks.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-4 py-8 text-center text-gray-400">
+                      <td
+                        colSpan={7}
+                        className="px-4 py-8 text-center text-gray-400"
+                      >
                         Không có công việc nào.
                       </td>
                     </tr>
@@ -748,13 +894,23 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                         <td className="px-4 py-3 font-bold text-gray-700">
                           {task.progressPercent}%
                         </td>
-                        <td className="px-4 py-3 text-gray-600">{task.createdBy?.name || 'Hệ thống'}</td>
-                        <td className="px-4 py-3 text-gray-600">{task.assignee?.name || 'Chưa gán'}</td>
+                        <td className="px-4 py-3 text-gray-600">
+                          <UserNameButton
+                            user={task.createdBy}
+                            fallback="Hệ thống"
+                          />
+                        </td>
+                        <td className="px-4 py-3 text-gray-600">
+                          <UserNameButton
+                            user={task.assignee}
+                            fallback="Chưa gán"
+                          />
+                        </td>
                         <td className="px-4 py-3 text-right">
                           <button
                             onClick={() =>
                               setDeleteTarget({
-                                type: 'task',
+                                type: "task",
                                 id: task.id,
                                 code: task.code,
                                 title: task.title,
@@ -777,9 +933,12 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
             <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
               <h4 className="text-sm font-bold text-gray-900 flex items-center">
-                <span className="mr-2">📑</span> Danh sách Hồ sơ & Đề xuất ({filteredStuckDocs.length})
+                <span className="mr-2">📑</span> Danh sách Hồ sơ & Đề xuất (
+                {filteredStuckDocs.length})
               </h4>
-              <span className="text-[11px] text-gray-500">Hồ sơ chờ phê duyệt, đã trả lại hoặc cần giải phóng</span>
+              <span className="text-[11px] text-gray-500">
+                Hồ sơ chờ phê duyệt, đã trả lại hoặc cần giải phóng
+              </span>
             </div>
 
             <div className="overflow-x-auto">
@@ -798,13 +957,19 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                 <tbody className="divide-y divide-slate-100">
                   {isLoadingStuck ? (
                     <tr>
-                      <td colSpan={7} className="px-4 py-8 text-center text-gray-400">
+                      <td
+                        colSpan={7}
+                        className="px-4 py-8 text-center text-gray-400"
+                      >
                         Đang tải danh sách hồ sơ...
                       </td>
                     </tr>
                   ) : filteredStuckDocs.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-4 py-8 text-center text-gray-400">
+                      <td
+                        colSpan={7}
+                        className="px-4 py-8 text-center text-gray-400"
+                      >
                         Không có hồ sơ nào.
                       </td>
                     </tr>
@@ -823,17 +988,22 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                         <td className="px-4 py-3">
                           <span
                             className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${
-                              doc.status === 'Đã duyệt'
-                                ? 'bg-emerald-100 text-emerald-800'
-                                : doc.status === 'Chờ duyệt'
-                                ? 'bg-amber-100 text-amber-800'
-                                : 'bg-slate-100 text-gray-700'
+                              doc.status === "Đã duyệt"
+                                ? "bg-emerald-100 text-emerald-800"
+                                : doc.status === "Chờ duyệt"
+                                  ? "bg-amber-100 text-amber-800"
+                                  : "bg-slate-100 text-gray-700"
                             }`}
                           >
                             {doc.status}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-gray-600">{doc.createdBy?.name || 'Hệ thống'}</td>
+                        <td className="px-4 py-3 text-gray-600">
+                          <UserNameButton
+                            user={doc.createdBy}
+                            fallback="Hệ thống"
+                          />
+                        </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center space-x-1">
                             {(doc.steps || []).map((st) => (
@@ -841,13 +1011,13 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                                 key={st.stepOrder}
                                 title={`${ROLE_LABELS[st.roleRequired] || st.roleRequired}: ${st.status}`}
                                 className={`w-2.5 h-2.5 rounded-full ${
-                                  st.status === 'approved'
-                                    ? 'bg-emerald-500'
-                                    : st.status === 'returned'
-                                    ? 'bg-amber-500'
-                                    : st.status === 'rejected'
-                                    ? 'bg-red-500'
-                                    : 'bg-slate-300'
+                                  st.status === "approved"
+                                    ? "bg-emerald-500"
+                                    : st.status === "returned"
+                                      ? "bg-amber-500"
+                                      : st.status === "rejected"
+                                        ? "bg-red-500"
+                                        : "bg-slate-300"
                                 }`}
                               />
                             ))}
@@ -857,7 +1027,7 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                           <button
                             onClick={() =>
                               setDeleteTarget({
-                                type: 'document',
+                                type: "document",
                                 id: doc.id,
                                 code: doc.code,
                                 title: doc.title,
@@ -937,7 +1107,9 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                   placeholder="Mặc định: Hve@2026"
                   className="w-full text-xs font-mono font-medium bg-slate-50 border border-gray-200 rounded-lg p-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#0A66C2]"
                 />
-                <p className="text-[11px] text-gray-400 mt-1">Mặc định hệ thống là Hve@2026</p>
+                <p className="text-[11px] text-gray-400 mt-1">
+                  Mặc định hệ thống là Hve@2026
+                </p>
               </div>
 
               {/* Projects */}
@@ -949,27 +1121,53 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                   {projects.map((p) => {
                     const isChecked = newProjectIds.includes(p.id);
                     return (
-                      <label
+                      <div
                         key={p.id}
-                        className={`flex items-center space-x-2 p-2 rounded-lg border text-xs cursor-pointer transition-all ${
+                        className={`rounded-lg border p-2 text-xs transition-all ${
                           isChecked
-                            ? 'border-[#0A66C2] bg-blue-50/60 font-bold text-[#0A66C2]'
-                            : 'border-slate-200 text-gray-700 hover:bg-slate-50'
+                            ? "border-[#0A66C2] bg-blue-50/60 text-[#0A66C2]"
+                            : "border-slate-200 text-gray-700"
                         }`}
                       >
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => {
-                            setNewProjectIds(
-                              isChecked
-                                ? newProjectIds.filter((id) => id !== p.id)
-                                : [...newProjectIds, p.id],
-                            );
-                          }}
-                        />
-                        <span>{p.name} ({p.code})</span>
-                      </label>
+                        <label className="flex cursor-pointer items-center space-x-2 font-bold">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => {
+                              setNewProjectIds(
+                                isChecked
+                                  ? newProjectIds.filter((id) => id !== p.id)
+                                  : [...newProjectIds, p.id],
+                              );
+                              if (isChecked) {
+                                setNewProjectPositions((current) => {
+                                  const next = { ...current };
+                                  delete next[p.id];
+                                  return next;
+                                });
+                              }
+                            }}
+                          />
+                          <span>
+                            {p.name} ({p.code})
+                          </span>
+                        </label>
+                        {isChecked && (
+                          <input
+                            type="text"
+                            maxLength={100}
+                            value={newProjectPositions[p.id] || ""}
+                            onChange={(event) =>
+                              setNewProjectPositions((current) => ({
+                                ...current,
+                                [p.id]: event.target.value,
+                              }))
+                            }
+                            placeholder="Vị trí: Dạy bơi, Cứu hộ..."
+                            className="mt-2 w-full rounded-md border border-blue-200 bg-white px-2.5 py-2 text-xs font-medium text-gray-800 outline-none focus:ring-2 focus:ring-blue-300"
+                          />
+                        )}
+                      </div>
                     );
                   })}
                   {projects.length === 0 && (
@@ -979,7 +1177,8 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                   )}
                 </div>
                 <p className="text-[11px] text-gray-400 mt-1">
-                  Vị trí (vai trò) + Dự án quyết định phạm vi dữ liệu người dùng được xem/xử lý.
+                  Mỗi dự án có thể nhập một vị trí công việc khác nhau cho cùng
+                  người dùng.
                 </p>
               </div>
 
@@ -991,17 +1190,23 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                 <div className="grid grid-cols-1 gap-2 max-h-40 overflow-y-auto p-1 border border-slate-100 rounded-xl sm:grid-cols-2">
                   {roles.map((r) => {
                     const isChecked = newRoleIds.includes(r.id);
-                    const isProjectLeadRole = r.name === 'department_head';
+                    const isProjectLeadRole = r.name === "department_head";
                     return (
                       <label
                         key={r.id}
-                        title={isProjectLeadRole ? 'Vai trò này được cấp tại màn Quản lý dự án' : undefined}
+                        title={
+                          isProjectLeadRole
+                            ? "Vai trò này được cấp tại màn Quản lý dự án"
+                            : undefined
+                        }
                         className={`flex items-center space-x-2 p-2 rounded-lg border text-xs transition-all ${
-                          isProjectLeadRole ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
+                          isProjectLeadRole
+                            ? "cursor-not-allowed opacity-60"
+                            : "cursor-pointer"
                         } ${
                           isChecked
-                            ? 'border-[#0A66C2] bg-blue-50/60 font-bold text-[#0A66C2]'
-                            : 'border-slate-200 text-gray-700 hover:bg-slate-50'
+                            ? "border-[#0A66C2] bg-blue-50/60 font-bold text-[#0A66C2]"
+                            : "border-slate-200 text-gray-700 hover:bg-slate-50"
                         }`}
                       >
                         <input
@@ -1010,7 +1215,9 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                           disabled={isProjectLeadRole}
                           onChange={() => {
                             if (isChecked) {
-                              setNewRoleIds(newRoleIds.filter((id) => id !== r.id));
+                              setNewRoleIds(
+                                newRoleIds.filter((id) => id !== r.id),
+                              );
                             } else {
                               setNewRoleIds([...newRoleIds, r.id]);
                             }
@@ -1039,7 +1246,7 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                   disabled={isCreatingUser}
                   className="w-full px-5 py-2 rounded-xl bg-[#0A66C2] text-white text-xs font-bold hover:bg-blue-700 shadow-sm sm:w-auto"
                 >
-                  {isCreatingUser ? 'Đang tạo...' : 'Tạo người dùng'}
+                  {isCreatingUser ? "Đang tạo..." : "Tạo người dùng"}
                 </button>
               </div>
             </form>
@@ -1097,44 +1304,84 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                 </label>
                 {(editUser.ledProjects || []).length > 0 && (
                   <div className="mb-2 rounded-xl border border-blue-200 bg-blue-50 p-2.5">
-                    <p className="text-[11px] font-bold uppercase text-blue-700">Dự án đang phụ trách</p>
+                    <p className="text-[11px] font-bold uppercase text-blue-700">
+                      Dự án đang phụ trách
+                    </p>
                     <div className="mt-1 flex flex-wrap gap-1.5">
                       {(editUser.ledProjects || []).map((project) => (
-                        <span key={project.id} className="rounded-md bg-white px-2 py-1 text-xs font-semibold text-blue-800">
+                        <span
+                          key={project.id}
+                          className="rounded-md bg-white px-2 py-1 text-xs font-semibold text-blue-800"
+                        >
                           👑 {project.code} — {project.name}
                         </span>
                       ))}
                     </div>
-                    <p className="mt-1.5 text-[11px] text-blue-600">Đổi Trưởng dự án tại màn Quản lý dự án.</p>
+                    <p className="mt-1.5 text-[11px] text-blue-600">
+                      Đổi Trưởng dự án tại màn Quản lý dự án.
+                    </p>
                   </div>
                 )}
                 <div className="grid grid-cols-1 gap-2 max-h-32 overflow-y-auto p-1 border border-slate-100 rounded-xl sm:grid-cols-2">
-                  {projects.filter((project) => !(editUser.ledProjects || []).some((led) => led.id === project.id)).map((p) => {
-                    const isChecked = editProjectIds.includes(p.id);
-                    return (
-                      <label
-                        key={p.id}
-                        className={`flex items-center space-x-2 p-2 rounded-lg border text-xs cursor-pointer transition-all ${
-                          isChecked
-                            ? 'border-[#0A66C2] bg-blue-50/60 font-bold text-[#0A66C2]'
-                            : 'border-slate-200 text-gray-700 hover:bg-slate-50'
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => {
-                            setEditProjectIds(
-                              isChecked
-                                ? editProjectIds.filter((id) => id !== p.id)
-                                : [...editProjectIds, p.id],
-                            );
-                          }}
-                        />
-                        <span>{p.name} ({p.code})</span>
-                      </label>
-                    );
-                  })}
+                  {projects
+                    .filter(
+                      (project) =>
+                        !(editUser.ledProjects || []).some(
+                          (led) => led.id === project.id,
+                        ),
+                    )
+                    .map((p) => {
+                      const isChecked = editProjectIds.includes(p.id);
+                      return (
+                        <div
+                          key={p.id}
+                          className={`rounded-lg border p-2 text-xs transition-all ${
+                            isChecked
+                              ? "border-[#0A66C2] bg-blue-50/60 text-[#0A66C2]"
+                              : "border-slate-200 text-gray-700"
+                          }`}
+                        >
+                          <label className="flex cursor-pointer items-center space-x-2 font-bold">
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => {
+                                setEditProjectIds(
+                                  isChecked
+                                    ? editProjectIds.filter((id) => id !== p.id)
+                                    : [...editProjectIds, p.id],
+                                );
+                                if (isChecked) {
+                                  setEditProjectPositions((current) => {
+                                    const next = { ...current };
+                                    delete next[p.id];
+                                    return next;
+                                  });
+                                }
+                              }}
+                            />
+                            <span>
+                              {p.name} ({p.code})
+                            </span>
+                          </label>
+                          {isChecked && (
+                            <input
+                              type="text"
+                              maxLength={100}
+                              value={editProjectPositions[p.id] || ""}
+                              onChange={(event) =>
+                                setEditProjectPositions((current) => ({
+                                  ...current,
+                                  [p.id]: event.target.value,
+                                }))
+                              }
+                              placeholder="Vị trí: Dạy bơi, Cứu hộ..."
+                              className="mt-2 w-full rounded-md border border-blue-200 bg-white px-2.5 py-2 text-xs font-medium text-gray-800 outline-none focus:ring-2 focus:ring-blue-300"
+                            />
+                          )}
+                        </div>
+                      );
+                    })}
                   {projects.length === 0 && (
                     <p className="col-span-full text-center text-[11px] text-gray-400 py-2">
                       Chưa có dự án nào — tạo dự án ở mục "Quản lý dự án" trước.
@@ -1151,24 +1398,32 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                 <div className="space-y-2 max-h-48 overflow-y-auto p-1">
                   {roles.map((r) => {
                     const isChecked = editRoleIds.includes(r.id);
-                    const isProjectLeadRole = r.name === 'department_head';
+                    const isProjectLeadRole = r.name === "department_head";
                     return (
                       <label
                         key={r.id}
-                        title={isProjectLeadRole ? 'Tự động đồng bộ theo dự án đang phụ trách' : undefined}
+                        title={
+                          isProjectLeadRole
+                            ? "Tự động đồng bộ theo dự án đang phụ trách"
+                            : undefined
+                        }
                         className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${
-                          isProjectLeadRole ? 'cursor-not-allowed bg-slate-50' : 'cursor-pointer'
+                          isProjectLeadRole
+                            ? "cursor-not-allowed bg-slate-50"
+                            : "cursor-pointer"
                         } ${
                           isChecked
-                            ? 'border-[#0A66C2] bg-blue-50/50'
-                            : 'border-slate-200 hover:bg-slate-50'
+                            ? "border-[#0A66C2] bg-blue-50/50"
+                            : "border-slate-200 hover:bg-slate-50"
                         }`}
                       >
                         <div>
                           <span className="text-xs font-bold text-gray-800 block">
                             {ROLE_LABELS[r.name] || r.name}
                           </span>
-                          <span className="text-[11px] text-gray-400">{r.description || r.name}</span>
+                          <span className="text-[11px] text-gray-400">
+                            {r.description || r.name}
+                          </span>
                         </div>
                         <input
                           type="checkbox"
@@ -1192,15 +1447,21 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                     value={editDelegateToUserId}
                     onChange={(event) => {
                       setEditDelegateToUserId(event.target.value);
-                      if (!event.target.value) setEditDelegateUntil('');
+                      if (!event.target.value) setEditDelegateUntil("");
                     }}
                     className="w-full rounded-lg border border-violet-200 bg-white p-2.5 text-xs"
                   >
                     <option value="">-- Không ủy quyền --</option>
                     {users
-                      .filter((candidate) => candidate.status === 'active' && candidate.id !== editUser.id)
+                      .filter(
+                        (candidate) =>
+                          candidate.status === "active" &&
+                          candidate.id !== editUser.id,
+                      )
                       .map((candidate) => (
-                        <option key={candidate.id} value={candidate.id}>{candidate.name} — {candidate.email}</option>
+                        <option key={candidate.id} value={candidate.id}>
+                          {candidate.name} — {candidate.email}
+                        </option>
                       ))}
                   </select>
                   <input
@@ -1208,12 +1469,15 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                     value={editDelegateUntil}
                     min={new Date().toISOString().slice(0, 10)}
                     disabled={!editDelegateToUserId}
-                    onChange={(event) => setEditDelegateUntil(event.target.value)}
+                    onChange={(event) =>
+                      setEditDelegateUntil(event.target.value)
+                    }
                     className="w-full rounded-lg border border-violet-200 bg-white p-2.5 text-xs disabled:opacity-50"
                   />
                 </div>
                 <p className="mt-2 text-[11px] leading-relaxed text-violet-700">
-                  Người nhận chỉ mượn quyền phê duyệt theo đúng vai trò và dự án của {editUser.name}; không nhận quyền quản trị hay giao việc.
+                  Người nhận chỉ mượn quyền phê duyệt theo đúng vai trò và dự án
+                  của {editUser.name}; không nhận quyền quản trị hay giao việc.
                 </p>
               </div>
             </div>
@@ -1234,7 +1498,7 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                 disabled={isSavingUser}
                 className="px-5 py-2 rounded-xl bg-[#0A66C2] text-white text-xs font-bold hover:bg-blue-700 shadow-sm"
               >
-                {isSavingUser ? 'Đang lưu...' : 'Lưu thay đổi'}
+                {isSavingUser ? "Đang lưu..." : "Lưu thay đổi"}
               </button>
             </div>
           </div>
@@ -1250,13 +1514,18 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                 🔑
               </div>
               <div>
-                <h4 className="text-base font-bold text-gray-900">Đặt lại Mật khẩu</h4>
-                <p className="text-xs text-gray-500">{resetUser.name} ({resetUser.email})</p>
+                <h4 className="text-base font-bold text-gray-900">
+                  Đặt lại Mật khẩu
+                </h4>
+                <p className="text-xs text-gray-500">
+                  {resetUser.name} ({resetUser.email})
+                </p>
               </div>
             </div>
 
             <p className="text-xs text-gray-600 mb-4 leading-relaxed">
-              Mật khẩu mới sẽ được gán cho người dùng này, đồng thời mở khóa tài khoản và xóa các lần nhập sai nếu có.
+              Mật khẩu mới sẽ được gán cho người dùng này, đồng thời mở khóa tài
+              khoản và xóa các lần nhập sai nếu có.
             </p>
 
             <div className="mb-5">
@@ -1269,7 +1538,9 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                 onChange={(e) => setResetNewPassword(e.target.value)}
                 className="w-full text-xs font-mono font-bold bg-slate-50 border border-gray-200 rounded-lg p-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#0A66C2]"
               />
-              <span className="text-[11px] text-gray-400 mt-1 block">Mặc định: Hve@2026</span>
+              <span className="text-[11px] text-gray-400 mt-1 block">
+                Mặc định: Hve@2026
+              </span>
             </div>
 
             <div className="flex items-center justify-end space-x-2.5 pt-3 border-t border-slate-100">
@@ -1287,7 +1558,7 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                 disabled={isResetting}
                 className="px-5 py-2 rounded-xl bg-amber-600 text-white text-xs font-bold hover:bg-amber-700 shadow-sm"
               >
-                {isResetting ? 'Đang cập nhật...' : 'Xác nhận Đặt lại Mật khẩu'}
+                {isResetting ? "Đang cập nhật..." : "Xác nhận Đặt lại Mật khẩu"}
               </button>
             </div>
           </div>
@@ -1304,9 +1575,12 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
               </div>
               <div>
                 <h4 className="text-base font-bold text-gray-900">
-                  Xác nhận xóa {deleteTarget.type === 'task' ? 'Công việc' : 'Hồ sơ'}
+                  Xác nhận xóa{" "}
+                  {deleteTarget.type === "task" ? "Công việc" : "Hồ sơ"}
                 </h4>
-                <p className="text-xs text-red-600 font-mono font-bold">{deleteTarget.code}</p>
+                <p className="text-xs text-red-600 font-mono font-bold">
+                  {deleteTarget.code}
+                </p>
               </div>
             </div>
 
@@ -1317,7 +1591,8 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
               {deleteTarget.title}
             </div>
             <p className="text-[11px] text-red-500 mb-5">
-              ⚠️ Mọi quy trình, việc con, tài liệu đính kèm và bình luận liên quan sẽ bị xóa vĩnh viễn khỏi hệ thống!
+              ⚠️ Mọi quy trình, việc con, tài liệu đính kèm và bình luận liên
+              quan sẽ bị xóa vĩnh viễn khỏi hệ thống!
             </p>
 
             <div className="flex items-center justify-end space-x-2.5 pt-3 border-t border-slate-100">
@@ -1335,7 +1610,7 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                 disabled={isDeleting}
                 className="px-5 py-2 rounded-xl bg-red-600 text-white text-xs font-bold hover:bg-red-700 shadow-sm"
               >
-                {isDeleting ? 'Đang xóa...' : 'Xóa vĩnh viễn'}
+                {isDeleting ? "Đang xóa..." : "Xóa vĩnh viễn"}
               </button>
             </div>
           </div>

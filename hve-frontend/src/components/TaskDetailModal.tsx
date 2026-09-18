@@ -1,14 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   TASK_PRIORITY_LABELS,
   TASK_STATUS_LABELS,
   type TaskItem,
   type ProjectItem,
-} from '../types';
-import { MOCK_TASKS } from '../mockData';
-import { authenticatedFileUrl, fetchWithSession } from '../api/client';
-import { ENABLE_MOCK_DATA } from '../config';
-import { BrandLoader } from './BrandLoader';
+} from "../types";
+import { MOCK_TASKS } from "../mockData";
+import { authenticatedFileUrl, fetchWithSession } from "../api/client";
+import { ENABLE_MOCK_DATA } from "../config";
+import { BrandLoader } from "./BrandLoader";
+import { UserNameButton } from "./UserNameButton";
 
 interface TaskDetailModalProps {
   taskId: number;
@@ -17,7 +18,7 @@ interface TaskDetailModalProps {
   currentUser: any;
   apiBaseUrl: string;
   users: Array<{ id: number; name: string; email: string }>;
-  showToast: (msg: string, type?: 'success' | 'error') => void;
+  showToast: (msg: string, type?: "success" | "error") => void;
   onRefreshList: () => void;
   onOpenCreateSubtask: (parent: TaskItem) => void;
   projects: ProjectItem[];
@@ -39,26 +40,26 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [progress, setProgress] = useState<number>(0);
-  const [progressNote, setProgressNote] = useState<string>('');
+  const [progressNote, setProgressNote] = useState<string>("");
   const [isUpdatingProgress, setIsUpdatingProgress] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
 
   // Comment state
-  const [commentContent, setCommentContent] = useState('');
+  const [commentContent, setCommentContent] = useState("");
   const [selectedMentions, setSelectedMentions] = useState<number[]>([]);
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
 
   const fetchTaskDetail = async () => {
     setFetchError(null);
-    const token = localStorage.getItem('access_token');
+    const token = localStorage.getItem("access_token");
 
-    if (ENABLE_MOCK_DATA && (!token || token === 'mock_token_demo')) {
+    if (ENABLE_MOCK_DATA && (!token || token === "mock_token_demo")) {
       const mock = MOCK_TASKS.find((t) => t.id === taskId);
       if (mock) {
         setTask(mock);
         setProgress(mock.progressPercent || 0);
       } else {
-        setFetchError('Không tìm thấy dữ liệu công việc.');
+        setFetchError("Không tìm thấy dữ liệu công việc.");
       }
       setIsLoading(false);
       return;
@@ -71,7 +72,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
       });
       if (!res.ok) {
         const errJson = await res.json().catch(() => ({}));
-        throw new Error(errJson.message || 'Không thể tải thông tin công việc');
+        throw new Error(errJson.message || "Không thể tải thông tin công việc");
       }
       const data: TaskItem = await res.json();
       setTask(data);
@@ -82,8 +83,8 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
         setTask(mock);
         setProgress(mock.progressPercent || 0);
       } else {
-        setFetchError(err.message || 'Lỗi kết nối máy chủ');
-        showToast(err.message || 'Lỗi tải công việc', 'error');
+        setFetchError(err.message || "Lỗi kết nối máy chủ");
+        showToast(err.message || "Lỗi tải công việc", "error");
       }
     } finally {
       setIsLoading(false);
@@ -100,34 +101,37 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
   const handleUpdateProgress = async () => {
     if (!task) return;
-    const token = localStorage.getItem('access_token');
+    const token = localStorage.getItem("access_token");
     if (!token) return;
 
     try {
       setIsUpdatingProgress(true);
-      const res = await fetchWithSession(`${apiBaseUrl}/tasks/${task.id}/progress`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+      const res = await fetchWithSession(
+        `${apiBaseUrl}/tasks/${task.id}/progress`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            progressPercent: Number(progress),
+            note: progressNote.trim() || undefined,
+          }),
         },
-        body: JSON.stringify({
-          progressPercent: Number(progress),
-          note: progressNote.trim() || undefined,
-        }),
-      });
+      );
 
       if (!res.ok) {
         const errData = await res.json();
-        throw new Error(errData.message || 'Cập nhật tiến độ thất bại');
+        throw new Error(errData.message || "Cập nhật tiến độ thất bại");
       }
 
-      showToast('Cập nhật tiến độ thành công!');
-      setProgressNote('');
+      showToast("Cập nhật tiến độ thành công!");
+      setProgressNote("");
       fetchTaskDetail();
       onRefreshList();
     } catch (err: any) {
-      showToast(err.message || 'Lỗi khi cập nhật tiến độ', 'error');
+      showToast(err.message || "Lỗi khi cập nhật tiến độ", "error");
     } finally {
       setIsUpdatingProgress(false);
     }
@@ -135,21 +139,24 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
   const handleConfirmCompletion = async () => {
     if (!task) return;
-    const token = localStorage.getItem('access_token');
+    const token = localStorage.getItem("access_token");
     if (!token) return;
 
     try {
       setIsConfirming(true);
-      const res = await fetchWithSession(`${apiBaseUrl}/tasks/${task.id}/confirm-completion`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
+      const res = await fetchWithSession(
+        `${apiBaseUrl}/tasks/${task.id}/confirm-completion`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         },
-      });
+      );
 
       if (!res.ok) {
         const errData = await res.json();
-        throw new Error(errData.message || 'Xác nhận hoàn thành thất bại');
+        throw new Error(errData.message || "Xác nhận hoàn thành thất bại");
       }
 
       const resData = await res.json();
@@ -158,13 +165,13 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
           `Đã hoàn thành! Chu kỳ tiếp theo [${resData.nextTask.code}] đã tự động được khởi tạo.`,
         );
       } else {
-        showToast('Đã xác nhận hoàn thành công việc!');
+        showToast("Đã xác nhận hoàn thành công việc!");
       }
 
       fetchTaskDetail();
       onRefreshList();
     } catch (err: any) {
-      showToast(err.message || 'Lỗi khi xác nhận hoàn thành', 'error');
+      showToast(err.message || "Lỗi khi xác nhận hoàn thành", "error");
     } finally {
       setIsConfirming(false);
     }
@@ -174,45 +181,50 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     e.preventDefault();
     if (!commentContent.trim() || !task) return;
 
-    const token = localStorage.getItem('access_token');
+    const token = localStorage.getItem("access_token");
     if (!token) return;
 
     try {
       setIsSubmittingComment(true);
-      const res = await fetchWithSession(`${apiBaseUrl}/tasks/${task.id}/comments`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+      const res = await fetchWithSession(
+        `${apiBaseUrl}/tasks/${task.id}/comments`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            content: commentContent.trim(),
+            mentions:
+              selectedMentions.length > 0 ? selectedMentions : undefined,
+          }),
         },
-        body: JSON.stringify({
-          content: commentContent.trim(),
-          mentions: selectedMentions.length > 0 ? selectedMentions : undefined,
-        }),
-      });
+      );
 
       if (!res.ok) {
         const errData = await res.json();
-        throw new Error(errData.message || 'Không thể gửi bình luận');
+        throw new Error(errData.message || "Không thể gửi bình luận");
       }
 
-      setCommentContent('');
+      setCommentContent("");
       setSelectedMentions([]);
       fetchTaskDetail();
     } catch (err: any) {
-      showToast(err.message || 'Lỗi khi gửi bình luận', 'error');
+      showToast(err.message || "Lỗi khi gửi bình luận", "error");
     } finally {
       setIsSubmittingComment(false);
     }
   };
 
   const isCreator = task?.createdById === currentUser?.id;
-  const isCeo = currentUser?.roles?.includes('ceo');
+  const isCeo = currentUser?.roles?.includes("ceo");
   const canCreateTask =
-    currentUser?.roles?.includes('department_head') || currentUser?.roles?.includes('ceo');
+    currentUser?.roles?.includes("department_head") ||
+    currentUser?.roles?.includes("ceo") ||
+    currentUser?.roles?.includes("bgd");
   const hasSubTasks = task?.subTasks && task.subTasks.length > 0;
-  const canConfirm =
-    task?.status === 'Chờ duyệt' && (isCreator || isCeo);
+  const canConfirm = task?.status === "Chờ duyệt" && (isCreator || isCeo);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 overflow-y-auto">
@@ -221,10 +233,10 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
         <div className="px-4 sm:px-6 py-4 border-b border-slate-100 flex items-start justify-between gap-3 bg-slate-50/50">
           <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
             <span className="font-mono text-xs font-bold px-2.5 py-1 bg-slate-200 text-slate-800 rounded-lg">
-              {task?.code || 'CV-...'}
+              {task?.code || "CV-..."}
             </span>
             <h3 className="w-full text-base md:w-auto md:max-w-md md:text-lg font-bold text-gray-900 break-words md:truncate">
-              {task?.title || 'Chi tiết công việc'}
+              {task?.title || "Chi tiết công việc"}
             </h3>
             {task?.isOverdue && (
               <span className="bg-red-500 text-white text-[11px] font-bold px-2 py-0.5 rounded-md shadow-sm animate-pulse">
@@ -236,11 +248,16 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                 🏗️ {task.project.code} — {task.project.name}
               </span>
             )}
-            {projects.filter((project) => task?.linkedProjectIds?.includes(project.id)).map((project) => (
-              <span key={project.id} className="rounded-md bg-violet-50 px-2 py-0.5 text-[11px] font-semibold text-violet-700">
-                ↔ {project.code}
-              </span>
-            ))}
+            {projects
+              .filter((project) => task?.linkedProjectIds?.includes(project.id))
+              .map((project) => (
+                <span
+                  key={project.id}
+                  className="rounded-md bg-violet-50 px-2 py-0.5 text-[11px] font-semibold text-violet-700"
+                >
+                  ↔ {project.code}
+                </span>
+              ))}
           </div>
           <button
             onClick={onClose}
@@ -258,9 +275,12 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
               !
             </div>
             <div>
-              <h4 className="font-bold text-gray-800 text-base">Không thể tải dữ liệu công việc</h4>
+              <h4 className="font-bold text-gray-800 text-base">
+                Không thể tải dữ liệu công việc
+              </h4>
               <p className="text-xs text-gray-500 mt-1 max-w-sm">
-                {fetchError || 'Công việc không tồn tại hoặc bạn chưa được phân quyền truy cập.'}
+                {fetchError ||
+                  "Công việc không tồn tại hoặc bạn chưa được phân quyền truy cập."}
               </p>
             </div>
             <button
@@ -282,7 +302,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                   <p className="text-xs text-emerald-700 mt-0.5">
                     {task.recurrenceRule
                       ? `Công việc có thiết lập lặp lại [${task.recurrenceRule}]. Khi bạn bấm xác nhận, hệ thống sẽ tự động tạo kỳ tiếp theo.`
-                      : 'Người thực hiện đã hoàn thành công việc. Vui lòng kiểm tra và xác nhận nghiệm thu.'}
+                      : "Người thực hiện đã hoàn thành công việc. Vui lòng kiểm tra và xác nhận nghiệm thu."}
                   </p>
                 </div>
                 <button
@@ -290,7 +310,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                   disabled={isConfirming}
                   className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all disabled:opacity-50"
                 >
-                  {isConfirming ? 'Đang xác nhận...' : '✓ Xác nhận hoàn thành'}
+                  {isConfirming ? "Đang xác nhận..." : "✓ Xác nhận hoàn thành"}
                 </button>
               </div>
             )}
@@ -298,45 +318,58 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
             {/* Quick Metadata Grid */}
             <div className="grid grid-cols-1 min-[380px]:grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-slate-50 rounded-xl border border-slate-100 text-xs">
               <div>
-                <span className="text-gray-400 block font-medium">Người giao việc</span>
+                <span className="text-gray-400 block font-medium">
+                  Người giao việc
+                </span>
                 <span className="font-bold text-gray-800 mt-0.5 block">
-                  {task.createdBy?.name || '---'}
+                  <UserNameButton user={task.createdBy} />
                 </span>
               </div>
               <div>
-                <span className="text-gray-400 block font-medium">Người thực hiện</span>
+                <span className="text-gray-400 block font-medium">
+                  Người thực hiện
+                </span>
                 <span className="font-bold text-gray-800 mt-0.5 block">
-                  {task.assignee?.name || 'Chưa phân công'}
+                  <UserNameButton
+                    user={task.assignee}
+                    fallback="Chưa phân công"
+                  />
                 </span>
               </div>
               <div>
-                <span className="text-gray-400 block font-medium">Hạn hoàn thành</span>
+                <span className="text-gray-400 block font-medium">
+                  Hạn hoàn thành
+                </span>
                 <span
                   className={`font-bold mt-0.5 block ${
-                    task.isOverdue ? 'text-red-600' : 'text-gray-800'
+                    task.isOverdue ? "text-red-600" : "text-gray-800"
                   }`}
                 >
                   {task.dueDate
-                    ? new Date(task.dueDate).toLocaleDateString('vi-VN')
-                    : 'Không thời hạn'}
+                    ? new Date(task.dueDate).toLocaleDateString("vi-VN")
+                    : "Không thời hạn"}
                 </span>
               </div>
               <div>
-                <span className="text-gray-400 block font-medium">Trạng thái & Ưu tiên</span>
+                <span className="text-gray-400 block font-medium">
+                  Trạng thái & Ưu tiên
+                </span>
                 <div className="flex items-center space-x-1.5 mt-0.5">
                   <span
                     className={`px-2 py-0.5 rounded text-[11px] font-bold ${
-                      TASK_STATUS_LABELS[task.status]?.color || 'bg-gray-100'
+                      TASK_STATUS_LABELS[task.status]?.color || "bg-gray-100"
                     }`}
                   >
                     {task.status}
                   </span>
                   <span
                     className={`px-2 py-0.5 rounded text-[11px] font-bold ${
-                      TASK_PRIORITY_LABELS[task.priority]?.color || 'bg-gray-100'
+                      TASK_PRIORITY_LABELS[task.priority]?.color ||
+                      "bg-gray-100"
                     }`}
                   >
-                    {TASK_PRIORITY_LABELS[task.priority]?.label || task.priority}
+                    {TASK_PRIORITY_LABELS[task.priority]?.label ||
+                      task.priority}
                   </span>
                 </div>
               </div>
@@ -363,8 +396,8 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                   </h4>
                   <span className="text-xs text-gray-500">
                     {hasSubTasks
-                      ? 'Tiến độ được tự động tính trung bình cộng từ các việc con'
-                      : 'Kéo thanh trượt để cập nhật tiến độ thực hiện'}
+                      ? "Tiến độ được tự động tính trung bình cộng từ các việc con"
+                      : "Kéo thanh trượt để cập nhật tiến độ thực hiện"}
                   </span>
                 </div>
                 <span className="text-lg font-bold text-[#0A66C2]">
@@ -381,7 +414,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
               </div>
 
               {/* Cập nhật tiến độ form (chỉ khi không có subtasks và chưa hoàn thành) */}
-              {!hasSubTasks && task.status !== 'Hoàn thành' && (
+              {!hasSubTasks && task.status !== "Hoàn thành" && (
                 <div className="pt-2 border-t border-blue-100/60 space-y-2">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:space-x-4">
                     <input
@@ -420,12 +453,13 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                       disabled={isUpdatingProgress}
                       className="px-3.5 py-1.5 bg-[#0A66C2] text-white text-xs font-bold rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
                     >
-                      {isUpdatingProgress ? 'Lưu...' : 'Cập nhật'}
+                      {isUpdatingProgress ? "Lưu..." : "Cập nhật"}
                     </button>
                   </div>
                   {progress === 100 && (
                     <p className="text-[11px] text-amber-700 font-medium">
-                      ⚠️ Khi cập nhật 100%, trạng thái việc sẽ chuyển sang "Chờ duyệt" để người giao việc xác nhận.
+                      ⚠️ Khi cập nhật 100%, trạng thái việc sẽ chuyển sang "Chờ
+                      duyệt" để người giao việc xác nhận.
                     </p>
                   )}
                 </div>
@@ -439,14 +473,17 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                   Việc con trực thuộc ({task.subTasks?.length || 0})
                 </h4>
                 {/* Chỉ cho phép thêm việc con nếu task này chưa phải là việc con */}
-                {canCreateTask && !task.parentTaskId && task.status !== 'Hoàn thành' && !task.recurrenceRule && (
-                  <button
-                    onClick={() => onOpenCreateSubtask(task)}
-                    className="text-xs font-bold text-[#0A66C2] hover:underline flex items-center"
-                  >
-                    + Thêm việc con
-                  </button>
-                )}
+                {canCreateTask &&
+                  !task.parentTaskId &&
+                  task.status !== "Hoàn thành" &&
+                  !task.recurrenceRule && (
+                    <button
+                      onClick={() => onOpenCreateSubtask(task)}
+                      className="text-xs font-bold text-[#0A66C2] hover:underline flex items-center"
+                    >
+                      + Thêm việc con
+                    </button>
+                  )}
               </div>
 
               {task.subTasks && task.subTasks.length > 0 ? (
@@ -460,7 +497,9 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                         <span className="font-mono font-bold text-slate-700">
                           {st.code}
                         </span>
-                        <span className="font-semibold text-gray-900">{st.title}</span>
+                        <span className="font-semibold text-gray-900">
+                          {st.title}
+                        </span>
                         {st.isOverdue && (
                           <span className="bg-red-500 text-white font-bold text-[10px] px-1.5 py-0.2 rounded">
                             Quá hạn
@@ -469,13 +508,19 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                       </div>
                       <div className="flex flex-wrap items-center gap-2 sm:gap-4">
                         <span className="text-gray-500">
-                          {st.assignee?.name || 'Chưa gán'}
+                          <UserNameButton
+                            user={st.assignee}
+                            fallback="Chưa gán"
+                          />
                         </span>
                         <div className="flex items-center space-x-1">
-                          <span className="font-bold text-blue-700">{st.progressPercent}%</span>
+                          <span className="font-bold text-blue-700">
+                            {st.progressPercent}%
+                          </span>
                           <span
                             className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                              TASK_STATUS_LABELS[st.status]?.color || 'bg-gray-100'
+                              TASK_STATUS_LABELS[st.status]?.color ||
+                              "bg-gray-100"
                             }`}
                           >
                             {st.status}
@@ -487,7 +532,10 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                 </div>
               ) : (
                 <p className="text-xs text-gray-400 italic">
-                  Chưa có việc con nào. {!task.parentTaskId && !task.recurrenceRule && 'Bạn có thể chia nhỏ đầu việc để theo dõi.'}
+                  Chưa có việc con nào.{" "}
+                  {!task.parentTaskId &&
+                    !task.recurrenceRule &&
+                    "Bạn có thể chia nhỏ đầu việc để theo dõi."}
                 </p>
               )}
             </div>
@@ -505,14 +553,16 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                       href={authenticatedFileUrl(
                         apiBaseUrl,
                         file.fileUrl,
-                        localStorage.getItem('access_token') || '',
+                        localStorage.getItem("access_token") || "",
                       )}
                       target="_blank"
                       rel="noreferrer"
                       className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-blue-700 hover:bg-blue-50 flex items-center space-x-2 transition-colors"
                     >
                       <span>📎</span>
-                      <span className="max-w-[min(200px,55vw)] truncate">{file.fileName}</span>
+                      <span className="max-w-[min(200px,55vw)] truncate">
+                        {file.fileName}
+                      </span>
                     </a>
                   ))}
                 </div>
@@ -535,17 +585,21 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                     >
                       <div className="flex items-center justify-between">
                         <span className="font-bold text-gray-900">
-                          {c.user?.name || 'Người dùng'}
+                          <UserNameButton user={c.user} fallback="Người dùng" />
                         </span>
                         <span className="text-[10px] text-gray-400">
-                          {new Date(c.createdAt).toLocaleString('vi-VN')}
+                          {new Date(c.createdAt).toLocaleString("vi-VN")}
                         </span>
                       </div>
-                      <p className="text-gray-700 whitespace-pre-wrap">{c.content}</p>
+                      <p className="text-gray-700 whitespace-pre-wrap">
+                        {c.content}
+                      </p>
                     </div>
                   ))
                 ) : (
-                  <p className="text-xs text-gray-400 italic">Chưa có bình luận nào.</p>
+                  <p className="text-xs text-gray-400 italic">
+                    Chưa có bình luận nào.
+                  </p>
                 )}
               </div>
 
@@ -580,15 +634,17 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                           type="button"
                           onClick={() => {
                             if (isMentioned) {
-                              setSelectedMentions(selectedMentions.filter((id) => id !== u.id));
+                              setSelectedMentions(
+                                selectedMentions.filter((id) => id !== u.id),
+                              );
                             } else {
                               setSelectedMentions([...selectedMentions, u.id]);
                             }
                           }}
                           className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${
                             isMentioned
-                              ? 'bg-blue-100 text-blue-800 font-bold'
-                              : 'bg-slate-100 text-gray-600 hover:bg-slate-200'
+                              ? "bg-blue-100 text-blue-800 font-bold"
+                              : "bg-slate-100 text-gray-600 hover:bg-slate-200"
                           }`}
                         >
                           @{u.name}

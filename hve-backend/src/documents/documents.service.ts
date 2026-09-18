@@ -37,7 +37,9 @@ export class DocumentsService {
     projectId?: number,
     linkedProjectIds: number[] = [],
   ) {
-    const selectedIds = [...new Set([...(projectId ? [projectId] : []), ...linkedProjectIds])];
+    const selectedIds = [
+      ...new Set([...(projectId ? [projectId] : []), ...linkedProjectIds]),
+    ];
     if (selectedIds.length === 0) return;
 
     const projects = await this.prisma.project.findMany({
@@ -45,23 +47,37 @@ export class DocumentsService {
       select: { id: true },
     });
     if (projects.length !== selectedIds.length) {
-      throw new BadRequestException('Có dự án không tồn tại hoặc đã ngừng hoạt động');
+      throw new BadRequestException(
+        'Có dự án không tồn tại hoặc đã ngừng hoạt động',
+      );
     }
 
     const roles = getRoleNames(user);
     const ownProjectIds = getUserProjectIds(user);
     const canLinkProjects = roles.some((role) =>
-      ['ceo', 'it_admin', 'department_head'].includes(role),
+      ['ceo', 'bgd', 'it_admin', 'department_head'].includes(role),
     );
-    if (projectId && !roles.some((role) => ['ceo', 'it_admin'].includes(role)) && !ownProjectIds.includes(projectId)) {
+    if (
+      projectId &&
+      !roles.some((role) => ['ceo', 'bgd', 'it_admin'].includes(role)) &&
+      !ownProjectIds.includes(projectId)
+    ) {
       throw new ForbiddenException('Bạn không thuộc dự án đã chọn');
     }
-    if (!canLinkProjects && linkedProjectIds.some((id) => !ownProjectIds.includes(id))) {
-      throw new ForbiddenException('Bạn không có quyền liên kết hồ sơ với dự án khác');
+    if (
+      !canLinkProjects &&
+      linkedProjectIds.some((id) => !ownProjectIds.includes(id))
+    ) {
+      throw new ForbiddenException(
+        'Bạn không có quyền liên kết hồ sơ với dự án khác',
+      );
     }
   }
 
-  private async validateNewAttachments(userId: number, attachmentIds: number[] = []) {
+  private async validateNewAttachments(
+    userId: number,
+    attachmentIds: number[] = [],
+  ) {
     if (attachmentIds.length === 0) return;
     const uniqueIds = [...new Set(attachmentIds)];
     const count = await this.prisma.attachment.count({
@@ -72,7 +88,9 @@ export class DocumentsService {
       },
     });
     if (count !== uniqueIds.length) {
-      throw new ForbiddenException('Có tệp đính kèm không thuộc phiên tải lên của bạn');
+      throw new ForbiddenException(
+        'Có tệp đính kèm không thuộc phiên tải lên của bạn',
+      );
     }
   }
 
@@ -151,7 +169,13 @@ export class DocumentsService {
    * Bắn thông báo tức thời cho người/vai trò duyệt của bước hiện tại
    */
   async notifyStepApprovers(
-    doc: { id: number; code: string; title: string; projectId?: number | null; createdBy?: { name?: string; departmentId?: number | null } },
+    doc: {
+      id: number;
+      code: string;
+      title: string;
+      projectId?: number | null;
+      createdBy?: { name?: string; departmentId?: number | null };
+    },
     stepOrder: number,
     roleRequired: string,
   ) {
@@ -168,15 +192,15 @@ export class DocumentsService {
         } else {
           const deptId = doc.createdBy?.departmentId;
           if (deptId) {
-          const deptHeads = await this.prisma.user.findMany({
-            where: {
-              departmentId: deptId,
-              roles: { some: { name: 'department_head' } },
-              status: 'active',
-            },
-            select: { id: true },
-          });
-          approverIds = deptHeads.map((u) => u.id);
+            const deptHeads = await this.prisma.user.findMany({
+              where: {
+                departmentId: deptId,
+                roles: { some: { name: 'department_head' } },
+                status: 'active',
+              },
+              select: { id: true },
+            });
+            approverIds = deptHeads.map((u) => u.id);
           }
         }
       } else {
@@ -225,9 +249,17 @@ export class DocumentsService {
     }
   }
 
-  async createPaymentRequest(user: any, dto: CreatePaymentRequestDto, ip?: string) {
+  async createPaymentRequest(
+    user: any,
+    dto: CreatePaymentRequestDto,
+    ip?: string,
+  ) {
     const userId = user.id;
-    await this.validateProjectSelection(user, dto.projectId, dto.linkedProjectIds);
+    await this.validateProjectSelection(
+      user,
+      dto.projectId,
+      dto.linkedProjectIds,
+    );
     await this.validateNewAttachments(userId, dto.attachmentIds);
     const code = await this.generateDocumentCode('DNTT');
 
@@ -263,7 +295,11 @@ export class DocumentsService {
     // Update attachments if provided
     if (dto.attachmentIds && dto.attachmentIds.length > 0) {
       await this.prisma.attachment.updateMany({
-        where: { id: { in: dto.attachmentIds }, uploadedById: userId, entityId: 0 },
+        where: {
+          id: { in: dto.attachmentIds },
+          uploadedById: userId,
+          entityId: 0,
+        },
         data: { entityId: document.id, entityType: 'document' },
       });
     }
@@ -273,7 +309,12 @@ export class DocumentsService {
       entityId: document.id,
       action: 'create_document',
       actorId: userId,
-      afterJson: { code, title: dto.title, type: 'payment_request', status: 'Nháp' },
+      afterJson: {
+        code,
+        title: dto.title,
+        type: 'payment_request',
+        status: 'Nháp',
+      },
       ip,
     });
 
@@ -282,8 +323,30 @@ export class DocumentsService {
 
   async createProposal(user: any, dto: CreateProposalDto, ip?: string) {
     const userId = user.id;
-    await this.validateProjectSelection(user, dto.projectId, dto.linkedProjectIds);
+    const roles = getRoleNames(user);
+    const isBoard = roles.includes('bgd');
+    await this.validateProjectSelection(
+      user,
+      dto.projectId,
+      dto.linkedProjectIds,
+    );
     await this.validateNewAttachments(userId, dto.attachmentIds);
+    if (dto.targetUserId && !isBoard) {
+      throw new ForbiddenException(
+        'Chỉ Ban Giám Đốc được chỉ định người nhận riêng cho đề xuất',
+      );
+    }
+    if (dto.targetUserId) {
+      const target = await this.prisma.user.findFirst({
+        where: { id: dto.targetUserId, status: 'active' },
+        select: { id: true },
+      });
+      if (!target) {
+        throw new BadRequestException(
+          'Người nhận đề xuất không tồn tại hoặc đã bị khóa',
+        );
+      }
+    }
     const code = await this.generateDocumentCode('DX');
 
     const dataJson = {
@@ -301,10 +364,19 @@ export class DocumentsService {
         createdById: userId,
         projectId: dto.projectId || null,
         linkedProjectIds: dto.linkedProjectIds || [],
+        targetUserId: isBoard ? dto.targetUserId || null : null,
+        visibility: isBoard
+          ? dto.targetUserId
+            ? 'targeted'
+            : 'company'
+          : 'scoped',
         version: 1,
       },
       include: {
         createdBy: {
+          select: { id: true, name: true, email: true, department: true },
+        },
+        targetUser: {
           select: { id: true, name: true, email: true, department: true },
         },
       },
@@ -312,7 +384,11 @@ export class DocumentsService {
 
     if (dto.attachmentIds && dto.attachmentIds.length > 0) {
       await this.prisma.attachment.updateMany({
-        where: { id: { in: dto.attachmentIds }, uploadedById: userId, entityId: 0 },
+        where: {
+          id: { in: dto.attachmentIds },
+          uploadedById: userId,
+          entityId: 0,
+        },
         data: { entityId: document.id, entityType: 'document' },
       });
     }
@@ -326,15 +402,33 @@ export class DocumentsService {
       ip,
     });
 
+    if (document.targetUserId && document.targetUserId !== userId) {
+      await this.notificationsService.dispatchNotification({
+        userId: document.targetUserId,
+        eventType: 'proposal_received',
+        entityRef: `document:${document.id}`,
+        title: `Đề xuất mới: ${document.code}`,
+        content: `${user.name} đã gửi đề xuất "${document.title}" trực tiếp đến bạn.`,
+        link: `/documents?id=${document.id}`,
+        dedupeKey: `proposal_received_${document.id}_${document.targetUserId}`,
+      });
+    }
+
     return document;
   }
 
   async createContract(user: any, dto: CreateContractDto, ip?: string) {
     const userId = user.id;
-    await this.validateProjectSelection(user, dto.projectId, dto.linkedProjectIds);
+    await this.validateProjectSelection(
+      user,
+      dto.projectId,
+      dto.linkedProjectIds,
+    );
     await this.validateNewAttachments(userId, dto.attachmentIds);
     if (new Date(dto.endDate) < new Date(dto.startDate)) {
-      throw new BadRequestException('Ngày hết hạn hợp đồng không được trước ngày hiệu lực');
+      throw new BadRequestException(
+        'Ngày hết hạn hợp đồng không được trước ngày hiệu lực',
+      );
     }
 
     const code = await this.generateDocumentCode('HD');
@@ -365,12 +459,19 @@ export class DocumentsService {
         createdBy: {
           select: { id: true, name: true, email: true, department: true },
         },
+        targetUser: {
+          select: { id: true, name: true, email: true, department: true },
+        },
       },
     });
 
     if (dto.attachmentIds && dto.attachmentIds.length > 0) {
       await this.prisma.attachment.updateMany({
-        where: { id: { in: dto.attachmentIds }, uploadedById: userId, entityId: 0 },
+        where: {
+          id: { in: dto.attachmentIds },
+          uploadedById: userId,
+          entityId: 0,
+        },
         data: { entityId: document.id, entityType: 'document' },
       });
     }
@@ -387,31 +488,64 @@ export class DocumentsService {
     return this.enrichDocument(document);
   }
 
-  calculateContractExpiry(dataJson: any, offsetDays: number = 30): {
+  calculateContractExpiry(
+    dataJson: any,
+    offsetDays: number = 30,
+  ): {
     isExpiringSoon: boolean;
     expiringStatus: 'valid' | 'expiring_soon' | 'expired';
     daysRemaining: number | null;
   } {
     if (!dataJson || !dataJson.endDate) {
-      return { isExpiringSoon: false, expiringStatus: 'valid', daysRemaining: null };
+      return {
+        isExpiringSoon: false,
+        expiringStatus: 'valid',
+        daysRemaining: null,
+      };
     }
 
     const end = new Date(dataJson.endDate);
     if (isNaN(end.getTime())) {
-      return { isExpiringSoon: false, expiringStatus: 'valid', daysRemaining: null };
+      return {
+        isExpiringSoon: false,
+        expiringStatus: 'valid',
+        daysRemaining: null,
+      };
     }
 
     const now = new Date();
-    const endMidnight = new Date(end.getFullYear(), end.getMonth(), end.getDate()).getTime();
-    const nowMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-    const diffDays = Math.round((endMidnight - nowMidnight) / (1000 * 3600 * 24));
+    const endMidnight = new Date(
+      end.getFullYear(),
+      end.getMonth(),
+      end.getDate(),
+    ).getTime();
+    const nowMidnight = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+    ).getTime();
+    const diffDays = Math.round(
+      (endMidnight - nowMidnight) / (1000 * 3600 * 24),
+    );
 
     if (diffDays < 0) {
-      return { isExpiringSoon: true, expiringStatus: 'expired', daysRemaining: diffDays };
+      return {
+        isExpiringSoon: true,
+        expiringStatus: 'expired',
+        daysRemaining: diffDays,
+      };
     } else if (diffDays <= offsetDays) {
-      return { isExpiringSoon: true, expiringStatus: 'expiring_soon', daysRemaining: diffDays };
+      return {
+        isExpiringSoon: true,
+        expiringStatus: 'expiring_soon',
+        daysRemaining: diffDays,
+      };
     } else {
-      return { isExpiringSoon: false, expiringStatus: 'valid', daysRemaining: diffDays };
+      return {
+        isExpiringSoon: false,
+        expiringStatus: 'valid',
+        daysRemaining: diffDays,
+      };
     }
   }
 
@@ -434,17 +568,23 @@ export class DocumentsService {
     currentVersion?: number,
     ip?: string,
   ) {
-    const doc = await this.prisma.document.findUnique({ where: { id: documentId } });
+    const doc = await this.prisma.document.findUnique({
+      where: { id: documentId },
+    });
     if (!doc) {
       throw new NotFoundException('Không tìm thấy hồ sơ');
     }
 
     if (doc.status !== 'Nháp') {
-      throw new BadRequestException('Chỉ có thể chỉnh sửa hồ sơ khi ở trạng thái Nháp');
+      throw new BadRequestException(
+        'Chỉ có thể chỉnh sửa hồ sơ khi ở trạng thái Nháp',
+      );
     }
 
     if (doc.createdById !== userId) {
-      throw new ForbiddenException('Bạn không có quyền chỉnh sửa hồ sơ của người khác');
+      throw new ForbiddenException(
+        'Bạn không có quyền chỉnh sửa hồ sơ của người khác',
+      );
     }
 
     if (currentVersion !== undefined && doc.version !== currentVersion) {
@@ -459,10 +599,14 @@ export class DocumentsService {
       ...(dto.amount !== undefined ? { amount: dto.amount } : {}),
       ...(dto.receiver !== undefined ? { receiver: dto.receiver } : {}),
       ...(dto.bankName !== undefined ? { bankName: dto.bankName } : {}),
-      ...(dto.bankAccount !== undefined ? { bankAccount: dto.bankAccount } : {}),
+      ...(dto.bankAccount !== undefined
+        ? { bankAccount: dto.bankAccount }
+        : {}),
       ...(dto.content !== undefined ? { content: dto.content } : {}),
       ...(dto.deadline !== undefined ? { deadline: dto.deadline } : {}),
-      ...(dto.attachmentIds !== undefined ? { attachmentIds: dto.attachmentIds } : {}),
+      ...(dto.attachmentIds !== undefined
+        ? { attachmentIds: dto.attachmentIds }
+        : {}),
     };
 
     const updatedDoc = await this.prisma.document.update({
@@ -474,6 +618,9 @@ export class DocumentsService {
       },
       include: {
         createdBy: {
+          select: { id: true, name: true, email: true, department: true },
+        },
+        targetUser: {
           select: { id: true, name: true, email: true, department: true },
         },
       },
@@ -493,20 +640,28 @@ export class DocumentsService {
   }
 
   async deletePaymentRequest(documentId: number, userId: number, ip?: string) {
-    const doc = await this.prisma.document.findUnique({ where: { id: documentId } });
+    const doc = await this.prisma.document.findUnique({
+      where: { id: documentId },
+    });
     if (!doc) {
       throw new NotFoundException('Không tìm thấy hồ sơ');
     }
 
     if (doc.status !== 'Nháp') {
-      throw new BadRequestException('Chỉ có thể xóa hồ sơ khi ở trạng thái Nháp');
+      throw new BadRequestException(
+        'Chỉ có thể xóa hồ sơ khi ở trạng thái Nháp',
+      );
     }
 
     if (doc.createdById !== userId) {
-      throw new ForbiddenException('Bạn không có quyền xóa hồ sơ của người khác');
+      throw new ForbiddenException(
+        'Bạn không có quyền xóa hồ sơ của người khác',
+      );
     }
 
-    await this.prisma.documentApprovalStep.deleteMany({ where: { documentId } });
+    await this.prisma.documentApprovalStep.deleteMany({
+      where: { documentId },
+    });
     await this.prisma.document.delete({ where: { id: documentId } });
 
     await this.auditService.logEvent({
@@ -522,17 +677,23 @@ export class DocumentsService {
   }
 
   async createNewVersion(documentId: number, userId: number, ip?: string) {
-    const doc = await this.prisma.document.findUnique({ where: { id: documentId } });
+    const doc = await this.prisma.document.findUnique({
+      where: { id: documentId },
+    });
     if (!doc) {
       throw new NotFoundException('Không tìm thấy hồ sơ');
     }
 
     if (doc.status !== 'Đã duyệt') {
-      throw new BadRequestException('Chỉ có thể tạo phiên bản mới cho hồ sơ đã được phê duyệt');
+      throw new BadRequestException(
+        'Chỉ có thể tạo phiên bản mới cho hồ sơ đã được phê duyệt',
+      );
     }
 
     if (doc.createdById !== userId) {
-      throw new ForbiddenException('Chỉ người tạo hồ sơ mới có quyền tạo phiên bản sửa đổi');
+      throw new ForbiddenException(
+        'Chỉ người tạo hồ sơ mới có quyền tạo phiên bản sửa đổi',
+      );
     }
 
     // Tách baseCode và tính revision number độc lập với optimistic-lock version
@@ -566,7 +727,9 @@ export class DocumentsService {
         type: doc.type,
         status: 'Nháp',
         dataJson: {
-          ...(typeof doc.dataJson === 'object' && doc.dataJson !== null ? (doc.dataJson as any) : {}),
+          ...(typeof doc.dataJson === 'object' && doc.dataJson !== null
+            ? (doc.dataJson as any)
+            : {}),
           parentDocumentId: doc.id,
           revision: nextRevision,
         },
@@ -587,8 +750,17 @@ export class DocumentsService {
       entityId: newDoc.id,
       action: 'create_new_version',
       actorId: userId,
-      beforeJson: { originalDocumentId: doc.id, originalCode: doc.code, originalLockVersion: doc.version },
-      afterJson: { newDocumentId: newDoc.id, newCode: newDoc.code, revision: nextRevision, lockVersion: 1 },
+      beforeJson: {
+        originalDocumentId: doc.id,
+        originalCode: doc.code,
+        originalLockVersion: doc.version,
+      },
+      afterJson: {
+        newDocumentId: newDoc.id,
+        newCode: newDoc.code,
+        revision: nextRevision,
+        lockVersion: 1,
+      },
       ip,
     });
 
@@ -596,17 +768,23 @@ export class DocumentsService {
   }
 
   async submitForApproval(documentId: number, userId: number, ip?: string) {
-    const doc = await this.prisma.document.findUnique({ where: { id: documentId } });
+    const doc = await this.prisma.document.findUnique({
+      where: { id: documentId },
+    });
     if (!doc) {
       throw new NotFoundException('Không tìm thấy hồ sơ');
     }
 
     if (doc.status !== 'Nháp') {
-      throw new BadRequestException('Hồ sơ không ở trạng thái Nháp để có thể gửi duyệt');
+      throw new BadRequestException(
+        'Hồ sơ không ở trạng thái Nháp để có thể gửi duyệt',
+      );
     }
 
     if (doc.createdById !== userId) {
-      throw new ForbiddenException('Chỉ người tạo hồ sơ mới có quyền gửi duyệt');
+      throw new ForbiddenException(
+        'Chỉ người tạo hồ sơ mới có quyền gửi duyệt',
+      );
     }
 
     // Validate mandatory data based on document type
@@ -615,11 +793,20 @@ export class DocumentsService {
     const attachmentCount = await this.prisma.attachment.count({
       where: { entityType: 'document', entityId: documentId },
     });
-    const hasAttachmentInJson = Array.isArray(data.attachmentIds) && data.attachmentIds.length > 0;
+    const hasAttachmentInJson =
+      Array.isArray(data.attachmentIds) && data.attachmentIds.length > 0;
 
     if (docType === 'payment_request') {
-      if (!data.amount || !data.receiver || !data.bankName || !data.bankAccount || !data.content) {
-        throw new BadRequestException('Hồ sơ thiếu các thông tin thanh toán bắt buộc');
+      if (
+        !data.amount ||
+        !data.receiver ||
+        !data.bankName ||
+        !data.bankAccount ||
+        !data.content
+      ) {
+        throw new BadRequestException(
+          'Hồ sơ thiếu các thông tin thanh toán bắt buộc',
+        );
       }
 
       if (attachmentCount === 0 && !hasAttachmentInJson) {
@@ -629,17 +816,27 @@ export class DocumentsService {
       }
     } else if (docType === 'proposal') {
       if (!data.content || !data.content.trim()) {
-        throw new BadRequestException('Đề xuất thiếu thông tin nội dung bắt buộc');
+        throw new BadRequestException(
+          'Đề xuất thiếu thông tin nội dung bắt buộc',
+        );
       }
       // Attachments are optional for proposal
     } else if (docType === 'contract') {
-      if (!data.partner || data.value === undefined || !data.startDate || !data.endDate || !data.manager) {
+      if (
+        !data.partner ||
+        data.value === undefined ||
+        !data.startDate ||
+        !data.endDate ||
+        !data.manager
+      ) {
         throw new BadRequestException(
           'Hợp đồng thiếu các thông tin bắt buộc (đối tác, giá trị, ngày hiệu lực/hết hạn, người phụ trách)',
         );
       }
       if (new Date(data.endDate) < new Date(data.startDate)) {
-        throw new BadRequestException('Ngày hết hạn hợp đồng không được trước ngày hiệu lực');
+        throw new BadRequestException(
+          'Ngày hết hạn hợp đồng không được trước ngày hiệu lực',
+        );
       }
       if (attachmentCount === 0 && !hasAttachmentInJson) {
         throw new BadRequestException(
@@ -687,7 +884,9 @@ export class DocumentsService {
         },
         include: {
           steps: { orderBy: { stepOrder: 'asc' } },
-          createdBy: { select: { id: true, name: true, email: true, departmentId: true } },
+          createdBy: {
+            select: { id: true, name: true, email: true, departmentId: true },
+          },
         },
       });
 
@@ -697,7 +896,10 @@ export class DocumentsService {
         action: 'submit_approval',
         actorId: userId,
         beforeJson: { status: 'Nháp' },
-        afterJson: { status: 'Chờ duyệt', stepsCount: workflowTemplate.steps.length },
+        afterJson: {
+          status: 'Chờ duyệt',
+          stepsCount: workflowTemplate.steps.length,
+        },
         ip,
       });
 
@@ -706,7 +908,11 @@ export class DocumentsService {
 
     // Bắn thông báo tức thời cho người duyệt bước 1
     if (workflowTemplate.steps.length > 0) {
-      await this.notifyStepApprovers(result, 1, workflowTemplate.steps[0].roleRequired);
+      await this.notifyStepApprovers(
+        result,
+        1,
+        workflowTemplate.steps[0].roleRequired,
+      );
     }
 
     return result;
@@ -724,7 +930,9 @@ export class DocumentsService {
       where: { id: documentId },
       include: {
         steps: { orderBy: { stepOrder: 'asc' } },
-        createdBy: { select: { id: true, name: true, email: true, departmentId: true } },
+        createdBy: {
+          select: { id: true, name: true, email: true, departmentId: true },
+        },
       },
     });
 
@@ -749,7 +957,9 @@ export class DocumentsService {
     }
 
     if (step.status !== 'pending') {
-      throw new BadRequestException('Bước này hiện không ở trạng thái chờ duyệt');
+      throw new BadRequestException(
+        'Bước này hiện không ở trạng thái chờ duyệt',
+      );
     }
 
     // Anti self-approval rule
@@ -775,7 +985,11 @@ export class DocumentsService {
       step.stepOrder === maxStepOrder;
     if (isFinalAccountantStep) {
       const proofCount = await this.prisma.attachment.count({
-        where: { entityType: 'document', entityId: documentId, uploadedById: user.id },
+        where: {
+          entityType: 'document',
+          entityId: documentId,
+          uploadedById: user.id,
+        },
       });
       if (proofCount === 0) {
         throw new BadRequestException(
@@ -783,7 +997,8 @@ export class DocumentsService {
         );
       }
     }
-    const isFinalCeoStep = step.roleRequired === 'ceo' && step.stepOrder === maxStepOrder;
+    const isFinalCeoStep =
+      step.roleRequired === 'ceo' && step.stepOrder === maxStepOrder;
     if (isFinalCeoStep) {
       // CEO có thể tự bật/tắt yêu cầu PIN — chỉ bắt buộc khi đang bật.
       const pinRequired = await this.authService.isApprovalPinEnabled(user.id);
@@ -810,7 +1025,9 @@ export class DocumentsService {
       });
 
       // Look for next step
-      const nextStep = doc.steps.find((s) => s.stepOrder === step.stepOrder + 1);
+      const nextStep = doc.steps.find(
+        (s) => s.stepOrder === step.stepOrder + 1,
+      );
       let newDocumentStatus = doc.status;
 
       if (nextStep) {
@@ -841,7 +1058,10 @@ export class DocumentsService {
         entityId: doc.id,
         action: isFinalDocApproval ? 'approve_document_final' : 'approve_step',
         actorId: user.id,
-        beforeJson: { stepOrder: step.stepOrder, roleRequired: step.roleRequired },
+        beforeJson: {
+          stepOrder: step.stepOrder,
+          roleRequired: step.roleRequired,
+        },
         afterJson: {
           status: newDocumentStatus,
           approvedStep: step.stepOrder,
@@ -858,7 +1078,11 @@ export class DocumentsService {
     // Bắn thông báo tức thời cho bước tiếp theo hoặc người tạo hồ sơ (nếu đã duyệt xong toàn bộ)
     const nextStep = doc.steps.find((s) => s.stepOrder === step.stepOrder + 1);
     if (nextStep) {
-      await this.notifyStepApprovers(result, nextStep.stepOrder, nextStep.roleRequired);
+      await this.notifyStepApprovers(
+        result,
+        nextStep.stepOrder,
+        nextStep.roleRequired,
+      );
     } else {
       // Đã duyệt xong bước cuối
       await this.notificationsService.dispatchNotification({
@@ -946,7 +1170,11 @@ export class DocumentsService {
         entityId: doc.id,
         action: 'approve_document_direct',
         actorId: user.id,
-        beforeJson: { status: doc.status, remainingSteps: doc.steps.filter((s: any) => s.status !== 'approved').length },
+        beforeJson: {
+          status: doc.status,
+          remainingSteps: doc.steps.filter((s: any) => s.status !== 'approved')
+            .length,
+        },
         afterJson: {
           status: newStatus,
           comment: dto?.comment || 'CEO duyệt thẳng toàn bộ quy trình',
@@ -981,14 +1209,18 @@ export class DocumentsService {
     ip?: string,
   ) {
     if (!dto.comment || !dto.comment.trim()) {
-      throw new BadRequestException('Bắt buộc phải nhập lý do khi trả lại hồ sơ');
+      throw new BadRequestException(
+        'Bắt buộc phải nhập lý do khi trả lại hồ sơ',
+      );
     }
 
     const doc = await this.prisma.document.findUnique({
       where: { id: documentId },
       include: {
         steps: { orderBy: { stepOrder: 'asc' } },
-        createdBy: { select: { id: true, name: true, email: true, departmentId: true } },
+        createdBy: {
+          select: { id: true, name: true, email: true, departmentId: true },
+        },
       },
     });
 
@@ -1008,11 +1240,15 @@ export class DocumentsService {
 
     const step = doc.steps.find((s) => s.id === stepId);
     if (!step || step.status !== 'pending') {
-      throw new BadRequestException('Bước này không hợp lệ hoặc không ở trạng thái chờ duyệt');
+      throw new BadRequestException(
+        'Bước này không hợp lệ hoặc không ở trạng thái chờ duyệt',
+      );
     }
 
     if (doc.createdById === user.id) {
-      throw new ForbiddenException('Người tạo không được thao tác trên bước phê duyệt của mình');
+      throw new ForbiddenException(
+        'Người tạo không được thao tác trên bước phê duyệt của mình',
+      );
     }
 
     const approvalDelegator = this.resolveApprovalDelegator(
@@ -1087,14 +1323,18 @@ export class DocumentsService {
     ip?: string,
   ) {
     if (!dto.comment || !dto.comment.trim()) {
-      throw new BadRequestException('Bắt buộc phải nhập lý do khi từ chối hồ sơ');
+      throw new BadRequestException(
+        'Bắt buộc phải nhập lý do khi từ chối hồ sơ',
+      );
     }
 
     const doc = await this.prisma.document.findUnique({
       where: { id: documentId },
       include: {
         steps: { orderBy: { stepOrder: 'asc' } },
-        createdBy: { select: { id: true, name: true, email: true, departmentId: true } },
+        createdBy: {
+          select: { id: true, name: true, email: true, departmentId: true },
+        },
       },
     });
 
@@ -1114,11 +1354,15 @@ export class DocumentsService {
 
     const step = doc.steps.find((s) => s.id === stepId);
     if (!step || step.status !== 'pending') {
-      throw new BadRequestException('Bước này không hợp lệ hoặc không ở trạng thái chờ duyệt');
+      throw new BadRequestException(
+        'Bước này không hợp lệ hoặc không ở trạng thái chờ duyệt',
+      );
     }
 
     if (doc.createdById === user.id) {
-      throw new ForbiddenException('Người tạo không được thao tác trên bước phê duyệt của mình');
+      throw new ForbiddenException(
+        'Người tạo không được thao tác trên bước phê duyệt của mình',
+      );
     }
 
     const approvalDelegator = this.resolveApprovalDelegator(
@@ -1215,7 +1459,12 @@ export class DocumentsService {
         { status: 'Chờ duyệt' },
         { createdById: { not: user.id } },
         conditions.length > 0
-          ? { steps: { some: conditions.length === 1 ? conditions[0] : { OR: conditions } } }
+          ? {
+              steps: {
+                some:
+                  conditions.length === 1 ? conditions[0] : { OR: conditions },
+              },
+            }
           : { id: -1 },
       ];
     } else {
@@ -1228,6 +1477,9 @@ export class DocumentsService {
       orderBy: { createdAt: 'desc' },
       include: {
         createdBy: {
+          select: { id: true, name: true, email: true, department: true },
+        },
+        targetUser: {
           select: { id: true, name: true, email: true, department: true },
         },
         steps: {
@@ -1246,6 +1498,9 @@ export class DocumentsService {
       where: { AND: [{ id }, buildDocumentAccessWhere(user)] },
       include: {
         createdBy: {
+          select: { id: true, name: true, email: true, department: true },
+        },
+        targetUser: {
           select: { id: true, name: true, email: true, department: true },
         },
         steps: {
@@ -1270,12 +1525,14 @@ export class DocumentsService {
     });
   }
 
-
   async getExpiringContracts(user: any, offsetDays: number = 30) {
     const contracts = await this.findAll(user, { type: 'contract' });
     return contracts.filter((c: any) => {
       const expiry = this.calculateContractExpiry(c.dataJson, offsetDays);
-      return expiry.expiringStatus === 'expiring_soon' || expiry.expiringStatus === 'expired';
+      return (
+        expiry.expiringStatus === 'expiring_soon' ||
+        expiry.expiringStatus === 'expired'
+      );
     });
   }
 }

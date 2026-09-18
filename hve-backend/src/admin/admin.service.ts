@@ -49,7 +49,10 @@ export class AdminService {
         },
         ledProjects: { select: { id: true, code: true, name: true } },
         projectMemberships: {
-          select: { project: { select: { id: true, code: true, name: true } } },
+          select: {
+            position: true,
+            project: { select: { id: true, code: true, name: true } },
+          },
         },
         createdAt: true,
         updatedAt: true,
@@ -61,10 +64,16 @@ export class AdminService {
   // Chỉ đồng bộ quan hệ thành viên. Project.leadUserId là nguồn sự thật riêng
   // cho các dự án người dùng phụ trách, tránh biến Trưởng dự án thành thành
   // viên trùng lặp khi lưu từ màn Quản lý người dùng.
-  private async syncUserProjects(userId: number, projectIds: number[]) {
+  private async syncUserProjects(
+    userId: number,
+    projectIds: number[],
+    projectPositions: Record<string, string> = {},
+  ) {
     const uniqueIds = [...new Set(projectIds)];
     if (uniqueIds.length > 0) {
-      const count = await this.prisma.project.count({ where: { id: { in: uniqueIds } } });
+      const count = await this.prisma.project.count({
+        where: { id: { in: uniqueIds } },
+      });
       if (count !== uniqueIds.length) {
         throw new BadRequestException('Có dự án không tồn tại');
       }
@@ -75,10 +84,34 @@ export class AdminService {
     });
     const ledProjectIds = new Set(ledProjects.map((project) => project.id));
     const membershipIds = uniqueIds.filter((id) => !ledProjectIds.has(id));
+    const existingMemberships = await this.prisma.projectMember.findMany({
+      where: { userId },
+      select: { projectId: true, position: true },
+    });
+    const existingPositions = new Map(
+      existingMemberships.map((membership) => [
+        membership.projectId,
+        membership.position,
+      ]),
+    );
+    const memberships = membershipIds.map((projectId) => {
+      const position = String(
+        Object.prototype.hasOwnProperty.call(
+          projectPositions,
+          String(projectId),
+        )
+          ? projectPositions[String(projectId)] || ''
+          : existingPositions.get(projectId) || '',
+      ).trim();
+      if (position.length > 100) {
+        throw new BadRequestException('Vị trí trong dự án tối đa 100 ký tự');
+      }
+      return { userId, projectId, position: position || null };
+    });
     await this.prisma.$transaction([
       this.prisma.projectMember.deleteMany({ where: { userId } }),
       this.prisma.projectMember.createMany({
-        data: membershipIds.map((projectId) => ({ userId, projectId })),
+        data: memberships,
       }),
     ]);
   }
@@ -152,7 +185,11 @@ export class AdminService {
     });
 
     if (dto.projectIds !== undefined) {
-      await this.syncUserProjects(newUser.id, dto.projectIds);
+      await this.syncUserProjects(
+        newUser.id,
+        dto.projectIds,
+        dto.projectPositions,
+      );
     }
 
     await this.auditService.logEvent({
@@ -179,7 +216,11 @@ export class AdminService {
   ) {
     const user = await this.prisma.user.findUnique({
       where: { id: targetUserId },
-      include: { roles: true, department: true, ledProjects: { select: { id: true } } },
+      include: {
+        roles: true,
+        department: true,
+        ledProjects: { select: { id: true } },
+      },
     });
 
     if (!user) {
@@ -192,13 +233,18 @@ export class AdminService {
       updateData.name = dto.name.trim();
     }
 
-    if (dto.email !== undefined && dto.email.trim().toLowerCase() !== user.email) {
+    if (
+      dto.email !== undefined &&
+      dto.email.trim().toLowerCase() !== user.email
+    ) {
       const emailLower = dto.email.trim().toLowerCase();
       const existingEmail = await this.prisma.user.findUnique({
         where: { email: emailLower },
       });
       if (existingEmail && existingEmail.id !== targetUserId) {
-        throw new ConflictException('Email này đã được sử dụng bởi người dùng khác');
+        throw new ConflictException(
+          'Email này đã được sử dụng bởi người dùng khác',
+        );
       }
       updateData.email = emailLower;
       updateData.emailVerifiedAt = null;
@@ -267,12 +313,20 @@ export class AdminService {
     });
 
     if (dto.projectIds !== undefined) {
-      await this.syncUserProjects(targetUserId, dto.projectIds);
+      await this.syncUserProjects(
+        targetUserId,
+        dto.projectIds,
+        dto.projectPositions,
+      );
     }
 
     if (updateData.emailVerifiedAt === null) {
-      await this.prisma.trustedDevice.deleteMany({ where: { userId: targetUserId } });
-      await this.prisma.loginChallenge.deleteMany({ where: { userId: targetUserId } });
+      await this.prisma.trustedDevice.deleteMany({
+        where: { userId: targetUserId },
+      });
+      await this.prisma.loginChallenge.deleteMany({
+        where: { userId: targetUserId },
+      });
     }
 
     await this.auditService.logEvent({
@@ -317,7 +371,8 @@ export class AdminService {
     });
     if (!user) throw new NotFoundException('Không tìm thấy người dùng');
 
-    const isClearing = dto.delegateToUserId == null && dto.delegateUntil == null;
+    const isClearing =
+      dto.delegateToUserId == null && dto.delegateUntil == null;
     if (!isClearing && (!dto.delegateToUserId || !dto.delegateUntil)) {
       throw new BadRequestException(
         'Phải chọn người nhận và ngày hết hạn khi thiết lập ủy quyền',
@@ -359,7 +414,9 @@ export class AdminService {
         delegate.delegateUntil &&
         delegate.delegateUntil.getTime() >= Date.now()
       ) {
-        throw new BadRequestException('Không thể tạo vòng lặp ủy quyền hai chiều');
+        throw new BadRequestException(
+          'Không thể tạo vòng lặp ủy quyền hai chiều',
+        );
       }
     }
 
@@ -376,7 +433,8 @@ export class AdminService {
     });
 
     this.jwtStrategy.invalidateUser(targetUserId);
-    if (user.delegateToUserId) this.jwtStrategy.invalidateUser(user.delegateToUserId);
+    if (user.delegateToUserId)
+      this.jwtStrategy.invalidateUser(user.delegateToUserId);
     if (delegateToUserId) this.jwtStrategy.invalidateUser(delegateToUserId);
 
     await this.auditService.logEvent({
@@ -427,8 +485,12 @@ export class AdminService {
       },
     });
 
-    await this.prisma.trustedDevice.deleteMany({ where: { userId: targetUserId } });
-    await this.prisma.loginChallenge.deleteMany({ where: { userId: targetUserId } });
+    await this.prisma.trustedDevice.deleteMany({
+      where: { userId: targetUserId },
+    });
+    await this.prisma.loginChallenge.deleteMany({
+      where: { userId: targetUserId },
+    });
 
     await this.auditService.logEvent({
       entityType: 'User',
@@ -539,7 +601,8 @@ export class AdminService {
     const updatedUser = await this.prisma.user.update({
       where: { id: targetUserId },
       data: {
-        departmentId: dto.departmentId === undefined ? user.departmentId : dto.departmentId,
+        departmentId:
+          dto.departmentId === undefined ? user.departmentId : dto.departmentId,
         roles: {
           set: dto.roleIds.map((id) => ({ id })),
         },
@@ -618,7 +681,10 @@ export class AdminService {
       ip,
     });
 
-    return { success: true, message: `Đã xóa công việc [${task.code}] ${task.title}` };
+    return {
+      success: true,
+      message: `Đã xóa công việc [${task.code}] ${task.title}`,
+    };
   }
 
   async deleteDocument(documentId: number, currentUserId: number, ip?: string) {
@@ -656,7 +722,10 @@ export class AdminService {
       ip,
     });
 
-    return { success: true, message: `Đã xóa hồ sơ [${doc.code}] ${doc.title}` };
+    return {
+      success: true,
+      message: `Đã xóa hồ sơ [${doc.code}] ${doc.title}`,
+    };
   }
 
   async getStuckData() {

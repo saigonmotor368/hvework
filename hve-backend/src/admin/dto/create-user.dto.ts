@@ -1,4 +1,13 @@
-import { IsEmail, IsNotEmpty, IsString, IsArray, IsNumber, IsOptional, MinLength } from 'class-validator';
+import {
+  IsEmail,
+  IsNotEmpty,
+  IsString,
+  IsArray,
+  IsNumber,
+  IsObject,
+  IsOptional,
+  MinLength,
+} from 'class-validator';
 
 export class CreateUserDto {
   @IsEmail({}, { message: 'Email không hợp lệ' })
@@ -22,6 +31,10 @@ export class CreateUserDto {
   @IsArray({ message: 'Danh sách dự án phải là mảng số' })
   @IsNumber({}, { each: true, message: 'Mỗi mã dự án phải là số' })
   projectIds?: number[];
+
+  @IsOptional()
+  @IsObject({ message: 'Vị trí theo dự án phải là một đối tượng' })
+  projectPositions?: Record<string, string>;
 
   @IsArray({ message: 'Danh sách vai trò phải là mảng số' })
   @IsNumber({}, { each: true, message: 'Mỗi mã vai trò phải là số' })

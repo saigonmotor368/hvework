@@ -1,6 +1,7 @@
 import React from "react";
 import { ROLE_LABELS } from "../types.js";
 import { PwaInstallPrompt } from "./PwaInstallPrompt.js";
+import { UserNameButton } from "./UserNameButton.js";
 
 type AppTab =
   | "overview"
@@ -225,7 +226,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="flex items-center justify-between mb-2">
             <div>
               <p className="text-xs font-bold text-gray-900 truncate">
-                {user?.name}
+                <UserNameButton user={user} fallback="Người dùng" />
               </p>
               <p className="text-[11px] text-gray-500 truncate">
                 {user?.email}

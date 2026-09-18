@@ -28,25 +28,19 @@ export class TasksController {
   constructor(private readonly tasksService: TasksService) {}
 
   @Post()
-  @Roles('department_head', 'ceo')
+  @Roles('department_head', 'ceo', 'bgd')
   @HttpCode(HttpStatus.CREATED)
-  async createTask(
-    @Body() dto: CreateTaskDto,
-    @Req() req: any,
-  ) {
+  async createTask(@Body() dto: CreateTaskDto, @Req() req: any) {
     return this.tasksService.createTask(req.user, dto, req.ip);
   }
 
   @Get()
-  async getTasks(
-    @Query() query: TaskQueryDto,
-    @Req() req: any,
-  ) {
+  async getTasks(@Query() query: TaskQueryDto, @Req() req: any) {
     return this.tasksService.findAll(req.user, query);
   }
 
   @Get('users')
-  @Roles('department_head', 'ceo')
+  @Roles('department_head', 'ceo', 'bgd')
   async getAssignableUsers(@Req() req: any) {
     return this.tasksService.getAssignableUsers(req.user);
   }
@@ -54,16 +48,14 @@ export class TasksController {
   @Get('workload')
   async getWorkloadSummary(
     @Req() req: any,
-    @Query('projectId', new ParseIntPipe({ optional: true })) projectId?: number,
+    @Query('projectId', new ParseIntPipe({ optional: true }))
+    projectId?: number,
   ) {
     return this.tasksService.getWorkloadSummary(req.user, projectId);
   }
 
   @Get(':id')
-  async getTaskById(
-    @Param('id', ParseIntPipe) id: number,
-    @Req() req: any,
-  ) {
+  async getTaskById(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
     return this.tasksService.findById(req.user, id);
   }
 

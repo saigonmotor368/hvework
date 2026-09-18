@@ -16,6 +16,7 @@ describe('AdminService', () => {
       user: {
         findMany: vi.fn(),
         findUnique: vi.fn(),
+        create: vi.fn(),
         update: vi.fn(),
       },
       role: {
@@ -26,7 +27,11 @@ describe('AdminService', () => {
         findUnique: vi.fn(),
       },
       project: { count: vi.fn(), findMany: vi.fn() },
-      projectMember: { deleteMany: vi.fn(), createMany: vi.fn() },
+      projectMember: {
+        findMany: vi.fn().mockResolvedValue([]),
+        deleteMany: vi.fn(),
+        createMany: vi.fn(),
+      },
       $transaction: vi.fn(),
     };
 
@@ -50,7 +55,13 @@ describe('AdminService', () => {
   describe('User Listing and Lookups', () => {
     it('should return list of all users without exposing passwords', async () => {
       prisma.user.findMany.mockResolvedValue([
-        { id: 1, email: 'admin@huyvoeducation.vn', name: 'IT Admin', status: 'active', roles: [] },
+        {
+          id: 1,
+          email: 'admin@huyvoeducation.vn',
+          name: 'IT Admin',
+          status: 'active',
+          roles: [],
+        },
       ]);
 
       const users = await service.findAllUsers();
@@ -69,11 +80,44 @@ describe('AdminService', () => {
     });
   });
 
+  describe('project positions', () => {
+    it('stores a manual position for every selected project', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.role.findMany.mockResolvedValue([{ id: 1, name: 'employee' }]);
+      prisma.user.create.mockResolvedValue({
+        id: 15,
+        email: 'cuuho@huyvoeducation.vn',
+        name: 'Nhân viên Cứu hộ',
+        status: 'active',
+        roles: [{ id: 1, name: 'employee' }],
+      });
+      prisma.project.count.mockResolvedValue(1);
+      prisma.project.findMany.mockResolvedValue([]);
+
+      await service.createUser(
+        {
+          email: 'cuuho@huyvoeducation.vn',
+          name: 'Nhân viên Cứu hộ',
+          roleIds: [1],
+          projectIds: [4],
+          projectPositions: { '4': 'Cứu hộ' },
+        },
+        1,
+      );
+
+      expect(prisma.projectMember.createMany).toHaveBeenCalledWith({
+        data: [{ userId: 15, projectId: 4, position: 'Cứu hộ' }],
+      });
+    });
+  });
+
   describe('updateUserStatus', () => {
     it('should block IT admin from self-locking their own account', async () => {
       await expect(
         service.updateUserStatus(1, { status: 'locked' }, 1), // targetId === currentUserId (1)
-      ).rejects.toThrow('Quản trị viên không thể tự khóa tài khoản của chính mình');
+      ).rejects.toThrow(
+        'Quản trị viên không thể tự khóa tài khoản của chính mình',
+      );
     });
 
     it('should throw NotFoundException if user does not exist', async () => {
@@ -112,7 +156,11 @@ describe('AdminService', () => {
 
   describe('updateUserRoles', () => {
     it('should reject if any roleId is invalid', async () => {
-      prisma.user.findUnique.mockResolvedValue({ id: 5, roles: [], ledProjects: [{ id: 1 }] });
+      prisma.user.findUnique.mockResolvedValue({
+        id: 5,
+        roles: [],
+        ledProjects: [{ id: 1 }],
+      });
       prisma.role.findMany.mockResolvedValue([{ id: 1, name: 'employee' }]); // only role 1 exists
 
       await expect(
@@ -121,7 +169,11 @@ describe('AdminService', () => {
     });
 
     it('should update user roles and department successfully', async () => {
-      prisma.user.findUnique.mockResolvedValue({ id: 5, roles: [], ledProjects: [{ id: 1 }] });
+      prisma.user.findUnique.mockResolvedValue({
+        id: 5,
+        roles: [],
+        ledProjects: [{ id: 1 }],
+      });
       prisma.role.findMany.mockResolvedValue([
         { id: 1, name: 'employee' },
         { id: 2, name: 'department_head' },
@@ -130,7 +182,10 @@ describe('AdminService', () => {
       prisma.user.update.mockResolvedValue({
         id: 5,
         department: { id: 1 },
-        roles: [{ id: 1, name: 'employee' }, { id: 2, name: 'department_head' }],
+        roles: [
+          { id: 1, name: 'employee' },
+          { id: 2, name: 'department_head' },
+        ],
       });
 
       const res = await service.updateUserRoles(
@@ -146,7 +201,11 @@ describe('AdminService', () => {
     });
 
     it('prevents department_head role from drifting away from project leadership', async () => {
-      prisma.user.findUnique.mockResolvedValue({ id: 5, roles: [], ledProjects: [] });
+      prisma.user.findUnique.mockResolvedValue({
+        id: 5,
+        roles: [],
+        ledProjects: [],
+      });
       prisma.role.findMany.mockResolvedValue([
         { id: 1, name: 'employee' },
         { id: 2, name: 'department_head' },
@@ -160,7 +219,10 @@ describe('AdminService', () => {
 
       prisma.user.findUnique.mockResolvedValue({
         id: 5,
-        roles: [{ id: 1, name: 'employee' }, { id: 2, name: 'department_head' }],
+        roles: [
+          { id: 1, name: 'employee' },
+          { id: 2, name: 'department_head' },
+        ],
         ledProjects: [{ id: 9 }],
       });
       prisma.role.findMany.mockResolvedValue([{ id: 1, name: 'employee' }]);
@@ -225,14 +287,20 @@ describe('AdminService', () => {
       await expect(
         service.updateUserDelegation(
           5,
-          { delegateToUserId: 8, delegateUntil: new Date(Date.now() - 1000).toISOString() },
+          {
+            delegateToUserId: 8,
+            delegateUntil: new Date(Date.now() - 1000).toISOString(),
+          },
           1,
         ),
       ).rejects.toThrow('Ngày hết hạn ủy quyền phải ở tương lai');
       await expect(
         service.updateUserDelegation(
           5,
-          { delegateToUserId: 5, delegateUntil: new Date(Date.now() + 1000).toISOString() },
+          {
+            delegateToUserId: 5,
+            delegateUntil: new Date(Date.now() + 1000).toISOString(),
+          },
           1,
         ),
       ).rejects.toThrow('Không thể tự ủy quyền cho chính mình');

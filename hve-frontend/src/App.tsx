@@ -18,6 +18,8 @@ import {
 } from "./components/CreateDocumentForm";
 import { ActionReasonModal } from "./components/ActionReasonModal";
 import { EnableNotificationsPrompt } from "./components/EnableNotificationsPrompt";
+import { UserProfileModal } from "./components/UserProfileModal";
+import { UserNameButton } from "./components/UserNameButton";
 import { ApprovalPinModal } from "./components/ApprovalPinModal";
 import { SetApprovalPinModal } from "./components/SetApprovalPinModal";
 import { CreateTaskModal } from "./components/CreateTaskModal";
@@ -239,12 +241,13 @@ export default function App() {
     selectedFile: null,
     projectId: "",
     linkedProjectIds: [],
+    targetUserId: "",
   };
 
   const [createForm, setCreateForm] =
     useState<CreateFormData>(initialFormState);
   const canUseEveryProject = user?.roles?.some((role: string) =>
-    ["ceo", "it_admin"].includes(role),
+    ["ceo", "bgd", "it_admin"].includes(role),
   );
   const ownProjectIds = new Set<number>(
     (user?.projects || []).map((project: ProjectItem) => project.id),
@@ -364,7 +367,11 @@ export default function App() {
     const token = localStorage.getItem("access_token");
     if (!token) return;
     const roles: string[] = user?.roles || [];
-    if (!roles.includes("ceo") && !roles.includes("department_head")) {
+    if (
+      !roles.includes("ceo") &&
+      !roles.includes("bgd") &&
+      !roles.includes("department_head")
+    ) {
       setAssignableUsers([]);
       return;
     }
@@ -488,7 +495,10 @@ export default function App() {
   useEffect(() => {
     if (
       isAuthenticated &&
-      (activeTab === "tasks" || isCreateTaskOpen || selectedTaskId !== null)
+      (activeTab === "tasks" ||
+        activeTab === "create" ||
+        isCreateTaskOpen ||
+        selectedTaskId !== null)
     ) {
       void fetchAssignableUsers();
     }
@@ -807,6 +817,9 @@ export default function App() {
             ? Number(createForm.projectId)
             : undefined,
           linkedProjectIds: createForm.linkedProjectIds,
+          targetUserId: createForm.targetUserId
+            ? Number(createForm.targetUserId)
+            : undefined,
         };
       } else if (createForm.type === "contract") {
         endpoint = `${API_BASE_URL}/documents/contracts`;
@@ -1268,7 +1281,9 @@ export default function App() {
             />
             <div className="hidden sm:block h-5 w-px bg-slate-200" />
             <span className="hidden sm:block text-xs text-gray-500">
-              <strong className="text-gray-800">{user?.name}</strong>
+              <strong className="text-gray-800">
+                <UserNameButton user={user} />
+              </strong>
               <span className="hidden md:inline">
                 {" "}
                 (
@@ -1447,6 +1462,8 @@ export default function App() {
                   onCancel={() => setActiveTab("documents")}
                   projects={projects}
                   primaryProjects={primaryProjects}
+                  currentUser={user}
+                  users={assignableUsers}
                 />
               )}
 
@@ -1502,6 +1519,7 @@ export default function App() {
         showToast={showToast}
         projects={projects}
         primaryProjects={primaryProjects}
+        currentUser={user}
       />
 
       {/* Task Detail Modal */}
@@ -1537,7 +1555,10 @@ export default function App() {
       />
 
       {isAuthenticated && user && (
-        <EnableNotificationsPrompt apiBaseUrl={API_BASE_URL} />
+        <>
+          <EnableNotificationsPrompt apiBaseUrl={API_BASE_URL} />
+          <UserProfileModal apiBaseUrl={API_BASE_URL} />
+        </>
       )}
 
       {pinModal.isOpen && (

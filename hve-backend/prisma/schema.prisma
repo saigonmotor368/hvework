@@ -64,7 +64,8 @@ model User {
   roles Role[]
 
   // References for created documents/tasks
-  createdDocuments     Document[]
+  createdDocuments     Document[]         @relation("DocumentCreator")
+  targetedDocuments    Document[]         @relation("DocumentTarget")
   assignedTasks        Task[]             @relation("AssignedTasks")
   createdTasks         Task[]             @relation("CreatedTasks")
   pushSubscriptions    PushSubscription[]
@@ -124,7 +125,13 @@ model Document {
   linkedProjectIds Json? // array of project ids allowed to collaborate/view
 
   createdById Int
-  createdBy   User @relation(fields: [createdById], references: [id])
+  createdBy   User @relation("DocumentCreator", fields: [createdById], references: [id])
+
+  // scoped: phân quyền nghiệp vụ cũ; targeted: người tạo + người nhận;
+  // company: mọi tài khoản đăng nhập. BGĐ chọn phạm vi này khi tạo đề xuất.
+  visibility   String @default("scoped")
+  targetUserId Int?
+  targetUser   User?  @relation("DocumentTarget", fields: [targetUserId], references: [id], onDelete: SetNull)
 
   version Int @default(1)
 
@@ -135,6 +142,7 @@ model Document {
 
   @@index([projectId])
   @@index([createdById, status])
+  @@index([visibility, targetUserId])
   @@index([type, status])
 }
 
@@ -211,6 +219,9 @@ model Task {
   projectId        Int?
   project          Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
   linkedProjectIds Json? // array of project ids allowed to collaborate/view
+  // scoped: phạm vi dự án/phòng ban; targeted: người giao/người nhận;
+  // company: mọi tài khoản đăng nhập. Chỉ nội dung BGĐ tạo mới tự đặt giá trị này.
+  visibility       String   @default("scoped")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -220,6 +231,7 @@ model Task {
   @@index([createdById])
   @@index([status, dueDate])
   @@index([parentTaskId])
+  @@index([visibility, assigneeId])
 }
 
 model Project {
@@ -281,6 +293,7 @@ model ProjectMember {
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   userId    Int
   user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  position  String? // vị trí nhập tay theo từng dự án, ví dụ: Dạy bơi, Cứu hộ
 
   @@unique([projectId, userId])
   @@index([userId])

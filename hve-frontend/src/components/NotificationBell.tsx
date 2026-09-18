@@ -247,6 +247,8 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
         return "📜";
       case "announcement_published":
         return "📢";
+      case "proposal_received":
+        return "💡";
       default:
         return "🔔";
     }

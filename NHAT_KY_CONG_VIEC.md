@@ -477,3 +477,15 @@ Dự án đã hoàn thành toàn bộ các giai đoạn (Phase 0 ➔ Phase 5) v�
 - Nâng cấp nhận diện bảng tin: header xanh–tím tương phản cao, nhãn “Chính thức”, thẻ màu riêng theo mức Bình thường/Quan trọng/Khẩn cấp và dải nhấn bên trái; vẫn giữ bố cục responsive, không nhập chung với khối cảnh báo vận hành.
 - Khi bài được phát hành, hệ thống tạo notification in-app và Web Push cho toàn bộ user active hoặc chỉ Trưởng dự án/thành viên trực tiếp của dự án đã chọn; notification mở thẳng modal chi tiết bài. Bài hẹn giờ có cron 5 phút, gửi theo lô 10 người và dùng `notifiedAt` + `dedupeKey` để chống gửi trùng.
 - Migration mới `20260918143000_add_announcement_push_tracking` đánh dấu các bài cũ là đã xử lý để không gửi push hồi tố. Baseline sau nâng cấp: backend 194/194 test, build/lint pass; frontend 10/10 test, build pass, lint 0 error; main bundle 365,82 KB (gzip 102,30 KB).
+
+---
+
+## 16. VỊ TRÍ THEO DỰ ÁN, HỒ SƠ NHÂN SỰ VÀ QUYỀN BGĐ (18/09/2026)
+
+- Thêm `ProjectMember.position` nhập tay theo từng dự án; cùng một nhân sự có thể giữ vị trí khác nhau ở từng nơi, ví dụ “Dạy bơi” hoặc “Cứu hộ” tại dự án Hồ bơi. Khi sửa dự án, hệ thống giữ nguyên vị trí đã nhập.
+- Màn Quản lý người dùng cho nhập/sửa vị trí ngay dưới từng dự án đã chọn; danh sách nhân sự và bộ chọn người giao việc hiển thị vị trí tương ứng.
+- Thêm API hồ sơ nội bộ có JWT và popup dùng chung: bấm tên người tạo hồ sơ, người giao/nhận việc, người bình luận, tác giả thông báo, dữ liệu dashboard, báo cáo hoặc quản trị sẽ xem được phòng ban, liên hệ, vai trò, dự án và vị trí.
+- Mở quyền giao việc cho `bgd` nhưng không cấp quyền CEO, duyệt hồ sơ hay quản trị hệ thống.
+- Nội dung BGĐ tạo mới dùng phạm vi riêng: có người nhận là `targeted`, chỉ người tạo/người nhận/người phối hợp và bước duyệt bắt buộc được xem; không chỉ định là `company`, mọi tài khoản HVE được xem. Dữ liệu cũ tiếp tục là `scoped`, không bị mở quyền hồi tố.
+- Đề xuất gửi riêng tạo notification in-app/Web Push cho người nhận và mở thẳng hồ sơ.
+- Migration `20260918170000_add_project_positions_and_targeted_visibility`; baseline: Prisma validate/generate pass, backend build/lint và 199/199 test pass, frontend build và 10/10 test pass, lint không có error; main bundle 374,92 KB (gzip 104,50 KB).

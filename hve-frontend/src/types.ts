@@ -20,6 +20,14 @@ export interface DocumentItem {
   projectId?: number | null;
   project?: ProjectItem | null;
   linkedProjectIds?: number[] | null;
+  visibility?: "scoped" | "targeted" | "company";
+  targetUserId?: number | null;
+  targetUser?: {
+    id: number;
+    name: string;
+    email: string;
+    department?: { id: number; name: string; code: string };
+  } | null;
   createdBy?: {
     id: number;
     name: string;
@@ -96,6 +104,7 @@ export interface ProjectItem {
   lead?: { id: number; name: string; email: string } | null;
   members?: Array<{
     userId: number;
+    position?: string | null;
     user: { id: number; name: string; email: string };
   }>;
   isActive: boolean;
@@ -134,6 +143,7 @@ export interface AdminUser {
   roles: RoleItem[];
   ledProjects?: Array<{ id: number; code: string; name: string }>;
   projectMemberships?: Array<{
+    position?: string | null;
     project: { id: number; code: string; name: string };
   }>;
   delegateToUserId?: number | null;
@@ -255,6 +265,7 @@ export interface TaskItem {
   projectId?: number | null;
   project?: ProjectItem | null;
   linkedProjectIds?: number[] | null;
+  visibility?: "scoped" | "targeted" | "company";
   attachments?: Array<{
     id: number;
     fileName: string;

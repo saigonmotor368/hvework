@@ -27,7 +27,11 @@ export function addMonthsSafe(date: Date, months: number): Date {
   const result = new Date(date.getTime());
   result.setDate(1);
   result.setMonth(result.getMonth() + months);
-  const maxDays = new Date(result.getFullYear(), result.getMonth() + 1, 0).getDate();
+  const maxDays = new Date(
+    result.getFullYear(),
+    result.getMonth() + 1,
+    0,
+  ).getDate();
   result.setDate(Math.min(d, maxDays));
   return result;
 }
@@ -83,32 +87,41 @@ export class TasksService {
     projectId?: number,
     linkedProjectIds: number[] = [],
   ) {
-    const selectedIds = [...new Set([...(projectId ? [projectId] : []), ...linkedProjectIds])];
+    const selectedIds = [
+      ...new Set([...(projectId ? [projectId] : []), ...linkedProjectIds]),
+    ];
     if (selectedIds.length === 0) return;
     const count = await this.prisma.project.count({
       where: { id: { in: selectedIds }, isActive: true },
     });
     if (count !== selectedIds.length) {
-      throw new BadRequestException('Có dự án không tồn tại hoặc đã ngừng hoạt động');
+      throw new BadRequestException(
+        'Có dự án không tồn tại hoặc đã ngừng hoạt động',
+      );
     }
     const roles = getRoleNames(user);
     if (
       projectId &&
-      !roles.some((role) => ['ceo', 'it_admin'].includes(role)) &&
+      !roles.some((role) => ['ceo', 'bgd', 'it_admin'].includes(role)) &&
       !getUserProjectIds(user).includes(projectId)
     ) {
       throw new ForbiddenException('Bạn không thuộc dự án đã chọn');
     }
   }
 
-  private async validateNewAttachments(userId: number, attachmentIds: number[] = []) {
+  private async validateNewAttachments(
+    userId: number,
+    attachmentIds: number[] = [],
+  ) {
     if (attachmentIds.length === 0) return;
     const uniqueIds = [...new Set(attachmentIds)];
     const count = await this.prisma.attachment.count({
       where: { id: { in: uniqueIds }, uploadedById: userId, entityId: 0 },
     });
     if (count !== uniqueIds.length) {
-      throw new ForbiddenException('Có tệp đính kèm không thuộc phiên tải lên của bạn');
+      throw new ForbiddenException(
+        'Có tệp đính kèm không thuộc phiên tải lên của bạn',
+      );
     }
   }
 
@@ -152,24 +165,38 @@ export class TasksService {
   /**
    * Lấy danh sách người dùng khả dụng để giao việc và phối hợp
    */
-  async getAssignableUsers(
-    user: { id: number; roles?: Array<string | { name: string }>; departmentId?: number | null },
-  ) {
+  async getAssignableUsers(user: {
+    id: number;
+    roles?: Array<string | { name: string }>;
+    departmentId?: number | null;
+  }) {
     const roles = getRoleNames(user);
-    if (!roles.includes('ceo') && !roles.includes('department_head')) return [];
+    if (
+      !roles.includes('ceo') &&
+      !roles.includes('bgd') &&
+      !roles.includes('department_head')
+    )
+      return [];
 
     const projectIds = getUserProjectIds(user);
     return this.prisma.user.findMany({
       where: {
         status: 'active',
-        ...(!roles.includes('ceo')
+        ...(!roles.includes('ceo') && !roles.includes('bgd')
           ? projectIds.length > 0
             ? {
                 OR: [
-                  { ledProjects: { some: { id: { in: projectIds }, isActive: true } } },
+                  {
+                    ledProjects: {
+                      some: { id: { in: projectIds }, isActive: true },
+                    },
+                  },
                   {
                     projectMemberships: {
-                      some: { projectId: { in: projectIds }, project: { isActive: true } },
+                      some: {
+                        projectId: { in: projectIds },
+                        project: { isActive: true },
+                      },
                     },
                   },
                 ],
@@ -183,6 +210,17 @@ export class TasksService {
         email: true,
         departmentId: true,
         department: { select: { id: true, name: true, code: true } },
+        ledProjects: {
+          where: { isActive: true },
+          select: { id: true, code: true, name: true },
+        },
+        projectMemberships: {
+          where: { project: { isActive: true } },
+          select: {
+            position: true,
+            project: { select: { id: true, code: true, name: true } },
+          },
+        },
       },
       orderBy: { name: 'asc' },
     });
@@ -206,10 +244,7 @@ export class TasksService {
       this.prisma.task.groupBy({
         by: ['assigneeId'],
         where: {
-          AND: [
-            ...baseConditions,
-            { dueDate: { lt: now } },
-          ],
+          AND: [...baseConditions, { dueDate: { lt: now } }],
         },
         _count: { _all: true },
       }),
@@ -217,7 +252,7 @@ export class TasksService {
 
     const roles = getRoleNames(user);
     const assignableUsers = roles.some((role) =>
-      ['ceo', 'department_head'].includes(role),
+      ['ceo', 'bgd', 'department_head'].includes(role),
     )
       ? await this.getAssignableUsers(user)
       : await this.prisma.user.findMany({
@@ -252,12 +287,7 @@ export class TasksService {
         email: person.email,
         activeCount,
         overdueCount,
-        level:
-          activeCount >= 6
-            ? 'qua_tai'
-            : activeCount >= 3
-              ? 'vua'
-              : 'ranh',
+        level: activeCount >= 6 ? 'qua_tai' : activeCount >= 3 ? 'vua' : 'ranh',
       };
     });
   }
@@ -275,9 +305,13 @@ export class TasksService {
     dto: CreateTaskDto,
     ip?: string,
   ) {
-    if (!this.hasRole(user, 'department_head') && !this.hasRole(user, 'ceo')) {
+    if (
+      !this.hasRole(user, 'department_head') &&
+      !this.hasRole(user, 'ceo') &&
+      !this.hasRole(user, 'bgd')
+    ) {
       throw new ForbiddenException(
-        'Chỉ Trưởng Ban / Trưởng dự án hoặc CEO mới có quyền giao việc',
+        'Chỉ Trưởng Ban / Trưởng dự án, Ban Giám Đốc hoặc CEO mới có quyền giao việc',
       );
     }
 
@@ -286,16 +320,27 @@ export class TasksService {
       parentTask = await this.prisma.task.findFirst({
         where: { AND: [{ id: dto.parentTaskId }, buildTaskAccessWhere(user)] },
       });
-      if (!parentTask) throw new NotFoundException('Không tìm thấy công việc cha');
+      if (!parentTask)
+        throw new NotFoundException('Không tìm thấy công việc cha');
     }
     const effectiveProjectId = parentTask?.projectId ?? dto.projectId;
     const effectiveLinkedProjectIds = parentTask
-      ? (Array.isArray(parentTask.linkedProjectIds) ? parentTask.linkedProjectIds : [])
-      : (dto.linkedProjectIds || []);
-    await this.validateProjectSelection(user, effectiveProjectId, effectiveLinkedProjectIds);
+      ? Array.isArray(parentTask.linkedProjectIds)
+        ? parentTask.linkedProjectIds
+        : []
+      : dto.linkedProjectIds || [];
+    await this.validateProjectSelection(
+      user,
+      effectiveProjectId,
+      effectiveLinkedProjectIds,
+    );
     await this.validateNewAttachments(user.id, dto.attachmentIds);
 
-    if (dto.assigneeId && !this.hasRole(user, 'ceo')) {
+    if (
+      dto.assigneeId &&
+      !this.hasRole(user, 'ceo') &&
+      !this.hasRole(user, 'bgd')
+    ) {
       const assignee = await this.prisma.user.findFirst({
         where: { id: dto.assigneeId, status: 'active' },
         select: {
@@ -306,11 +351,15 @@ export class TasksService {
       });
       const assigneeProjectIds = [
         ...(assignee?.ledProjects || []).map((project) => project.id),
-        ...(assignee?.projectMemberships || []).map((membership) => membership.projectId),
+        ...(assignee?.projectMemberships || []).map(
+          (membership) => membership.projectId,
+        ),
       ];
       const allowed = effectiveProjectId
         ? assigneeProjectIds.includes(effectiveProjectId)
-        : !!assignee && !!user.departmentId && assignee.departmentId === user.departmentId;
+        : !!assignee &&
+          !!user.departmentId &&
+          assignee.departmentId === user.departmentId;
       if (!allowed) {
         throw new ForbiddenException(
           effectiveProjectId
@@ -360,6 +409,11 @@ export class TasksService {
         collaboratorIds: (dto.collaboratorIds as any) ?? undefined,
         projectId: effectiveProjectId || null,
         linkedProjectIds: effectiveLinkedProjectIds,
+        visibility: this.hasRole(user, 'bgd')
+          ? dto.assigneeId
+            ? 'targeted'
+            : 'company'
+          : 'scoped',
       },
       include: {
         assignee: { select: { id: true, name: true, email: true } },
@@ -371,7 +425,11 @@ export class TasksService {
     // Nếu có file đính kèm, gắn vào task
     if (dto.attachmentIds && dto.attachmentIds.length > 0) {
       await this.prisma.attachment.updateMany({
-        where: { id: { in: dto.attachmentIds }, uploadedById: user.id, entityId: 0 },
+        where: {
+          id: { in: dto.attachmentIds },
+          uploadedById: user.id,
+          entityId: 0,
+        },
         data: {
           entityType: 'task',
           entityId: task.id,
@@ -415,7 +473,11 @@ export class TasksService {
    * Cập nhật thông tin công việc
    */
   async updateTask(
-    user: { id: number; roles?: Array<string | { name: string }>; departmentId?: number | null },
+    user: {
+      id: number;
+      roles?: Array<string | { name: string }>;
+      departmentId?: number | null;
+    },
     taskId: number,
     dto: UpdateTaskDto,
     ip?: string,
@@ -459,6 +521,7 @@ export class TasksService {
     if (hasAssigneeChange || hasDueDateChange) {
       const isCreator = task.createdById === user.id;
       const isCeo = this.hasRole(user, 'ceo');
+      const isBoard = this.hasRole(user, 'bgd');
       const isDepartmentHead = this.hasRole(user, 'department_head');
       const taskLinkedProjectIds = Array.isArray(task.linkedProjectIds)
         ? (task.linkedProjectIds as number[])
@@ -473,30 +536,46 @@ export class TasksService {
             !!task.createdBy?.departmentId &&
             user.departmentId === task.createdBy.departmentId);
 
-      if (hasAssigneeChange && !isCeo && !isDepartmentHead) {
+      if (hasAssigneeChange && !isCeo && !isBoard && !isDepartmentHead) {
         throw new ForbiddenException(
-          'Chỉ Trưởng Ban / Trưởng dự án hoặc CEO mới có quyền thay đổi người thực hiện',
+          'Chỉ Trưởng Ban / Trưởng dự án, Ban Giám Đốc hoặc CEO mới có quyền thay đổi người thực hiện',
         );
       }
 
-      if (hasDueDateChange && !isCreator && !isCeo && !isHeadOfTaskScope) {
+      if (
+        hasDueDateChange &&
+        !isCreator &&
+        !isCeo &&
+        !isBoard &&
+        !isHeadOfTaskScope
+      ) {
         throw new ForbiddenException(
           'Chỉ người giao việc, Trưởng Ban / Trưởng dự án trong phạm vi hoặc CEO mới có quyền thay đổi hạn hoàn thành',
         );
       }
 
-      if (hasAssigneeChange && dto.assigneeId && !isCeo && task.projectId) {
+      if (
+        hasAssigneeChange &&
+        dto.assigneeId &&
+        !isCeo &&
+        !isBoard &&
+        task.projectId
+      ) {
         const target = await this.prisma.user.findUnique({
           where: { id: dto.assigneeId },
           include: { ledProjects: true, projectMemberships: true },
         });
         const targetProjectIds = [
           ...(target?.ledProjects || []).map((project) => project.id),
-          ...(target?.projectMemberships || []).map((membership) => membership.projectId),
+          ...(target?.projectMemberships || []).map(
+            (membership) => membership.projectId,
+          ),
         ];
         const targetAllowed = targetProjectIds.includes(task.projectId);
         if (!targetAllowed) {
-          throw new ForbiddenException('Người thực hiện mới không thuộc phạm vi dự án của công việc');
+          throw new ForbiddenException(
+            'Người thực hiện mới không thuộc phạm vi dự án của công việc',
+          );
         }
       }
 
@@ -540,11 +619,7 @@ export class TasksService {
     });
 
     // Nếu đổi assignee, thông báo cho assignee mới
-    if (
-      hasAssigneeChange &&
-      dto.assigneeId &&
-      dto.assigneeId !== user.id
-    ) {
+    if (hasAssigneeChange && dto.assigneeId && dto.assigneeId !== user.id) {
       await this.notificationsService.dispatchNotification({
         userId: dto.assigneeId,
         eventType: 'task_reassigned',
@@ -716,94 +791,101 @@ export class TasksService {
       );
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      // Cập nhật trạng thái Hoàn thành
-      const updated = await tx.task.update({
-        where: { id: taskId },
-        data: {
-          status: 'Hoàn thành',
-          progressPercent: 100,
-        },
-      });
-
-      await this.auditService.logEvent({
-        entityType: 'task',
-        entityId: taskId,
-        action: 'confirm_completion',
-        actorId: user.id,
-        beforeJson: {
-          status: task.status,
-          progressPercent: task.progressPercent,
-        },
-        afterJson: { status: 'Hoàn thành', progressPercent: 100 },
-        ip,
-      });
-
-      // Nếu có chu kỳ lặp lại (recurrenceRule) và dueDate -> sinh kỳ mới
-      let nextTask = null;
-      if (task.recurrenceRule && task.dueDate) {
-        const nextDueDate = calculateNextDueDate(
-          new Date(task.dueDate),
-          task.recurrenceRule,
-          new Date(),
-        );
-
-        let nextStartDate: Date | null = null;
-        if (task.startDate) {
-          const duration =
-            new Date(task.dueDate).getTime() - new Date(task.startDate).getTime();
-          nextStartDate = new Date(nextDueDate.getTime() - duration);
-        }
-
-        const nextCode = await this.generateTaskCode();
-
-        nextTask = await tx.task.create({
+    return this.prisma
+      .$transaction(async (tx) => {
+        // Cập nhật trạng thái Hoàn thành
+        const updated = await tx.task.update({
+          where: { id: taskId },
           data: {
-            code: nextCode,
-            title: task.title,
-            description: task.description,
-            priority: task.priority,
-            status: 'Chưa làm',
-            progressPercent: 0,
-            startDate: nextStartDate,
-            dueDate: nextDueDate,
-            assigneeId: task.assigneeId,
-            createdById: task.createdById,
-            parentTaskId: null,
-            recurrenceRule: task.recurrenceRule,
-            projectId: task.projectId,
-            linkedProjectIds: task.linkedProjectIds || [],
-            tags: task.tags,
-            collaboratorIds: (task.collaboratorIds as any) ?? undefined,
+            status: 'Hoàn thành',
+            progressPercent: 100,
           },
         });
 
-      }
-
-      return { task: updated, nextTask };
-    }).then(async (result) => {
-      // Bắn notification NGOÀI transaction — dispatchNotification gọi cả email/web-push
-      // (network I/O), không nên giữ transaction DB mở trong lúc chờ mạng.
-      if (result.nextTask && task.assigneeId) {
-        await this.notificationsService.dispatchNotification({
-          userId: task.assigneeId,
-          eventType: 'task_recurring_created',
-          entityRef: `task:${result.nextTask.id}`,
-          title: `Kỳ việc mới: ${result.nextTask.code}`,
-          content: `Việc lặp lại "${result.nextTask.title}" đã tự động sinh kỳ tiếp theo, hạn hoàn thành ${result.nextTask.dueDate ? new Date(result.nextTask.dueDate).toLocaleDateString('vi-VN') : 'chưa xác định'}.`,
-          link: `/tasks?id=${result.nextTask.id}`,
-          dedupeKey: `task_recurring_${result.nextTask.id}_${task.assigneeId}_${Date.now()}`,
+        await this.auditService.logEvent({
+          entityType: 'task',
+          entityId: taskId,
+          action: 'confirm_completion',
+          actorId: user.id,
+          beforeJson: {
+            status: task.status,
+            progressPercent: task.progressPercent,
+          },
+          afterJson: { status: 'Hoàn thành', progressPercent: 100 },
+          ip,
         });
-      }
-      return result;
-    });
+
+        // Nếu có chu kỳ lặp lại (recurrenceRule) và dueDate -> sinh kỳ mới
+        let nextTask = null;
+        if (task.recurrenceRule && task.dueDate) {
+          const nextDueDate = calculateNextDueDate(
+            new Date(task.dueDate),
+            task.recurrenceRule,
+            new Date(),
+          );
+
+          let nextStartDate: Date | null = null;
+          if (task.startDate) {
+            const duration =
+              new Date(task.dueDate).getTime() -
+              new Date(task.startDate).getTime();
+            nextStartDate = new Date(nextDueDate.getTime() - duration);
+          }
+
+          const nextCode = await this.generateTaskCode();
+
+          nextTask = await tx.task.create({
+            data: {
+              code: nextCode,
+              title: task.title,
+              description: task.description,
+              priority: task.priority,
+              status: 'Chưa làm',
+              progressPercent: 0,
+              startDate: nextStartDate,
+              dueDate: nextDueDate,
+              assigneeId: task.assigneeId,
+              createdById: task.createdById,
+              parentTaskId: null,
+              recurrenceRule: task.recurrenceRule,
+              projectId: task.projectId,
+              linkedProjectIds: task.linkedProjectIds || [],
+              tags: task.tags,
+              collaboratorIds: (task.collaboratorIds as any) ?? undefined,
+              visibility: task.visibility,
+            },
+          });
+        }
+
+        return { task: updated, nextTask };
+      })
+      .then(async (result) => {
+        // Bắn notification NGOÀI transaction — dispatchNotification gọi cả email/web-push
+        // (network I/O), không nên giữ transaction DB mở trong lúc chờ mạng.
+        if (result.nextTask && task.assigneeId) {
+          await this.notificationsService.dispatchNotification({
+            userId: task.assigneeId,
+            eventType: 'task_recurring_created',
+            entityRef: `task:${result.nextTask.id}`,
+            title: `Kỳ việc mới: ${result.nextTask.code}`,
+            content: `Việc lặp lại "${result.nextTask.title}" đã tự động sinh kỳ tiếp theo, hạn hoàn thành ${result.nextTask.dueDate ? new Date(result.nextTask.dueDate).toLocaleDateString('vi-VN') : 'chưa xác định'}.`,
+            link: `/tasks?id=${result.nextTask.id}`,
+            dedupeKey: `task_recurring_${result.nextTask.id}_${task.assigneeId}_${Date.now()}`,
+          });
+        }
+        return result;
+      });
   }
 
   /**
    * Lấy danh sách công việc theo tab và các tiêu chí lọc
    */
   async findAll(
-    user: { id: number; roles?: Array<string | { name: string }>; departmentId?: number | null },
+    user: {
+      id: number;
+      roles?: Array<string | { name: string }>;
+      departmentId?: number | null;
+    },
     query: TaskQueryDto,
   ) {
     const { tab = 'all', status, priority, search, isOverdue, tags } = query;
@@ -899,7 +981,11 @@ export class TasksService {
    * Xem chi tiết công việc
    */
   async findById(
-    user: { id: number; roles?: Array<string | { name: string }>; departmentId?: number | null },
+    user: {
+      id: number;
+      roles?: Array<string | { name: string }>;
+      departmentId?: number | null;
+    },
     taskId: number,
   ) {
     const task = await this.prisma.task.findFirst({
@@ -951,7 +1037,11 @@ export class TasksService {
 
     const commentsWithUser = comments.map((c) => ({
       ...c,
-      user: userMap.get(c.userId) || { id: c.userId, name: 'Người dùng', email: '' },
+      user: userMap.get(c.userId) || {
+        id: c.userId,
+        name: 'Người dùng',
+        email: '',
+      },
     }));
 
     // Tính runtime isOverdue cho task và subtasks
@@ -982,7 +1072,11 @@ export class TasksService {
    * Thêm bình luận và xử lý mention bắn notification in-app
    */
   async addComment(
-    user: { id: number; name: string; roles?: Array<string | { name: string }> },
+    user: {
+      id: number;
+      name: string;
+      roles?: Array<string | { name: string }>;
+    },
     taskId: number,
     dto: CreateCommentDto,
   ) {
@@ -1004,7 +1098,11 @@ export class TasksService {
     });
 
     // Nếu có mentions, bắn notification với dedupeKey duy nhất
-    if (dto.mentions && Array.isArray(dto.mentions) && dto.mentions.length > 0) {
+    if (
+      dto.mentions &&
+      Array.isArray(dto.mentions) &&
+      dto.mentions.length > 0
+    ) {
       for (const mentionedId of dto.mentions) {
         if (mentionedId !== user.id) {
           await this.notificationsService.dispatchNotification({
