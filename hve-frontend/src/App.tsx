@@ -70,9 +70,9 @@ const AdminProjectsView = lazy(() =>
     default: module.AdminProjectsView,
   })),
 );
-const ProjectBoardView = lazy(() =>
-  import("./components/ProjectBoardView").then((module) => ({
-    default: module.ProjectBoardView,
+const AdminAnnouncementsView = lazy(() =>
+  import("./components/AdminAnnouncementsView").then((module) => ({
+    default: module.AdminAnnouncementsView,
   })),
 );
 
@@ -149,7 +149,7 @@ export default function App() {
     }
     const tabParam = params.get("tab") as any;
     if (tabParam) {
-      setActiveTab(tabParam);
+      setActiveTab(tabParam === "project_board" ? "overview" : tabParam);
     }
     const docIdParam = params.get("docId");
     if (ENABLE_MOCK_DATA && docIdParam) {
@@ -168,7 +168,7 @@ export default function App() {
     | "admin_workflows"
     | "admin_users"
     | "admin_projects"
-    | "project_board"
+    | "admin_announcements"
   >("overview");
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
   const [projects, setProjects] = useState<ProjectItem[]>([]);
@@ -252,15 +252,6 @@ export default function App() {
   const primaryProjects = canUseEveryProject
     ? projects
     : projects.filter((project) => ownProjectIds.has(project.id));
-  // Bảng tin dự án: CEO/BGĐ/IT Admin xem được bảng tin của mọi dự án (đúng
-  // quyền "xem toàn bộ"), người khác chỉ thấy bảng tin dự án mình tham gia.
-  const canBrowseEveryBoard = user?.roles?.some((role: string) =>
-    ["ceo", "bgd", "it_admin"].includes(role),
-  );
-  const boardProjects = canBrowseEveryBoard
-    ? projects
-    : projects.filter((project) => ownProjectIds.has(project.id));
-
   useEffect(() => {
     if (!createForm.projectId && primaryProjects.length === 1) {
       setCreateForm((current) => ({
@@ -477,7 +468,7 @@ export default function App() {
       "tasks",
       "reports",
       "admin_projects",
-      "project_board",
+      "admin_announcements",
     ]);
     if (tabsUsingProjects.has(activeTab)) void fetchProjects();
   }, [isAuthenticated, activeTab]);
@@ -1243,7 +1234,7 @@ export default function App() {
               {activeTab === "documents" && "Danh sách hồ sơ phê duyệt"}
               {activeTab === "tasks" && "Quản lý công việc & Giao nhiệm vụ"}
               {activeTab === "reports" && "Báo cáo & Thống kê điều hành"}
-              {activeTab === "project_board" && "Bảng tin dự án"}
+              {activeTab === "admin_announcements" && "Quản lý thông báo"}
               {activeTab === "create" && "Khởi tạo hồ sơ phê duyệt mới"}
               {activeTab === "admin_workflows" &&
                 "Cấu hình quy trình (Quản trị IT)"}
@@ -1471,11 +1462,10 @@ export default function App() {
                 />
               )}
 
-              {activeTab === "project_board" && (
-                <ProjectBoardView
+              {activeTab === "admin_announcements" && (
+                <AdminAnnouncementsView
                   apiBaseUrl={API_BASE_URL}
-                  projects={boardProjects}
-                  currentUser={user}
+                  projects={projects}
                   showToast={showToast}
                 />
               )}

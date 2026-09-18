@@ -4,6 +4,7 @@ import { MOCK_DASHBOARD_DATA } from "../mockData";
 import { ENABLE_MOCK_DATA } from "../config";
 import { fetchWithSession } from "../api/client";
 import { BrandLoader } from "./BrandLoader";
+import { AnnouncementBoard } from "./AnnouncementBoard";
 
 interface OverviewDashboardProps {
   apiBaseUrl: string;
@@ -160,6 +161,8 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
           </button>
         </div>
       </div>
+
+      <AnnouncementBoard apiBaseUrl={apiBaseUrl} />
 
       {/* KHỐI 1: CẦN HÀNH ĐỘNG NGAY (ACTION REQUIRED) - ĐẶT TRÊN CÙNG */}
       <section className="bg-gradient-to-br from-rose-50/70 via-amber-50/40 to-white rounded-2xl md:rounded-3xl p-4 md:p-6 border-2 border-rose-200/70 shadow-sm">
@@ -455,20 +458,47 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
         <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-6">
           <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h2 className="text-base font-extrabold text-slate-900">Sức khỏe dự án</h2>
-              <p className="text-xs text-slate-500">Tỷ lệ công việc quá hạn và hồ sơ chờ duyệt trên 5 ngày.</p>
+              <h2 className="text-base font-extrabold text-slate-900">
+                Sức khỏe dự án
+              </h2>
+              <p className="text-xs text-slate-500">
+                Tỷ lệ công việc quá hạn và hồ sơ chờ duyệt trên 5 ngày.
+              </p>
             </div>
-            <span className="text-[11px] text-slate-400">Bấm vào dự án để xem công việc</span>
+            <span className="text-[11px] text-slate-400">
+              Bấm vào dự án để xem công việc
+            </span>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {projectHealth.map((project) => {
-              const style = project.level === 'rui_ro_cao'
-                ? { icon: '🔴', label: 'Rủi ro cao', card: 'border-rose-200 bg-rose-50/60', text: 'text-rose-700' }
-                : project.level === 'tre_tien_do'
-                  ? { icon: '🟠', label: 'Trễ tiến độ', card: 'border-orange-200 bg-orange-50/60', text: 'text-orange-700' }
-                  : project.level === 'can_chu_y'
-                    ? { icon: '🟡', label: 'Cần chú ý', card: 'border-amber-200 bg-amber-50/60', text: 'text-amber-700' }
-                    : { icon: '🟢', label: 'Bình thường', card: 'border-emerald-200 bg-emerald-50/60', text: 'text-emerald-700' };
+              const style =
+                project.level === "rui_ro_cao"
+                  ? {
+                      icon: "🔴",
+                      label: "Rủi ro cao",
+                      card: "border-rose-200 bg-rose-50/60",
+                      text: "text-rose-700",
+                    }
+                  : project.level === "tre_tien_do"
+                    ? {
+                        icon: "🟠",
+                        label: "Trễ tiến độ",
+                        card: "border-orange-200 bg-orange-50/60",
+                        text: "text-orange-700",
+                      }
+                    : project.level === "can_chu_y"
+                      ? {
+                          icon: "🟡",
+                          label: "Cần chú ý",
+                          card: "border-amber-200 bg-amber-50/60",
+                          text: "text-amber-700",
+                        }
+                      : {
+                          icon: "🟢",
+                          label: "Bình thường",
+                          card: "border-emerald-200 bg-emerald-50/60",
+                          text: "text-emerald-700",
+                        };
               return (
                 <button
                   key={project.id}
@@ -477,15 +507,25 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                   className={`rounded-xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md ${style.card}`}
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <span className="rounded-md bg-white/80 px-2 py-0.5 text-[11px] font-bold text-slate-600">{project.code}</span>
+                    <span className="rounded-md bg-white/80 px-2 py-0.5 text-[11px] font-bold text-slate-600">
+                      {project.code}
+                    </span>
                     <span aria-hidden>{style.icon}</span>
                   </div>
-                  <strong className="mt-3 block truncate text-sm text-slate-900">{project.name}</strong>
+                  <strong className="mt-3 block truncate text-sm text-slate-900">
+                    {project.name}
+                  </strong>
                   <div className="mt-2 flex items-end justify-between gap-2">
-                    <span className={`text-xs font-bold ${style.text}`}>{style.label}</span>
-                    <span className={`text-xl font-black ${style.text}`}>{project.percent}%</span>
+                    <span className={`text-xs font-bold ${style.text}`}>
+                      {style.label}
+                    </span>
+                    <span className={`text-xl font-black ${style.text}`}>
+                      {project.percent}%
+                    </span>
                   </div>
-                  <p className="mt-1 text-[11px] text-slate-500">{project.overdue}/{project.total} mục đang mở bị trễ</p>
+                  <p className="mt-1 text-[11px] text-slate-500">
+                    {project.overdue}/{project.total} mục đang mở bị trễ
+                  </p>
                 </button>
               );
             })}

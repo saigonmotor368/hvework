@@ -64,14 +64,15 @@ model User {
   roles Role[]
 
   // References for created documents/tasks
-  createdDocuments   Document[]
-  assignedTasks      Task[]             @relation("AssignedTasks")
-  createdTasks       Task[]             @relation("CreatedTasks")
-  pushSubscriptions  PushSubscription[]
-  trustedDevices     TrustedDevice[]
-  loginChallenges    LoginChallenge[]
-  ledProjects        Project[]          @relation("ProjectLead")
-  projectMemberships ProjectMember[]
+  createdDocuments     Document[]
+  assignedTasks        Task[]             @relation("AssignedTasks")
+  createdTasks         Task[]             @relation("CreatedTasks")
+  pushSubscriptions    PushSubscription[]
+  trustedDevices       TrustedDevice[]
+  loginChallenges      LoginChallenge[]
+  ledProjects          Project[]          @relation("ProjectLead")
+  projectMemberships   ProjectMember[]
+  createdAnnouncements Announcement[]     @relation("AnnouncementAuthor")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -230,14 +231,46 @@ model Project {
   lead       User?   @relation("ProjectLead", fields: [leadUserId], references: [id], onDelete: SetNull)
   isActive   Boolean @default(true)
 
-  members   ProjectMember[]
-  documents Document[]
-  tasks     Task[]
+  members       ProjectMember[]
+  documents     Document[]
+  tasks         Task[]
+  announcements Announcement[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([leadUserId])
+}
+
+model Announcement {
+  id       Int     @id @default(autoincrement())
+  title    String
+  summary  String?
+  content  String
+  type     String  @default("news") // news, meeting, guide
+  priority String  @default("normal") // normal, important, urgent
+  status   String  @default("draft") // draft, published, archived
+  isPinned Boolean @default(false)
+
+  projectId Int?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  meetingStartAt DateTime?
+  meetingEndAt   DateTime?
+  location       String?
+  meetingUrl     String?
+
+  publishedAt DateTime?
+  expiresAt   DateTime?
+
+  createdById Int
+  createdBy   User     @relation("AnnouncementAuthor", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([status, isPinned, publishedAt])
+  @@index([projectId, status, publishedAt])
+  @@index([expiresAt])
 }
 
 model ProjectMember {

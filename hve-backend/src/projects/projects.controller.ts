@@ -14,8 +14,10 @@ import {
 import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/roles.guard.js';
 import { Roles } from '../auth/roles.decorator.js';
-import { CreateProjectDto, UpdateProjectDto } from './dto/upsert-project.dto.js';
-import { CreateBoardMessageDto } from './dto/create-board-message.dto.js';
+import {
+  CreateProjectDto,
+  UpdateProjectDto,
+} from './dto/upsert-project.dto.js';
 import { ProjectsService } from './projects.service.js';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -49,24 +51,5 @@ export class ProjectsController {
     @Req() req: any,
   ) {
     return this.projectsService.update(id, dto, req.user.id, req.ip);
-  }
-
-  // Bảng tin dự án: mọi thành viên/trưởng dự án được xem & đăng bài trong
-  // dự án của mình; CEO/BGĐ/IT Admin xem được bảng tin của mọi dự án. Đây
-  // là kênh giao lưu, không phải hành động nghiệp vụ (approve/reject...),
-  // nên không giới hạn qua @Roles — kiểm tra thành viên ở service.
-  @Get(':id/board')
-  async getBoard(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
-    return this.projectsService.getBoardMessages(req.user, id);
-  }
-
-  @Post(':id/board')
-  @HttpCode(HttpStatus.CREATED)
-  async postToBoard(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() dto: CreateBoardMessageDto,
-    @Req() req: any,
-  ) {
-    return this.projectsService.postBoardMessage(req.user, id, dto);
   }
 }

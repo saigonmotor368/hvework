@@ -230,3 +230,19 @@ Bám theo [02_KE_HOACH_TRIEN_KHAI.md](02_KE_HOACH_TRIEN_KHAI.md) và [01_KIEN_TR
 - [x] Vercel deployment `dpl_8w8H2e1aviWgGpyor7dk4LzZrh6U` đạt `READY`, alias production đúng
 - [x] Đo 7 vòng authenticated warm: median dashboard 189 ms; documents 282 ms; tasks 270 ms; projects 272 ms; notifications 271 ms; không có 5xx
 - [ ] Tùy chọn đợt sau: lập kế hoạch migrate Supabase Tokyo sang cùng vùng Singapore nếu cần giảm thêm cold latency/outlier
+
+---
+
+## Bảng thông báo HVE — 18/09/2026
+
+- [x] Thêm schema, migration và API Announcement có cache riêng
+- [x] Cô lập thông báo theo dự án trực tiếp, không kế thừa quyền duyệt ủy quyền
+- [x] Thêm bảng thông báo trên đầu dashboard, modal xem chi tiết và danh sách mở rộng
+- [x] Thêm lịch Google Calendar và tệp `.ics` cho Apple Calendar/Outlook
+- [x] Thêm trang quản trị chỉ dành cho IT, hỗ trợ nháp/đăng/lưu trữ/hẹn giờ/hết hạn
+- [x] Thêm mẫu bài hướng dẫn bắt đầu sử dụng HVE Work
+- [x] Gỡ Board chat frontend/backend nhưng giữ dữ liệu cũ để rollback
+- [x] Kiểm tra responsive 390×844 không tràn ngang
+- [x] Prisma validate, backend type-check/lint và 193/193 test pass; frontend build và 10/10 test pass
+- [ ] Rà soát migration rồi triển khai Railway trước, sau đó phát hành frontend Vercel
+- [ ] IT đăng bài hướng dẫn mẫu và UAT phạm vi toàn hệ thống/dự án trên production

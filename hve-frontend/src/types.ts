@@ -2,7 +2,7 @@ export interface ApprovalStep {
   id: number;
   stepOrder: number;
   roleRequired: string;
-  status: 'not_started' | 'pending' | 'approved' | 'returned' | 'rejected';
+  status: "not_started" | "pending" | "approved" | "returned" | "rejected";
   actedById?: number;
   actedAt?: string;
   comment?: string;
@@ -12,15 +12,20 @@ export interface DocumentItem {
   id: number;
   code: string;
   title: string;
-  type: 'payment_request' | 'proposal' | 'contract' | string;
-  status: 'Nháp' | 'Chờ duyệt' | 'Đã duyệt' | 'Trả lại' | 'Từ chối';
+  type: "payment_request" | "proposal" | "contract" | string;
+  status: "Nháp" | "Chờ duyệt" | "Đã duyệt" | "Trả lại" | "Từ chối";
   version: number;
   createdById: number;
   createdAt: string;
   projectId?: number | null;
   project?: ProjectItem | null;
   linkedProjectIds?: number[] | null;
-  createdBy?: { id: number; name: string; email: string; department?: { id: number; name: string; code: string } };
+  createdBy?: {
+    id: number;
+    name: string;
+    email: string;
+    department?: { id: number; name: string; code: string };
+  };
   dataJson: {
     // payment_request
     amount?: number;
@@ -43,10 +48,16 @@ export interface DocumentItem {
     attachmentIds?: number[];
   };
   isExpiringSoon?: boolean;
-  expiringStatus?: 'valid' | 'expiring_soon' | 'expired';
+  expiringStatus?: "valid" | "expiring_soon" | "expired";
   daysRemaining?: number | null;
   steps?: ApprovalStep[];
-  attachments?: Array<{ id: number; fileName: string; size: number; mimeType: string; fileUrl: string }>;
+  attachments?: Array<{
+    id: number;
+    fileName: string;
+    size: number;
+    mimeType: string;
+    fileUrl: string;
+  }>;
 }
 
 export interface WorkflowStepTemplate {
@@ -83,8 +94,33 @@ export interface ProjectItem {
   location?: string | null;
   leadUserId?: number | null;
   lead?: { id: number; name: string; email: string } | null;
-  members?: Array<{ userId: number; user: { id: number; name: string; email: string } }>;
+  members?: Array<{
+    userId: number;
+    user: { id: number; name: string; email: string };
+  }>;
   isActive: boolean;
+}
+
+export interface AnnouncementItem {
+  id: number;
+  title: string;
+  summary?: string | null;
+  content?: string;
+  type: "news" | "meeting" | "guide";
+  priority: "normal" | "important" | "urgent";
+  status?: "draft" | "published" | "archived";
+  isPinned: boolean;
+  projectId?: number | null;
+  project?: { id: number; code: string; name: string } | null;
+  meetingStartAt?: string | null;
+  meetingEndAt?: string | null;
+  location?: string | null;
+  meetingUrl?: string | null;
+  publishedAt?: string | null;
+  expiresAt?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+  createdBy?: { id: number; name: string };
 }
 
 export interface AdminUser {
@@ -92,16 +128,28 @@ export interface AdminUser {
   email: string;
   name: string;
   phone?: string;
-  status: 'active' | 'locked';
+  status: "active" | "locked";
   departmentId?: number | null;
   department?: DepartmentItem | null;
   roles: RoleItem[];
   ledProjects?: Array<{ id: number; code: string; name: string }>;
-  projectMemberships?: Array<{ project: { id: number; code: string; name: string } }>;
+  projectMemberships?: Array<{
+    project: { id: number; code: string; name: string };
+  }>;
   delegateToUserId?: number | null;
   delegateUntil?: string | null;
-  delegateTo?: { id: number; name: string; email: string; status?: string } | null;
-  delegatedFrom?: Array<{ id: number; name: string; email: string; delegateUntil: string }>;
+  delegateTo?: {
+    id: number;
+    name: string;
+    email: string;
+    status?: string;
+  } | null;
+  delegatedFrom?: Array<{
+    id: number;
+    name: string;
+    email: string;
+    delegateUntil: string;
+  }>;
   createdAt?: string;
 }
 
@@ -111,7 +159,7 @@ export interface WorkloadSummaryItem {
   email: string;
   activeCount: number;
   overdueCount: number;
-  level: 'ranh' | 'vua' | 'qua_tai';
+  level: "ranh" | "vua" | "qua_tai";
 }
 
 export interface ProjectHealthItem {
@@ -122,23 +170,23 @@ export interface ProjectHealthItem {
   overdue: number;
   ratio: number;
   percent: number;
-  level: 'binh_thuong' | 'can_chu_y' | 'tre_tien_do' | 'rui_ro_cao';
+  level: "binh_thuong" | "can_chu_y" | "tre_tien_do" | "rui_ro_cao";
 }
 
 export const ROLE_LABELS: Record<string, string> = {
-  employee: 'Nhân viên',
-  department_head: 'Trưởng Ban / Trưởng dự án',
-  accountant: 'Kế toán',
-  legal: 'Pháp chế',
-  ceo: 'CEO',
-  it_admin: 'Quản trị IT',
-  bgd: 'Ban Giám Đốc',
+  employee: "Nhân viên",
+  department_head: "Trưởng Ban / Trưởng dự án",
+  accountant: "Kế toán",
+  legal: "Pháp chế",
+  ceo: "CEO",
+  it_admin: "Quản trị IT",
+  bgd: "Ban Giám Đốc",
 };
 
 export const DOCUMENT_TYPE_LABELS: Record<string, string> = {
-  payment_request: 'Đề nghị thanh toán',
-  proposal: 'Đề xuất',
-  contract: 'Hợp đồng',
+  payment_request: "Đề nghị thanh toán",
+  proposal: "Đề xuất",
+  contract: "Hợp đồng",
 };
 
 export interface SubTaskItem {
@@ -146,8 +194,8 @@ export interface SubTaskItem {
   code: string;
   title: string;
   description?: string | null;
-  priority: 'low' | 'normal' | 'high' | 'urgent';
-  status: 'Chưa làm' | 'Đang làm' | 'Chờ duyệt' | 'Hoàn thành';
+  priority: "low" | "normal" | "high" | "urgent";
+  status: "Chưa làm" | "Đang làm" | "Chờ duyệt" | "Hoàn thành";
   progressPercent: number;
   startDate?: string | null;
   dueDate?: string | null;
@@ -171,19 +219,34 @@ export interface TaskItem {
   code: string;
   title: string;
   description?: string | null;
-  priority: 'low' | 'normal' | 'high' | 'urgent';
-  status: 'Chưa làm' | 'Đang làm' | 'Chờ duyệt' | 'Hoàn thành';
+  priority: "low" | "normal" | "high" | "urgent";
+  status: "Chưa làm" | "Đang làm" | "Chờ duyệt" | "Hoàn thành";
   progressPercent: number;
   startDate?: string | null;
   dueDate?: string | null;
   assigneeId?: number | null;
-  assignee?: { id: number; name: string; email: string; departmentId?: number | null };
+  assignee?: {
+    id: number;
+    name: string;
+    email: string;
+    departmentId?: number | null;
+  };
   createdById: number;
-  createdBy?: { id: number; name: string; email: string; departmentId?: number | null };
+  createdBy?: {
+    id: number;
+    name: string;
+    email: string;
+    departmentId?: number | null;
+  };
   parentTaskId?: number | null;
-  parentTask?: { id: number; code: string; title: string; status: string } | null;
+  parentTask?: {
+    id: number;
+    code: string;
+    title: string;
+    status: string;
+  } | null;
   subTasks?: SubTaskItem[];
-  recurrenceRule?: 'daily' | 'weekly' | 'monthly' | null;
+  recurrenceRule?: "daily" | "weekly" | "monthly" | null;
   tags?: string | null;
   collaboratorIds?: number[] | null;
   isOverdue?: boolean;
@@ -192,20 +255,35 @@ export interface TaskItem {
   projectId?: number | null;
   project?: ProjectItem | null;
   linkedProjectIds?: number[] | null;
-  attachments?: Array<{ id: number; fileName: string; size: number; mimeType: string; fileUrl: string }>;
+  attachments?: Array<{
+    id: number;
+    fileName: string;
+    size: number;
+    mimeType: string;
+    fileUrl: string;
+  }>;
   comments?: TaskComment[];
 }
 
-export const TASK_PRIORITY_LABELS: Record<string, { label: string; color: string }> = {
-  low: { label: 'Thấp', color: 'bg-slate-100 text-slate-700' },
-  normal: { label: 'Bình thường', color: 'bg-blue-100 text-blue-700' },
-  high: { label: 'Cao', color: 'bg-orange-100 text-orange-700' },
-  urgent: { label: 'Khẩn cấp', color: 'bg-red-100 text-red-700' },
+export const TASK_PRIORITY_LABELS: Record<
+  string,
+  { label: string; color: string }
+> = {
+  low: { label: "Thấp", color: "bg-slate-100 text-slate-700" },
+  normal: { label: "Bình thường", color: "bg-blue-100 text-blue-700" },
+  high: { label: "Cao", color: "bg-orange-100 text-orange-700" },
+  urgent: { label: "Khẩn cấp", color: "bg-red-100 text-red-700" },
 };
 
-export const TASK_STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  'Chưa làm': { label: 'Chưa làm', color: 'bg-slate-100 text-slate-700' },
-  'Đang làm': { label: 'Đang làm', color: 'bg-blue-100 text-blue-700' },
-  'Chờ duyệt': { label: 'Chờ duyệt', color: 'bg-amber-100 text-amber-800' },
-  'Hoàn thành': { label: 'Hoàn thành', color: 'bg-emerald-100 text-emerald-800' },
+export const TASK_STATUS_LABELS: Record<
+  string,
+  { label: string; color: string }
+> = {
+  "Chưa làm": { label: "Chưa làm", color: "bg-slate-100 text-slate-700" },
+  "Đang làm": { label: "Đang làm", color: "bg-blue-100 text-blue-700" },
+  "Chờ duyệt": { label: "Chờ duyệt", color: "bg-amber-100 text-amber-800" },
+  "Hoàn thành": {
+    label: "Hoàn thành",
+    color: "bg-emerald-100 text-emerald-800",
+  },
 };

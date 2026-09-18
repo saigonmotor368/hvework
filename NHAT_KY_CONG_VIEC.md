@@ -455,3 +455,18 @@ Dự án đã hoàn thành toàn bộ các giai đoạn (Phase 0 ➔ Phase 5) v�
 - **Mã nguồn:** commit `045d5ed` (giảm request/polling, cache JWT, index) và `acd046d` (giảm round-trip quan hệ DB) đã push lên `main`.
 - **Baseline cuối:** backend build/lint pass, 178/178 test pass; frontend build pass, 10/10 test pass; endpoint health và VAPID public đều HTTP 200.
 - **Giới hạn còn lại:** Supabase Tokyo và Railway Singapore vẫn khác vùng. Nếu cần giảm thêm độ trễ nguội/outlier, đợt riêng sau này phải migrate database sang cùng vùng Singapore; không thực hiện trong đợt này vì cần kế hoạch sao lưu, downtime và kiểm chứng dữ liệu.
+
+---
+
+## 15. THAY BOARD CHAT BẰNG BẢNG THÔNG BÁO HVE (18/09/2026)
+
+- Gỡ giao diện và API Board chat dự án; giữ nguyên các dòng `Comment` cũ trong cơ sở dữ liệu để có thể rollback, không ảnh hưởng bình luận hồ sơ/công việc.
+- Thêm mô hình `Announcement` riêng với ba loại Tin tức, Lịch họp và Hướng dẫn; hỗ trợ mức độ, ghim bài, hẹn giờ đăng, ngày hết hạn và phạm vi toàn hệ thống hoặc một dự án.
+- Phạm vi dự án chỉ dùng quan hệ thành viên/Trưởng dự án trực tiếp; quyền duyệt được ủy quyền tạm thời không làm phát sinh quyền xem thông báo dự án khác.
+- Chỉ IT Admin được tạo, sửa, đăng và lưu trữ bài; mọi thay đổi được ghi Audit Log. Người dùng chỉ đọc các bài đúng phạm vi trên đầu dashboard.
+- Bảng thông báo tải bằng request và cache riêng, tối đa 3 bài trên dashboard; nội dung đầy đủ chỉ tải khi mở chi tiết nên không chặn API `/dashboard` hoặc làm nặng luồng đăng nhập.
+- Lịch họp có nút Google Calendar và xuất `.ics` có JWT cho Apple Calendar/Outlook; thời gian lưu theo UTC và hiển thị theo múi giờ thiết bị.
+- Thêm mẫu “Hướng dẫn bắt đầu sử dụng HVE Work” để IT điền một chạm rồi rà soát, chọn phạm vi và đăng.
+- Kiểm tra responsive thực tế ở viewport 390×844: dashboard, thẻ thông báo, modal chi tiết và trang quản trị đều không tràn ngang (`scrollWidth = clientWidth = 390`).
+- Baseline: Prisma validate và backend type-check/lint pass; backend 193/193 test pass; frontend build pass, 10/10 test pass, lint 0 error; main bundle 365,45 KB (gzip 102,17 KB), trang quản trị thông báo tách riêng 15,14 KB (gzip 4,44 KB).
+- Migration mới: `20260918130000_add_announcements`; chưa chạy production trong bước viết code.
