@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, useEffect } from "react";
+import { lazy, Suspense, useState, useEffect, useRef } from "react";
 import {
   type DocumentItem,
   type ApprovalStep,
@@ -172,6 +172,7 @@ export default function App() {
     | "admin_projects"
     | "admin_announcements"
   >("overview");
+  const contentScrollRef = useRef<HTMLDivElement>(null);
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [selectedDoc, setSelectedDoc] = useState<DocumentItem | null>(null);
@@ -199,6 +200,12 @@ export default function App() {
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [tabFilter, setTabFilter] = useState<"all" | "my" | "to_review">("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
+
+  // Each screen owns a different scroll context. Reset it on navigation so a
+  // long mobile screen never leaves the next screen opened halfway down.
+  useEffect(() => {
+    contentScrollRef.current?.scrollTo({ top: 0, behavior: "auto" });
+  }, [activeTab]);
 
   // Feedback & Action state
   const [toast, setToast] = useState<{
@@ -1236,7 +1243,7 @@ export default function App() {
           <div className="flex min-w-0 flex-1 items-center space-x-2 sm:space-x-3">
             {/* Mobile hamburger */}
             <button
-              className="md:hidden p-2 rounded-lg text-gray-600 hover:bg-slate-100 transition-colors"
+              className="p-2 rounded-lg text-gray-600 hover:bg-slate-100 transition-colors lg:hidden"
               onClick={() => setIsMobileMenuOpen(true)}
               aria-label="Mở menu"
             >
@@ -1297,7 +1304,10 @@ export default function App() {
         </header>
 
         {/* Tab Body */}
-        <div className="flex-1 min-w-0 overflow-x-hidden overflow-y-auto overscroll-contain p-3 sm:p-4 md:p-8 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <div
+          ref={contentScrollRef}
+          className="mobile-scroll flex-1 min-w-0 overflow-x-hidden overflow-y-auto overscroll-contain p-3 sm:p-4 md:p-8 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+        >
           <ViewErrorBoundary key={activeTab}>
             <Suspense
               fallback={<BrandLoader label="Đang tải màn hình HVE Work..." />}

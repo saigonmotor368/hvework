@@ -53,7 +53,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Mobile backdrop overlay */}
       {isMobileOpen && (
         <div
-          className="fixed inset-0 z-30 bg-black/40 md:hidden"
+          className="fixed inset-0 z-30 bg-black/40 lg:hidden"
           onClick={onClose}
           aria-hidden="true"
         />
@@ -61,9 +61,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       <aside
         className={`
-          w-[min(20rem,88vw)] md:w-64 bg-white border-r border-slate-200 flex flex-col justify-between
+          w-[min(20rem,88vw)] lg:w-64 bg-white border-r border-slate-200 flex flex-col justify-between
           fixed inset-y-0 left-0 z-40 transform transition-transform duration-300 ease-in-out
-          md:relative md:translate-x-0 md:z-auto
+          lg:relative lg:translate-x-0 lg:z-auto
           ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}
         `}
       >
@@ -83,7 +83,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="ml-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-lg text-gray-500 hover:bg-slate-100 md:hidden"
+              className="ml-auto flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg text-gray-500 hover:bg-slate-100 lg:hidden"
               aria-label="Đóng menu"
             >
               ✕

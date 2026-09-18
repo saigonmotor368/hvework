@@ -623,8 +623,152 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
             </button>
           </div>
 
-          {/* Users Table */}
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          {/* Mobile user cards: keep all actions reachable without horizontal scrolling. */}
+          <div className="space-y-3 xl:hidden">
+            {isLoading ? (
+              <div className="rounded-2xl border border-slate-200 bg-white px-4 py-10 text-center text-sm text-gray-400 shadow-sm">
+                Đang tải danh sách người dùng...
+              </div>
+            ) : filteredUsers.length === 0 ? (
+              <div className="rounded-2xl border border-slate-200 bg-white px-4 py-10 text-center text-sm text-gray-400 shadow-sm">
+                Không tìm thấy người dùng phù hợp.
+              </div>
+            ) : (
+              filteredUsers.map((user) => {
+                const projectAssignments = [
+                  ...(user.ledProjects || []).map((project) => ({
+                    id: `lead-${project.id}`,
+                    code: project.code,
+                    position: "Trưởng dự án",
+                  })),
+                  ...(user.projectMemberships || []).map((membership) => ({
+                    id: `member-${membership.project.id}`,
+                    code: membership.project.code,
+                    position: membership.position,
+                  })),
+                ];
+
+                return (
+                  <article
+                    key={user.id}
+                    className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+                  >
+                    <div className="flex min-w-0 items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-1.5 text-sm font-bold text-gray-900">
+                          <UserNameButton user={user} />
+                          {user.id === currentUser?.id && (
+                            <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold text-[#0A66C2]">
+                              Bạn
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-1 break-all text-xs text-gray-500">
+                          {user.email}
+                        </p>
+                      </div>
+                      <span
+                        className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold ${
+                          user.status === "active"
+                            ? "bg-emerald-100 text-emerald-800"
+                            : "bg-red-100 text-red-800"
+                        }`}
+                      >
+                        {user.status === "active" ? "● Hoạt động" : "🔒 Đã khóa"}
+                      </span>
+                    </div>
+
+                    <div className="mt-3 border-t border-slate-100 pt-3">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                        Dự án & vị trí
+                      </p>
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        {projectAssignments.length > 0 ? (
+                          projectAssignments.map((item) => (
+                            <span
+                              key={item.id}
+                              className="rounded-md bg-slate-100 px-2 py-1 text-[11px] font-semibold text-gray-700"
+                            >
+                              {item.code}
+                              {item.position ? ` · ${item.position}` : ""}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-xs text-gray-400">
+                            Huy Võ Education
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="mt-3">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                        Vai trò
+                      </p>
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        {user.roles.map((role) => (
+                          <span
+                            key={role.id}
+                            className="rounded border border-blue-200 bg-blue-50 px-2 py-1 text-[11px] font-bold text-[#0A66C2]"
+                          >
+                            {ROLE_LABELS[role.name] || role.name}
+                          </span>
+                        ))}
+                        {user.delegateTo &&
+                          user.delegateUntil &&
+                          new Date(user.delegateUntil).getTime() >=
+                            renderedAt && (
+                            <span className="rounded bg-violet-100 px-2 py-1 text-[11px] font-bold text-violet-700">
+                              🔄 Ủy quyền đến{" "}
+                              {new Date(user.delegateUntil).toLocaleDateString(
+                                "vi-VN",
+                              )}
+                            </span>
+                          )}
+                        {(user.delegatedFrom?.length || 0) > 0 && (
+                          <span className="rounded bg-cyan-100 px-2 py-1 text-[11px] font-bold text-cyan-700">
+                            🔄 Đang duyệt thay
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-3 gap-2 border-t border-slate-100 pt-3">
+                      <button
+                        onClick={() => handleOpenEdit(user)}
+                        className="min-h-10 rounded-xl border border-blue-200 px-2 text-xs font-bold text-[#0A66C2] hover:bg-blue-50"
+                      >
+                        ✏️ Sửa
+                      </button>
+                      <button
+                        onClick={() => {
+                          setResetUser(user);
+                          setResetNewPassword("Hve@2026");
+                        }}
+                        className="min-h-10 rounded-xl border border-amber-200 px-2 text-xs font-bold text-amber-700 hover:bg-amber-50"
+                      >
+                        🔑 Reset MK
+                      </button>
+                      <button
+                        onClick={() => handleToggleStatus(user)}
+                        disabled={user.id === currentUser?.id}
+                        className={`min-h-10 rounded-xl border px-2 text-xs font-bold disabled:opacity-40 ${
+                          user.status === "active"
+                            ? "border-red-200 text-red-600 hover:bg-red-50"
+                            : "border-emerald-200 text-emerald-600 hover:bg-emerald-50"
+                        }`}
+                      >
+                        {user.status === "active" ? "Khóa" : "Mở khóa"}
+                      </button>
+                    </div>
+                  </article>
+                );
+              })
+            )}
+          </div>
+
+          {/* Desktop users table */}
+          <div className="hidden overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm xl:block">
             <div className="mobile-scroll overflow-x-auto">
               <table className="min-w-[900px] w-full text-left text-sm">
                 <thead className="bg-slate-50/70 border-b border-slate-200 text-xs font-bold text-gray-500 uppercase tracking-wider">
