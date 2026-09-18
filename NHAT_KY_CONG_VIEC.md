@@ -469,4 +469,8 @@ Dự án đã hoàn thành toàn bộ các giai đoạn (Phase 0 ➔ Phase 5) v�
 - Thêm mẫu “Hướng dẫn bắt đầu sử dụng HVE Work” để IT điền một chạm rồi rà soát, chọn phạm vi và đăng.
 - Kiểm tra responsive thực tế ở viewport 390×844: dashboard, thẻ thông báo, modal chi tiết và trang quản trị đều không tràn ngang (`scrollWidth = clientWidth = 390`).
 - Baseline: Prisma validate và backend type-check/lint pass; backend 193/193 test pass; frontend build pass, 10/10 test pass, lint 0 error; main bundle 365,45 KB (gzip 102,17 KB), trang quản trị thông báo tách riêng 15,14 KB (gzip 4,44 KB).
-- Migration mới: `20260918130000_add_announcements`; chưa chạy production trong bước viết code.
+- Migration `20260918130000_add_announcements` đã áp dụng thành công trên Supabase production qua Railway.
+- Backend Railway deployment `c5520e5f-5db0-40c1-bfc6-22f17d113dde` đạt `SUCCESS`; health HTTP 200, route thông báo yêu cầu JWT đúng contract (không có token trả 401).
+- Frontend Vercel deployment `dpl_DgYiMjko3wFRw8r22KBLdZ36KSMt` đạt `READY` và giữ alias `work.huyvoeducation.vn`; bundle production chứa đúng URL Railway và module announcements.
+- GitHub Actions CI run `35313562964` pass; commit phát hành `fab19b9` đã push lên `main`.
+- Đã đăng bài toàn hệ thống, ghim đầu trang “Hướng dẫn nhanh sử dụng HVE Work” (Announcement ID `1`) và ghi Audit Log; thao tác tạo có kiểm tra idempotent để tránh bài trùng.
