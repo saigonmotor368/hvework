@@ -9,6 +9,13 @@ export function registerServiceWorker(): Promise<ServiceWorkerRegistration | nul
       window.location.hostname === "localhost" ||
       window.location.hostname === "127.0.0.1")
   ) {
+    let isReloadingForUpdate = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (isReloadingForUpdate) return;
+      isReloadingForUpdate = true;
+      window.location.reload();
+    });
+
     return navigator.serviceWorker
       .register("/sw.js", { updateViaCache: "none" })
       .then((reg) => {
@@ -17,6 +24,10 @@ export function registerServiceWorker(): Promise<ServiceWorkerRegistration | nul
           reg.scope,
         );
         void reg.update();
+        window.setInterval(() => void reg.update(), 5 * 60 * 1000);
+        document.addEventListener("visibilitychange", () => {
+          if (document.visibilityState === "visible") void reg.update();
+        });
         return reg;
       })
       .catch((err) => {

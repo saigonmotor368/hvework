@@ -99,10 +99,11 @@ export default function App() {
     return saved ? JSON.parse(saved) : null;
   });
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    return (
-      !!localStorage.getItem("access_token") && !!localStorage.getItem("user")
-    );
+    return false;
   });
+  const [isSessionChecking, setIsSessionChecking] = useState<boolean>(() =>
+    Boolean(localStorage.getItem("access_token")),
+  );
   const [authError, setAuthError] = useState<string>(() =>
     consumeSessionExpiredMessage(),
   );
@@ -135,6 +136,53 @@ export default function App() {
     window.addEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
     return () =>
       window.removeEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
+  }, []);
+
+  // Không tin quyền lưu trong localStorage. Mỗi lần mở/reload ứng dụng phải
+  // lấy lại hồ sơ quyền hiện tại từ backend để việc gỡ CEO/Trưởng Ban có hiệu
+  // lực ngay cả với tài khoản đã đăng nhập từ các bản cũ.
+  useEffect(() => {
+    const token = localStorage.getItem("access_token");
+    if (!token) {
+      setUser(null);
+      setIsAuthenticated(false);
+      setIsSessionChecking(false);
+      return;
+    }
+
+    let cancelled = false;
+    void fetchWithSession(`${API_BASE_URL}/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(async (response) => {
+        const profile = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(profile.message || "Không thể xác minh phiên đăng nhập");
+        }
+        if (cancelled) return;
+        localStorage.setItem("user", JSON.stringify(profile));
+        setUser(profile);
+        setIsAuthenticated(true);
+      })
+      .catch((error: any) => {
+        if (cancelled) return;
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("refresh_token");
+        localStorage.removeItem("user");
+        setUser(null);
+        setIsAuthenticated(false);
+        setAuthError(
+          error?.message ||
+            "Không thể đồng bộ quyền tài khoản. Vui lòng đăng nhập lại.",
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setIsSessionChecking(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Check URL params on initial load for direct demo/screenshot routing
@@ -1212,6 +1260,15 @@ export default function App() {
   const pendingCount = documents.filter((d) => d.status === "Chờ duyệt").length;
   const approvedCount = documents.filter((d) => d.status === "Đã duyệt").length;
   const draftCount = documents.filter((d) => d.status === "Nháp").length;
+
+  if (isSessionChecking) {
+    return (
+      <BrandLoader
+        variant="splash"
+        label="Đang đồng bộ phiên đăng nhập và quyền truy cập..."
+      />
+    );
+  }
 
   // Unauthenticated view
   if (!isAuthenticated) {

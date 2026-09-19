@@ -351,6 +351,9 @@ export class AdminService {
       ip,
     });
 
+    // Quyền và phạm vi phải có hiệu lực ngay với mọi phiên đang đăng nhập.
+    this.jwtStrategy.invalidateUser(targetUserId);
+
     return updatedUser;
   }
 
@@ -552,6 +555,8 @@ export class AdminService {
       ip,
     });
 
+    this.jwtStrategy.invalidateUser(targetUserId);
+
     return updatedUser;
   }
 
@@ -632,6 +637,8 @@ export class AdminService {
       },
       ip,
     });
+
+    this.jwtStrategy.invalidateUser(targetUserId);
 
     return updatedUser;
   }

@@ -83,7 +83,23 @@ export class AuthController {
       email: user.email,
       name: user.name,
       departmentId: user.departmentId,
+      department: user.department
+        ? {
+            id: user.department.id,
+            name: user.department.name,
+            code: user.department.code,
+          }
+        : null,
       roles: user.roles ? user.roles.map((r: { name: string }) => r.name) : [],
+      projects: [
+        ...(user.ledProjects || []),
+        ...(user.projectMemberships || []).map(
+          (membership: any) => membership.project,
+        ),
+      ].filter(
+        (project: any, index: number, projects: any[]) =>
+          project && projects.findIndex((item) => item?.id === project.id) === index,
+      ),
       delegatedFrom: (user.delegatedFrom || []).map((delegator: any) => ({
         id: delegator.id,
         name: delegator.name,
