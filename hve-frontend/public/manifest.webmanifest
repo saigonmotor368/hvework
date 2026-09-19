@@ -13,16 +13,16 @@
   "categories": ["business", "productivity", "education"],
   "icons": [
     {
-      "src": "/icons/icon-192-transparent-v2.png",
+      "src": "/icons/icon-192-solid-v3.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any"
+      "purpose": "any maskable"
     },
     {
-      "src": "/icons/icon-512-transparent-v2.png",
+      "src": "/icons/icon-512-solid-v3.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any"
+      "purpose": "any maskable"
     }
   ]
 }
