@@ -205,6 +205,88 @@ describe('DocumentsService', () => {
     });
   });
 
+  describe('updateDocument', () => {
+    it('should let the creator revise returned draft content and replace attachments', async () => {
+      prisma.document.findUnique.mockResolvedValue({
+        id: 1,
+        code: 'DX-2026-001',
+        title: 'Đề xuất cũ',
+        type: 'proposal',
+        status: 'Nháp',
+        version: 3,
+        createdById: 10,
+        projectId: null,
+        linkedProjectIds: [],
+        dataJson: { content: 'Nội dung cũ', attachmentIds: [11, 12] },
+      });
+      prisma.attachment.findMany.mockResolvedValue([{ id: 11 }, { id: 12 }]);
+      prisma.attachment.count.mockResolvedValue(1);
+      prisma.document.update.mockResolvedValue({
+        id: 1,
+        title: 'Đề xuất đã sửa',
+        type: 'proposal',
+        status: 'Nháp',
+        version: 4,
+        createdById: 10,
+        dataJson: { content: 'Nội dung đã sửa', attachmentIds: [12, 13] },
+      });
+
+      const result = await service.updateDocument(
+        1,
+        { id: 10, roles: ['employee'] },
+        {
+          title: 'Đề xuất đã sửa',
+          content: 'Nội dung đã sửa',
+          attachmentIds: [12, 13],
+        },
+        3,
+      );
+
+      expect(prisma.attachment.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: [13] }, uploadedById: 10, entityId: 0 },
+        data: { entityId: 1, entityType: 'document' },
+      });
+      expect(prisma.attachment.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: { in: [11] },
+          entityType: 'document',
+          entityId: 1,
+        },
+        data: { entityId: 0 },
+      });
+      expect(prisma.document.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            title: 'Đề xuất đã sửa',
+            dataJson: expect.objectContaining({
+              content: 'Nội dung đã sửa',
+              attachmentIds: [12, 13],
+            }),
+            version: 4,
+          }),
+        }),
+      );
+      expect(result.version).toBe(4);
+    });
+
+    it('should not allow editing a document while it is under approval', async () => {
+      prisma.document.findUnique.mockResolvedValue({
+        id: 1,
+        title: 'Đang duyệt',
+        status: 'Chờ duyệt',
+        createdById: 10,
+      });
+
+      await expect(
+        service.updateDocument(
+          1,
+          { id: 10, roles: ['employee'] },
+          { title: 'Không được sửa' },
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
   describe('createNewVersion', () => {
     it('should create new version (-v2) for approved document even when optimistic-lock version is high (e.g. 6)', async () => {
       prisma.document.findUnique.mockResolvedValue({

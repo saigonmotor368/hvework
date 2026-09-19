@@ -1,5 +1,5 @@
 import React from "react";
-import type { ProjectItem } from "../types";
+import type { DocumentItem, ProjectItem } from "../types";
 import { MultiFilePicker } from "./MultiFilePicker";
 
 export interface CreateFormData {
@@ -41,6 +41,9 @@ interface CreateDocumentFormProps {
     name: string;
     email: string;
   }>;
+  editingDocument?: DocumentItem | null;
+  existingAttachments?: NonNullable<DocumentItem["attachments"]>;
+  onRemoveExistingAttachment?: (attachmentId: number) => void;
 }
 
 export const CreateDocumentForm: React.FC<CreateDocumentFormProps> = ({
@@ -53,6 +56,9 @@ export const CreateDocumentForm: React.FC<CreateDocumentFormProps> = ({
   primaryProjects,
   currentUser,
   users,
+  editingDocument = null,
+  existingAttachments = [],
+  onRemoveExistingAttachment,
 }) => {
   const isBoard = currentUser?.roles?.includes("bgd");
   return (
@@ -60,11 +66,14 @@ export const CreateDocumentForm: React.FC<CreateDocumentFormProps> = ({
       {/* Header */}
       <div className="mb-6 pb-6 border-b border-slate-100">
         <h3 className="text-xl font-bold text-gray-900">
-          Tạo Hồ Sơ Phê Duyệt Mới
+          {editingDocument
+            ? `Chỉnh sửa hồ sơ ${editingDocument.code}`
+            : "Tạo Hồ Sơ Phê Duyệt Mới"}
         </h3>
         <p className="text-xs text-gray-500 mt-1">
-          Chọn loại hồ sơ nghiệp vụ tương ứng và điền các thông tin theo chuẩn
-          quy trình của Hệ Thống Quản Lý Công Việc
+          {editingDocument
+            ? "Cập nhật nội dung và tệp đính kèm theo ý kiến trả lại trước khi gửi duyệt lại."
+            : "Chọn loại hồ sơ nghiệp vụ tương ứng và điền các thông tin theo chuẩn quy trình của Hệ Thống Quản Lý Công Việc"}
         </p>
       </div>
 
@@ -76,6 +85,7 @@ export const CreateDocumentForm: React.FC<CreateDocumentFormProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <button
             type="button"
+            disabled={Boolean(editingDocument)}
             onClick={() =>
               setCreateForm({ ...createForm, type: "payment_request" })
             }
@@ -96,6 +106,7 @@ export const CreateDocumentForm: React.FC<CreateDocumentFormProps> = ({
 
           <button
             type="button"
+            disabled={Boolean(editingDocument)}
             onClick={() => setCreateForm({ ...createForm, type: "proposal" })}
             className={`p-4 rounded-xl border text-left transition-all ${
               createForm.type === "proposal"
@@ -114,6 +125,7 @@ export const CreateDocumentForm: React.FC<CreateDocumentFormProps> = ({
 
           <button
             type="button"
+            disabled={Boolean(editingDocument)}
             onClick={() => setCreateForm({ ...createForm, type: "contract" })}
             className={`p-4 rounded-xl border text-left transition-all ${
               createForm.type === "contract"
@@ -506,6 +518,41 @@ export const CreateDocumentForm: React.FC<CreateDocumentFormProps> = ({
                 : "Tệp tài liệu tham khảo đính kèm (Tùy chọn)"}
           </label>
           <div className="mt-2">
+            {existingAttachments.length > 0 && (
+              <div className="mb-3 space-y-2">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  Tệp đang lưu trong hồ sơ
+                </p>
+                {existingAttachments.map((attachment) => (
+                  <div
+                    key={attachment.id}
+                    className="flex min-w-0 items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2"
+                  >
+                    <span className="shrink-0 text-lg" aria-hidden="true">
+                      📄
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-xs font-semibold text-slate-700">
+                        {attachment.fileName}
+                      </p>
+                      <p className="text-[11px] text-slate-400">
+                        Đã đính kèm • {Math.max(1, Math.round(attachment.size / 1024))} KB
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={isProcessing}
+                      onClick={() => onRemoveExistingAttachment?.(attachment.id)}
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-base font-bold text-slate-400 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                      aria-label={`Bỏ tệp ${attachment.fileName}`}
+                      title="Bỏ tệp khỏi hồ sơ"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
             <MultiFilePicker
               files={createForm.selectedFiles}
               disabled={isProcessing}
@@ -533,7 +580,11 @@ export const CreateDocumentForm: React.FC<CreateDocumentFormProps> = ({
             disabled={isProcessing}
             className="w-full sm:w-auto px-5 py-2.5 rounded-xl border border-gray-300 bg-white text-xs font-bold text-gray-700 hover:bg-slate-50 shadow-sm transition-all disabled:opacity-50"
           >
-            {isProcessing ? "Đang lưu..." : "💾 Lưu bản nháp"}
+            {isProcessing
+              ? "Đang lưu..."
+              : editingDocument
+                ? "💾 Lưu thay đổi"
+                : "💾 Lưu bản nháp"}
           </button>
 
           <button
@@ -542,7 +593,11 @@ export const CreateDocumentForm: React.FC<CreateDocumentFormProps> = ({
             disabled={isProcessing}
             className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-[#0A66C2] text-white text-xs font-bold hover:bg-blue-700 shadow-sm transition-all disabled:opacity-50"
           >
-            {isProcessing ? "Đang xử lý..." : "🚀 Lưu & Gửi duyệt ngay"}
+            {isProcessing
+              ? "Đang xử lý..."
+              : editingDocument
+                ? "🚀 Lưu & Gửi duyệt lại"
+                : "🚀 Lưu & Gửi duyệt ngay"}
           </button>
         </div>
       </form>

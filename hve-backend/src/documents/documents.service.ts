@@ -10,7 +10,7 @@ import { AuditService } from '../audit/audit.service.js';
 import { CreatePaymentRequestDto } from './dto/create-payment-request.dto.js';
 import { CreateProposalDto } from './dto/create-proposal.dto.js';
 import { CreateContractDto } from './dto/create-contract.dto.js';
-import { UpdatePaymentRequestDto } from './dto/update-payment-request.dto.js';
+import { UpdateDocumentDto } from './dto/update-document.dto.js';
 import { ActionStepDto, RejectOrReturnStepDto } from './dto/action-step.dto.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { AuthService } from '../auth/auth.service.js';
@@ -675,13 +675,14 @@ export class DocumentsService {
     return doc;
   }
 
-  async updatePaymentRequest(
+  async updateDocument(
     documentId: number,
-    userId: number,
-    dto: UpdatePaymentRequestDto,
+    user: any,
+    dto: UpdateDocumentDto,
     currentVersion?: number,
     ip?: string,
   ) {
+    const userId = user.id;
     const doc = await this.prisma.document.findUnique({
       where: { id: documentId },
     });
@@ -701,11 +702,28 @@ export class DocumentsService {
       );
     }
 
+    await this.validateProjectSelection(
+      user,
+      dto.projectId,
+      dto.linkedProjectIds,
+    );
+
     if (currentVersion !== undefined && doc.version !== currentVersion) {
       throw new ConflictException(
         'Hồ sơ đã được chỉnh sửa từ phiên làm việc khác. Vui lòng tải lại trang.',
       );
     }
+
+    const currentAttachments = await this.prisma.attachment.findMany({
+      where: { entityType: 'document', entityId: documentId },
+      select: { id: true },
+    });
+    const currentAttachmentIds = currentAttachments.map((item) => item.id);
+    const desiredAttachmentIds = dto.attachmentIds ?? currentAttachmentIds;
+    const newAttachmentIds = desiredAttachmentIds.filter(
+      (id) => !currentAttachmentIds.includes(id),
+    );
+    await this.validateNewAttachments(userId, newAttachmentIds);
 
     const prevData: any = doc.dataJson || {};
     const updatedDataJson = {
@@ -718,26 +736,131 @@ export class DocumentsService {
         : {}),
       ...(dto.content !== undefined ? { content: dto.content } : {}),
       ...(dto.deadline !== undefined ? { deadline: dto.deadline } : {}),
-      ...(dto.attachmentIds !== undefined
-        ? { attachmentIds: dto.attachmentIds }
-        : {}),
+      ...(dto.partner !== undefined ? { partner: dto.partner } : {}),
+      ...(dto.value !== undefined ? { value: dto.value } : {}),
+      ...(dto.startDate !== undefined ? { startDate: dto.startDate } : {}),
+      ...(dto.endDate !== undefined ? { endDate: dto.endDate } : {}),
+      ...(dto.manager !== undefined ? { manager: dto.manager } : {}),
+      ...(dto.notes !== undefined ? { notes: dto.notes } : {}),
+      attachmentIds: desiredAttachmentIds,
     };
 
-    const updatedDoc = await this.prisma.document.update({
-      where: { id: documentId },
-      data: {
-        title: dto.title || doc.title,
-        dataJson: updatedDataJson,
-        version: doc.version + 1,
-      },
-      include: {
-        createdBy: {
-          select: { id: true, name: true, email: true, department: true },
+    const updatedTitle = dto.title?.trim() ?? doc.title.trim();
+    if (!updatedTitle) {
+      throw new BadRequestException('Tiêu đề hồ sơ không được để trống');
+    }
+    if (
+      doc.type === 'payment_request' &&
+      (!updatedDataJson.amount ||
+        !updatedDataJson.receiver?.trim() ||
+        !updatedDataJson.bankName?.trim() ||
+        !updatedDataJson.bankAccount?.trim() ||
+        !updatedDataJson.content?.trim())
+    ) {
+      throw new BadRequestException(
+        'Hồ sơ thiếu các thông tin thanh toán bắt buộc',
+      );
+    }
+    if (doc.type === 'proposal' && !updatedDataJson.content?.trim()) {
+      throw new BadRequestException('Đề xuất thiếu thông tin nội dung bắt buộc');
+    }
+    if (
+      doc.type === 'contract' &&
+      (!updatedDataJson.partner?.trim() ||
+        updatedDataJson.value === undefined ||
+        !updatedDataJson.startDate ||
+        !updatedDataJson.endDate ||
+        !updatedDataJson.manager?.trim())
+    ) {
+      throw new BadRequestException(
+        'Hợp đồng thiếu các thông tin bắt buộc',
+      );
+    }
+    if (
+      doc.type === 'contract' &&
+      updatedDataJson.startDate &&
+      updatedDataJson.endDate &&
+      new Date(updatedDataJson.endDate) < new Date(updatedDataJson.startDate)
+    ) {
+      throw new BadRequestException(
+        'Ngày hết hạn hợp đồng không được trước ngày hiệu lực',
+      );
+    }
+
+    const roles = getRoleNames(user);
+    const isBoard = roles.includes('bgd');
+    if (doc.type === 'proposal' && dto.targetUserId && !isBoard) {
+      throw new ForbiddenException(
+        'Chỉ Ban Giám Đốc được chỉ định người nhận riêng cho đề xuất',
+      );
+    }
+    if (doc.type === 'proposal' && dto.targetUserId) {
+      const target = await this.prisma.user.findFirst({
+        where: { id: dto.targetUserId, status: 'active' },
+        select: { id: true },
+      });
+      if (!target) {
+        throw new BadRequestException(
+          'Người nhận đề xuất không tồn tại hoặc đã bị khóa',
+        );
+      }
+    }
+
+    const removedAttachmentIds = currentAttachmentIds.filter(
+      (id) => !desiredAttachmentIds.includes(id),
+    );
+
+    const updatedDoc = await this.prisma.$transaction(async (tx) => {
+      if (newAttachmentIds.length > 0) {
+        await tx.attachment.updateMany({
+          where: {
+            id: { in: newAttachmentIds },
+            uploadedById: userId,
+            entityId: 0,
+          },
+          data: { entityId: documentId, entityType: 'document' },
+        });
+      }
+      if (removedAttachmentIds.length > 0) {
+        await tx.attachment.updateMany({
+          where: {
+            id: { in: removedAttachmentIds },
+            entityType: 'document',
+            entityId: documentId,
+          },
+          data: { entityId: 0 },
+        });
+      }
+
+      return tx.document.update({
+        where: { id: documentId },
+        data: {
+          title: updatedTitle,
+          dataJson: updatedDataJson,
+          projectId:
+            dto.projectId !== undefined ? dto.projectId || null : doc.projectId,
+          linkedProjectIds:
+            dto.linkedProjectIds ??
+            (Array.isArray(doc.linkedProjectIds)
+              ? (doc.linkedProjectIds as number[])
+              : []),
+          ...(doc.type === 'proposal' && isBoard
+            ? {
+                targetUserId: dto.targetUserId || null,
+                visibility: dto.targetUserId ? 'targeted' : 'company',
+              }
+            : {}),
+          version: doc.version + 1,
         },
-        targetUser: {
-          select: { id: true, name: true, email: true, department: true },
+        include: {
+          createdBy: {
+            select: { id: true, name: true, email: true, department: true },
+          },
+          targetUser: {
+            select: { id: true, name: true, email: true, department: true },
+          },
         },
-      },
+      });
     });
 
     await this.auditService.logEvent({
@@ -746,7 +869,12 @@ export class DocumentsService {
       action: 'update_document',
       actorId: userId,
       beforeJson: { title: doc.title, dataJson: doc.dataJson },
-      afterJson: { title: updatedDoc.title, dataJson: updatedDataJson },
+      afterJson: {
+        title: updatedDoc.title,
+        dataJson: updatedDataJson,
+        addedAttachmentIds: newAttachmentIds,
+        removedAttachmentIds,
+      },
       ip,
     });
 

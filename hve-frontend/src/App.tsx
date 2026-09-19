@@ -321,6 +321,11 @@ export default function App() {
 
   const [createForm, setCreateForm] =
     useState<CreateFormData>(initialFormState);
+  const [editingDocument, setEditingDocument] =
+    useState<DocumentItem | null>(null);
+  const [retainedAttachments, setRetainedAttachments] = useState<
+    NonNullable<DocumentItem["attachments"]>
+  >([]);
   const canUseEveryProject = user?.roles?.some((role: string) =>
     ["ceo", "bgd", "it_admin"].includes(role),
   );
@@ -331,13 +336,17 @@ export default function App() {
     ? projects
     : projects.filter((project) => ownProjectIds.has(project.id));
   useEffect(() => {
-    if (!createForm.projectId && primaryProjects.length === 1) {
+    if (
+      !editingDocument &&
+      !createForm.projectId &&
+      primaryProjects.length === 1
+    ) {
       setCreateForm((current) => ({
         ...current,
         projectId: String(primaryProjects[0].id),
       }));
     }
-  }, [primaryProjects.length, createForm.projectId]);
+  }, [primaryProjects.length, createForm.projectId, editingDocument]);
 
   // Approval PIN modal state (bắt buộc cho bước duyệt cuối cùng của CEO)
   const [pinModal, setPinModal] = useState<{
@@ -435,7 +444,9 @@ export default function App() {
       },
     );
     if (!response.ok) throw new Error("Không thể tải lại chi tiết hồ sơ");
-    setSelectedDoc(await response.json());
+    const detail = await response.json();
+    setSelectedDoc(detail);
+    return detail as DocumentItem;
   };
 
   const fetchAssignableUsers = async () => {
@@ -783,6 +794,56 @@ export default function App() {
     }
   };
 
+  const resetDocumentEditor = () => {
+    setEditingDocument(null);
+    setRetainedAttachments([]);
+    setCreateForm(initialFormState);
+  };
+
+  const handleEditDocument = async (document: DocumentItem) => {
+    setIsProcessing(true);
+    try {
+      const detail =
+        document.attachments !== undefined
+          ? document
+          : await refreshDocumentDetail(document.id);
+      if (!detail) return;
+      setEditingDocument(detail);
+      setRetainedAttachments(detail.attachments || []);
+      setCreateForm({
+        type: detail.type as CreateFormData["type"],
+        title: detail.title || "",
+        amount:
+          detail.dataJson?.amount !== undefined
+            ? String(detail.dataJson.amount)
+            : "",
+        receiver: detail.dataJson?.receiver || "",
+        bankName: detail.dataJson?.bankName || "",
+        bankAccount: detail.dataJson?.bankAccount || "",
+        content: detail.dataJson?.content || "",
+        deadline: detail.dataJson?.deadline || "",
+        partner: detail.dataJson?.partner || "",
+        value:
+          detail.dataJson?.value !== undefined
+            ? String(detail.dataJson.value)
+            : "",
+        startDate: detail.dataJson?.startDate || "",
+        endDate: detail.dataJson?.endDate || "",
+        manager: detail.dataJson?.manager || "",
+        notes: detail.dataJson?.notes || "",
+        selectedFiles: [],
+        projectId: detail.projectId ? String(detail.projectId) : "",
+        linkedProjectIds: detail.linkedProjectIds || [],
+        targetUserId: detail.targetUserId ? String(detail.targetUserId) : "",
+      });
+      setActiveTab("create");
+    } catch (error: any) {
+      showToast(error.message || "Không thể mở hồ sơ để chỉnh sửa", "error");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   // Create Document (Payment Request, Proposal, or Contract)
   const handleCreateDocument = async (
     e: React.FormEvent,
@@ -790,6 +851,9 @@ export default function App() {
   ) => {
     e.preventDefault();
     if (isProcessing) return;
+
+    const totalAttachmentCount =
+      retainedAttachments.length + createForm.selectedFiles.length;
 
     // Validate by type
     if (createForm.type === "payment_request") {
@@ -806,7 +870,7 @@ export default function App() {
         );
         return;
       }
-      if (submitNow && createForm.selectedFiles.length === 0) {
+      if (submitNow && totalAttachmentCount === 0) {
         showToast(
           "Quy định HVE: Bắt buộc đính kèm ít nhất 1 chứng từ / hóa đơn trước khi gửi duyệt!",
           "error",
@@ -843,7 +907,7 @@ export default function App() {
         );
         return;
       }
-      if (submitNow && createForm.selectedFiles.length === 0) {
+      if (submitNow && totalAttachmentCount === 0) {
         showToast(
           "Quy định HVE: Bắt buộc đính kèm tệp hợp đồng trước khi gửi duyệt!",
           "error",
@@ -856,7 +920,9 @@ export default function App() {
     const token = localStorage.getItem("access_token");
 
     try {
-      const attachmentIds: number[] = [];
+      const attachmentIds: number[] = retainedAttachments.map(
+        (attachment) => attachment.id,
+      );
       for (const file of createForm.selectedFiles) {
         const attId = await uploadAttachmentReal(file);
         if (attId) {
@@ -867,7 +933,13 @@ export default function App() {
       }
 
       let endpoint = `${API_BASE_URL}/documents/payment-requests`;
+      let method = "POST";
       let payload: any = {};
+      const projectId = createForm.projectId
+        ? Number(createForm.projectId)
+        : editingDocument
+          ? null
+          : undefined;
 
       if (createForm.type === "payment_request") {
         endpoint = `${API_BASE_URL}/documents/payment-requests`;
@@ -881,9 +953,7 @@ export default function App() {
           deadline:
             createForm.deadline || new Date().toISOString().split("T")[0],
           attachmentIds,
-          projectId: createForm.projectId
-            ? Number(createForm.projectId)
-            : undefined,
+          projectId,
           linkedProjectIds: createForm.linkedProjectIds,
         };
       } else if (createForm.type === "proposal") {
@@ -892,13 +962,13 @@ export default function App() {
           title: createForm.title,
           content: createForm.content,
           attachmentIds,
-          projectId: createForm.projectId
-            ? Number(createForm.projectId)
-            : undefined,
+          projectId,
           linkedProjectIds: createForm.linkedProjectIds,
           targetUserId: createForm.targetUserId
             ? Number(createForm.targetUserId)
-            : undefined,
+            : editingDocument
+              ? null
+              : undefined,
         };
       } else if (createForm.type === "contract") {
         endpoint = `${API_BASE_URL}/documents/contracts`;
@@ -911,15 +981,18 @@ export default function App() {
           manager: createForm.manager,
           notes: createForm.notes,
           attachmentIds,
-          projectId: createForm.projectId
-            ? Number(createForm.projectId)
-            : undefined,
+          projectId,
           linkedProjectIds: createForm.linkedProjectIds,
         };
       }
 
+      if (editingDocument) {
+        endpoint = `${API_BASE_URL}/documents/${editingDocument.id}?version=${editingDocument.version}`;
+        method = "PUT";
+      }
+
       const res = await fetch(endpoint, {
-        method: "POST",
+        method,
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
@@ -929,7 +1002,12 @@ export default function App() {
 
       const doc = await res.json();
       if (!res.ok) {
-        throw new Error(doc.message || "Tạo hồ sơ thất bại");
+        throw new Error(
+          doc.message ||
+            (editingDocument
+              ? "Cập nhật hồ sơ thất bại"
+              : "Tạo hồ sơ thất bại"),
+        );
       }
 
       // If user chose "Gửi duyệt ngay"
@@ -946,16 +1024,26 @@ export default function App() {
           throw new Error(submitted.message || "Gửi duyệt thất bại");
         }
         setSelectedDoc(submitted);
-        showToast("Đã tạo và gửi hồ sơ phê duyệt thành công!");
+        showToast(
+          editingDocument
+            ? "Đã lưu chỉnh sửa và gửi hồ sơ duyệt lại thành công!"
+            : "Đã tạo và gửi hồ sơ phê duyệt thành công!",
+        );
       } else {
         setSelectedDoc(doc);
-        showToast("Đã lưu bản nháp thành công!");
+        showToast(
+          editingDocument
+            ? "Đã lưu nội dung và tệp đính kèm mới!"
+            : "Đã lưu bản nháp thành công!",
+        );
       }
 
       // Reset form
-      setCreateForm(initialFormState);
+      const savedDocumentId = doc.id;
+      resetDocumentEditor();
       setActiveTab("documents");
       fetchDocuments();
+      await refreshDocumentDetail(savedDocumentId);
     } catch (err: any) {
       showToast(err.message || "Thao tác thất bại", "error");
     } finally {
@@ -1309,6 +1397,7 @@ export default function App() {
         onSelectTab={(tab) => {
           setSelectedDoc(null);
           setSelectedTaskId(null);
+          if (tab === "create") resetDocumentEditor();
           const url = new URL(window.location.href);
           url.pathname = "/";
           url.searchParams.set("tab", tab);
@@ -1353,7 +1442,10 @@ export default function App() {
               {activeTab === "project_reports" && "Báo cáo dự án"}
               {activeTab === "reports" && "Báo cáo & Thống kê điều hành"}
               {activeTab === "admin_announcements" && "Quản lý thông báo"}
-              {activeTab === "create" && "Khởi tạo hồ sơ phê duyệt mới"}
+              {activeTab === "create" &&
+                (editingDocument
+                  ? `Chỉnh sửa hồ sơ ${editingDocument.code}`
+                  : "Khởi tạo hồ sơ phê duyệt mới")}
               {activeTab === "admin_workflows" &&
                 "Cấu hình quy trình (Quản trị IT)"}
               {activeTab === "admin_users" &&
@@ -1471,8 +1563,19 @@ export default function App() {
                       searchQuery={searchQuery}
                       setSearchQuery={setSearchQuery}
                       getStatusBadge={getStatusBadge}
-                      onSelectDoc={(doc) => setSelectedDoc(doc)}
-                      onCreateNew={() => setActiveTab("create")}
+                      onSelectDoc={(doc) => {
+                        setSelectedDoc(doc);
+                        void refreshDocumentDetail(doc.id).catch((error) =>
+                          showToast(
+                            error.message || "Không thể tải chi tiết hồ sơ",
+                            "error",
+                          ),
+                        );
+                      }}
+                      onCreateNew={() => {
+                        resetDocumentEditor();
+                        setActiveTab("create");
+                      }}
                     />
                   ) : (
                     <DocumentDetailModal
@@ -1483,6 +1586,7 @@ export default function App() {
                       getStatusBadge={getStatusBadge}
                       onBack={() => setSelectedDoc(null)}
                       onSubmitDraft={handleSubmitDraft}
+                      onEditDraft={handleEditDocument}
                       onCreateNewVersion={handleCreateNewVersion}
                       onApproveStep={handleApproveStepClick}
                       onApproveDirect={handleApproveDirectClick}
@@ -1565,11 +1669,23 @@ export default function App() {
                   setCreateForm={setCreateForm}
                   isProcessing={isProcessing}
                   onSubmit={handleCreateDocument}
-                  onCancel={() => setActiveTab("documents")}
+                  onCancel={() => {
+                    resetDocumentEditor();
+                    setActiveTab("documents");
+                  }}
                   projects={projects}
                   primaryProjects={primaryProjects}
                   currentUser={user}
                   users={assignableUsers}
+                  editingDocument={editingDocument}
+                  existingAttachments={retainedAttachments}
+                  onRemoveExistingAttachment={(attachmentId) =>
+                    setRetainedAttachments((current) =>
+                      current.filter(
+                        (attachment) => attachment.id !== attachmentId,
+                      ),
+                    )
+                  }
                 />
               )}
 

@@ -17,7 +17,7 @@ import { DocumentsService } from './documents.service.js';
 import { CreatePaymentRequestDto } from './dto/create-payment-request.dto.js';
 import { CreateProposalDto } from './dto/create-proposal.dto.js';
 import { CreateContractDto } from './dto/create-contract.dto.js';
-import { UpdatePaymentRequestDto } from './dto/update-payment-request.dto.js';
+import { UpdateDocumentDto } from './dto/update-document.dto.js';
 import { ActionStepDto, RejectOrReturnStepDto } from './dto/action-step.dto.js';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 
@@ -87,16 +87,16 @@ export class DocumentsController {
   }
 
   @Put(':id')
-  async updatePaymentRequest(
+  async updateDocument(
     @Param('id', ParseIntPipe) id: number,
-    @Body() dto: UpdatePaymentRequestDto,
+    @Body() dto: UpdateDocumentDto,
     @Query('version') version: string,
     @Req() req: any,
   ) {
     const currentVersion = version ? parseInt(version, 10) : undefined;
-    return this.documentsService.updatePaymentRequest(
+    return this.documentsService.updateDocument(
       id,
-      req.user.id,
+      req.user,
       dto,
       currentVersion,
       req.ip,

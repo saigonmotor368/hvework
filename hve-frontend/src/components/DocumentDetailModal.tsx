@@ -17,6 +17,7 @@ interface DocumentDetailModalProps {
   getStatusBadge: (status: string) => React.ReactNode;
   onBack: () => void;
   onSubmitDraft: (doc: DocumentItem) => void;
+  onEditDraft: (doc: DocumentItem) => void;
   onCreateNewVersion: (doc: DocumentItem) => void;
   onApproveStep: (
     doc: DocumentItem,
@@ -42,6 +43,7 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
   getStatusBadge,
   onBack,
   onSubmitDraft,
+  onEditDraft,
   onCreateNewVersion,
   onApproveStep,
   onApproveDirect,
@@ -227,13 +229,22 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
               )}
             {selectedDoc.status === "Nháp" &&
               selectedDoc.createdById === user?.id && (
-                <button
-                  onClick={() => onSubmitDraft(selectedDoc)}
-                  disabled={isProcessing}
-                  className="w-full sm:w-auto px-4 py-2 rounded-xl bg-[#0A66C2] text-white text-xs font-bold hover:bg-blue-700 shadow-sm transition-all disabled:opacity-50"
-                >
-                  {isProcessing ? "Đang gửi..." : "🚀 Gửi duyệt hồ sơ"}
-                </button>
+                <>
+                  <button
+                    onClick={() => onEditDraft(selectedDoc)}
+                    disabled={isProcessing}
+                    className="w-full rounded-xl border border-blue-200 bg-blue-50 px-4 py-2 text-xs font-bold text-[#0A66C2] shadow-sm transition-all hover:bg-blue-100 disabled:opacity-50 sm:w-auto"
+                  >
+                    ✏️ Chỉnh sửa nội dung & tệp
+                  </button>
+                  <button
+                    onClick={() => onSubmitDraft(selectedDoc)}
+                    disabled={isProcessing}
+                    className="w-full sm:w-auto px-4 py-2 rounded-xl bg-[#0A66C2] text-white text-xs font-bold hover:bg-blue-700 shadow-sm transition-all disabled:opacity-50"
+                  >
+                    {isProcessing ? "Đang gửi..." : "🚀 Gửi duyệt hồ sơ"}
+                  </button>
+                </>
               )}
 
             {selectedDoc.status === "Đã duyệt" &&
