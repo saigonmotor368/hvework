@@ -199,7 +199,11 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
                 user={selectedDoc.createdBy}
                 fallback="Nhân viên"
               />{" "}
-              ({selectedDoc.createdBy?.department?.name || "Bộ phận"})
+              (
+              {selectedDoc.project
+                ? `${selectedDoc.project.code} — ${selectedDoc.project.name}`
+                : "Huy Võ Education"}
+              )
             </p>
           </div>
 

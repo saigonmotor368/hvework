@@ -67,6 +67,8 @@ describe('ReportsService', () => {
       expect(result.documents.approvalRate).toBe(100);
       expect(result.tasks.total).toBe(1);
       expect(result.tasks.completionRate).toBe(100);
+      expect(result.documents.items[0].project).toBe('Huy Võ Education');
+      expect(result.tasks.items[0].project).toBe('Huy Võ Education');
       expect(result.payments).toEqual({
         totalDisbursedValue: 12500000,
         disbursedCount: 1,
@@ -188,6 +190,8 @@ describe('ReportsService', () => {
       // Verify BOM character
       expect(csv.startsWith('\uFEFF')).toBe(true);
       expect(csv).toContain('Mã hồ sơ,Tiêu đề,Loại hồ sơ');
+      expect(csv).toContain('Người tạo,Dự án,Ngày tạo');
+      expect(csv).toContain('Huy Võ Education');
       expect(csv).toContain('Thanh toán tiền điện thoại');
       expect(csv).toContain('Đề nghị thanh toán');
     });

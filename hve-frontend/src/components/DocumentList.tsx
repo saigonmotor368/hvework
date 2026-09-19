@@ -179,6 +179,11 @@ export const DocumentList: React.FC<DocumentListProps> = ({
                   <span className="block truncate">
                     <UserNameButton user={doc.createdBy} fallback="Nhân viên" />
                   </span>
+                  <span className="mt-0.5 block truncate text-[10px] text-gray-400">
+                    {doc.project
+                      ? `${doc.project.code} — ${doc.project.name}`
+                      : "Huy Võ Education"}
+                  </span>
                   {doc.targetUser && (
                     <span className="mt-0.5 block truncate text-[10px] text-violet-600">
                       Gửi đến: <UserNameButton user={doc.targetUser} />
@@ -307,7 +312,9 @@ export const DocumentList: React.FC<DocumentListProps> = ({
                         fallback="Nhân viên"
                       />
                       <span className="block text-[11px] text-gray-400">
-                        {doc.createdBy?.department?.name || "Bộ phận"}
+                        {doc.project
+                          ? `${doc.project.code} — ${doc.project.name}`
+                          : "Huy Võ Education"}
                       </span>
                       {doc.targetUser && (
                         <span className="block text-[11px] text-violet-600">

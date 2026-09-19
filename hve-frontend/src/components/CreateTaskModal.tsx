@@ -16,7 +16,6 @@ interface CreateTaskModalProps {
     id: number;
     name: string;
     email: string;
-    department?: { name: string };
     ledProjects?: Array<{ id: number }>;
     projectMemberships?: Array<{
       position?: string | null;
@@ -311,7 +310,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                 <option value="">-- Chưa chỉ định --</option>
                 {users.map((u) => (
                   <option key={u.id} value={u.id}>
-                    {u.name} {u.department ? `(${u.department.name})` : ""}{" "}
+                    {u.name}{" "}
                     {projectPositionByUser.get(u.id)
                       ? `— ${projectPositionByUser.get(u.id)} `
                       : ""}

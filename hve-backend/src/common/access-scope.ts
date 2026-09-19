@@ -390,7 +390,7 @@ export function describeBusinessScope(user: UserWithBusinessScope) {
       : isDepartmentHead && uniqueProjectNames.length > 0
         ? `Dự án ${uniqueProjectNames.join(', ')}`
         : isDepartmentHead
-          ? `Phòng ban${user.department?.name ? ` ${user.department.name}` : ''}`
+          ? 'Huy Võ Education'
           : 'Dữ liệu của tôi',
     departmentId,
     projectIds,

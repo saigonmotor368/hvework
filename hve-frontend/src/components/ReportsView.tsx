@@ -29,52 +29,40 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   const [summaryData, setSummaryData] = useState<any>(null);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
 
-  // 5 Filter states
+  // Report filters
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
-  const [departmentId, setDepartmentId] = useState<string>("");
   const [userId, setUserId] = useState<string>("");
   const [status, setStatus] = useState<string>("all");
   const [docType, setDocType] = useState<string>("");
   const [projectId, setProjectId] = useState<string>("");
 
   // Dropdown lists
-  const [departments, setDepartments] = useState<any[]>([
-    { id: 1, name: "Phòng Công nghệ Thông tin" },
-    { id: 2, name: "Phòng Tài chính - Kế toán" },
-    { id: 3, name: "Phòng Kinh doanh & Tuyển sinh" },
-    { id: 4, name: "Ban Pháp chế & Thẩm định" },
-  ]);
   const [users, setUsers] = useState<any[]>([
     {
       id: 1,
       name: "Nguyễn Văn An",
       email: "nv1@huyvoeducation.vn",
-      departmentId: 3,
     },
     {
       id: 2,
       name: "Trần Minh Tuấn",
       email: "tp_it@huyvoeducation.vn",
-      departmentId: 1,
     },
     {
       id: 3,
       name: "Trần Thị Mai",
       email: "ketoan@huyvoeducation.vn",
-      departmentId: 2,
     },
     {
       id: 4,
       name: "Hoàng Kim Ngân",
       email: "phapche@huyvoeducation.vn",
-      departmentId: 4,
     },
     {
       id: 5,
       name: "Võ Huy Định",
       email: "ceo@huyvoeducation.vn",
-      departmentId: null,
     },
   ]);
 
@@ -89,21 +77,6 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   const isDeptHead = userRoles.includes("department_head");
   const isEmployee = !isCompanyWide && !isDeptHead;
 
-  // Resolve user department details
-  const userDept = departments.find(
-    (d: any) =>
-      d.id === currentUser?.departmentId || d.name === currentUser?.department,
-  );
-  const userDeptId = currentUser?.departmentId || userDept?.id;
-  const userDeptName = currentUser?.department || userDept?.name || "Bộ phận";
-
-  // Automatically scope departmentId for department head
-  useEffect(() => {
-    if (isDeptHead && userDeptId) {
-      setDepartmentId(String(userDeptId));
-    }
-  }, [isDeptHead, userDeptId]);
-
   // If regular employee somehow has activeTab set to financial or audit_logs, fallback to documents
   useEffect(() => {
     if (
@@ -114,21 +87,15 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     }
   }, [isEmployee, activeTab]);
 
-  // Load departments and users for filtering
+  // Load users for filtering. The backend already returns only users in scope.
   useEffect(() => {
     const fetchFilterOptions = async () => {
       const token = localStorage.getItem("access_token");
       if (!token) return;
       try {
-        const [deptRes, userRes] = await Promise.all([
-          fetch(`${apiBaseUrl}/admin/departments`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          fetch(`${apiBaseUrl}/tasks/users`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-        ]);
-        if (deptRes.ok) setDepartments(await deptRes.json());
+        const userRes = await fetch(`${apiBaseUrl}/tasks/users`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         if (userRes.ok) setUsers(await userRes.json());
       } catch {
         // ignore
@@ -142,31 +109,20 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     if (isEmployee) {
       return users.filter((u: any) => u.id === currentUser?.id);
     }
-    if (isDeptHead && userDeptId) {
+    if (projectId) {
       return users.filter(
-        (u: any) =>
-          u.departmentId === userDeptId ||
-          u.department?.id === userDeptId ||
-          u.department === userDeptName,
-      );
-    }
-    if (departmentId) {
-      return users.filter(
-        (u: any) =>
-          String(u.departmentId) === String(departmentId) ||
-          String(u.department?.id) === String(departmentId),
+        (user: any) =>
+          user.ledProjects?.some(
+            (project: any) => String(project.id) === projectId,
+          ) ||
+          user.projectMemberships?.some(
+            (membership: any) =>
+              String(membership.project?.id) === projectId,
+          ),
       );
     }
     return users;
-  }, [
-    isEmployee,
-    isDeptHead,
-    userDeptId,
-    userDeptName,
-    departmentId,
-    users,
-    currentUser?.id,
-  ]);
+  }, [isEmployee, users, currentUser?.id, projectId]);
 
   // Fetch report summary
   const fetchSummary = async () => {
@@ -183,7 +139,6 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
       const params = new URLSearchParams();
       if (startDate) params.append("startDate", startDate);
       if (endDate) params.append("endDate", endDate);
-      if (departmentId) params.append("departmentId", departmentId);
       if (userId) params.append("userId", userId);
       if (status && status !== "all") params.append("status", status);
       if (docType) params.append("type", docType);
@@ -252,7 +207,6 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     activeTab,
     startDate,
     endDate,
-    departmentId,
     userId,
     status,
     docType,
@@ -269,7 +223,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     params.append("type", exportType);
     if (startDate) params.append("startDate", startDate);
     if (endDate) params.append("endDate", endDate);
-    if (departmentId) params.append("departmentId", departmentId);
+    if (projectId) params.append("projectId", projectId);
     if (userId) params.append("userId", userId);
     if (status && status !== "all") params.append("status", status);
     if (docType) params.append("type", docType);
@@ -305,7 +259,6 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   const resetFilters = () => {
     setStartDate("");
     setEndDate("");
-    setDepartmentId(isDeptHead && userDeptId ? String(userDeptId) : "");
     setProjectId("");
     setUserId("");
     setStatus("all");
@@ -328,7 +281,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             )}
             {isDeptHead && (
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-200">
-                🏢 Phạm vi: Bộ phận {userDeptName}
+                🏗️ Phạm vi: Các dự án phụ trách
               </span>
             )}
             {isCompanyWide && (
@@ -341,7 +294,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             {isEmployee
               ? "Theo dõi dữ liệu các hồ sơ trình duyệt và nhiệm vụ công việc do bạn phụ trách hoặc tạo"
               : isDeptHead
-                ? `Theo dõi và thống kê tổng hợp các chỉ số hoạt động của bộ phận ${userDeptName}`
+                ? "Theo dõi và thống kê các dự án bạn đang phụ trách"
                 : "Tổng hợp đa chiều về hồ sơ, tiến độ công việc, tài chính và nhật ký kiểm soát nội bộ"}
           </p>
         </div>
@@ -414,7 +367,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         )}
       </div>
 
-      {/* 5 Bộ lọc đa chiều */}
+      {/* Bộ lọc đa chiều */}
       <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm space-y-3">
         <div className="flex items-center justify-between">
           <span className="text-xs font-bold text-gray-700 uppercase tracking-wider">
@@ -428,7 +381,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
           {/* Filter 1: Từ ngày */}
           <div>
             <label className="block text-[11px] font-bold text-gray-500 mb-1">
@@ -455,14 +408,17 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             />
           </div>
 
-          {/* Filter 3: Bộ phận */}
+          {/* Filter 3: Dự án */}
           <div>
             <label className="block text-[11px] font-bold text-gray-500 mb-1">
               Dự án
             </label>
             <select
               value={projectId}
-              onChange={(e) => setProjectId(e.target.value)}
+              onChange={(e) => {
+                setProjectId(e.target.value);
+                setUserId("");
+              }}
               className="w-full text-xs p-2 rounded-lg border border-slate-200 bg-white"
             >
               <option value="">Tất cả dự án</option>
@@ -474,46 +430,6 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                   </option>
                 ))}
             </select>
-          </div>
-
-          {/* Filter 3: Bộ phận */}
-          <div>
-            <label className="block text-[11px] font-bold text-gray-500 mb-1">
-              Bộ phận
-            </label>
-            {isEmployee ? (
-              <input
-                type="text"
-                disabled
-                value={
-                  userDeptName ? `${userDeptName} (Cá nhân)` : "Dữ liệu cá nhân"
-                }
-                className="w-full text-xs p-2 rounded-lg border border-slate-200 bg-slate-100 text-slate-500 cursor-not-allowed font-medium"
-              />
-            ) : isDeptHead ? (
-              <input
-                type="text"
-                disabled
-                value={`${userDeptName} (Cố định)`}
-                className="w-full text-xs p-2 rounded-lg border border-slate-200 bg-slate-100 text-slate-700 cursor-not-allowed font-semibold"
-              />
-            ) : (
-              <select
-                value={departmentId}
-                onChange={(e) => {
-                  setDepartmentId(e.target.value);
-                  setUserId("");
-                }}
-                className="w-full text-xs p-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#0A66C2] bg-white"
-              >
-                <option value="">Tất cả phòng ban</option>
-                {departments.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
-                ))}
-              </select>
-            )}
           </div>
 
           {/* Filter 4: Người dùng */}
@@ -535,7 +451,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 className="w-full text-xs p-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#0A66C2] bg-white"
               >
                 <option value="">
-                  {isDeptHead ? "Tất cả nhân sự phòng ban" : "Tất cả nhân sự"}
+                  {projectId ? "Tất cả nhân sự dự án" : "Tất cả nhân sự"}
                 </option>
                 {availableUsers.map((u) => (
                   <option key={u.id} value={u.id}>
@@ -640,7 +556,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                         <th className="px-6 py-3">Tiêu đề</th>
                         <th className="px-6 py-3">Phân loại</th>
                         <th className="px-6 py-3">Người tạo</th>
-                        <th className="px-6 py-3">Phòng ban</th>
+                        <th className="px-6 py-3">Dự án</th>
                         <th className="px-6 py-3">Ngày tạo</th>
                         <th className="px-6 py-3 text-right">Trạng thái</th>
                       </tr>
@@ -671,9 +587,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                               : d.creator || "—"}
                           </td>
                           <td className="px-6 py-3 text-gray-500">
-                            {typeof d.department === "object"
-                              ? d.department?.name
-                              : d.department || "—"}
+                            {d.project || "Huy Võ Education"}
                           </td>
                           <td className="px-6 py-3 text-gray-400">
                             {new Date(d.createdAt).toLocaleDateString("vi-VN")}
@@ -746,7 +660,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                         <th className="px-6 py-3">Mã CV</th>
                         <th className="px-6 py-3">Tiêu đề</th>
                         <th className="px-6 py-3">Người phụ trách</th>
-                        <th className="px-6 py-3">Phòng ban</th>
+                        <th className="px-6 py-3">Dự án</th>
                         <th className="px-6 py-3">Hạn hoàn thành</th>
                         <th className="px-6 py-3">Tiến độ</th>
                         <th className="px-6 py-3 text-right">Trạng thái</th>
@@ -773,9 +687,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                             )}
                           </td>
                           <td className="px-6 py-3 text-gray-500">
-                            {typeof t.department === "object"
-                              ? t.department?.name
-                              : t.department || "—"}
+                            {t.project || "Huy Võ Education"}
                           </td>
                           <td className="px-6 py-3">
                             <span

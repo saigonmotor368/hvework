@@ -85,6 +85,17 @@ describe('business access scopes', () => {
     });
   });
 
+  it('labels legacy project-less leadership scope as Huy Võ Education', () => {
+    const scope = describeBusinessScope({
+      id: 3,
+      departmentId: 8,
+      department: { id: 8, name: 'Vận hành' },
+      roles: ['department_head'],
+    });
+
+    expect(scope.label).toBe('Huy Võ Education');
+  });
+
   it('merges functional document roles into one OR scope', () => {
     const scope = buildDocumentAccessWhere({
       id: 4,

@@ -234,9 +234,8 @@ export class ReportsService {
           type: d.type,
           status: d.status,
           creator: d.createdBy.name,
-          department: d.createdBy.department?.name || 'N/A',
           createdAt: d.createdAt,
-          project: d.project?.name || null,
+          project: d.project?.name || 'Huy Võ Education',
         })),
       },
       tasks: {
@@ -255,10 +254,9 @@ export class ReportsService {
           status: t.status,
           progressPercent: t.progressPercent,
           assignee: t.assignee?.name || 'Chưa phân công',
-          department: t.assignee?.department?.name || 'N/A',
           dueDate: t.dueDate,
           isOverdue: t.status !== 'Hoàn thành' && t.dueDate ? new Date(t.dueDate) < now : false,
-          project: t.project?.name || null,
+          project: t.project?.name || 'Huy Võ Education',
         })),
       },
       contracts: {
@@ -333,20 +331,20 @@ export class ReportsService {
 
     if (type === 'documents') {
       const summary = await this.getSummary(user, filter);
-      const headers = ['Mã hồ sơ', 'Tiêu đề', 'Loại hồ sơ', 'Trạng thái', 'Người tạo', 'Phòng ban', 'Ngày tạo'];
+      const headers = ['Mã hồ sơ', 'Tiêu đề', 'Loại hồ sơ', 'Trạng thái', 'Người tạo', 'Dự án', 'Ngày tạo'];
       const rows = summary.documents.items.map((d: any) => [
         this.escapeCsv(d.code),
         this.escapeCsv(d.title),
         this.escapeCsv(this.mapDocType(d.type)),
         this.escapeCsv(d.status),
         this.escapeCsv(d.creator),
-        this.escapeCsv(d.department),
+        this.escapeCsv(d.project),
         this.escapeCsv(new Date(d.createdAt).toLocaleDateString('vi-VN')),
       ]);
       csvContent = [headers.join(','), ...rows.map((r: any) => r.join(','))].join('\r\n');
     } else if (type === 'tasks') {
       const summary = await this.getSummary(user, filter);
-      const headers = ['Mã công việc', 'Tiêu đề', 'Mức ưu tiên', 'Trạng thái', 'Tiến độ (%)', 'Người thực hiện', 'Phòng ban', 'Hạn hoàn thành', 'Quá hạn'];
+      const headers = ['Mã công việc', 'Tiêu đề', 'Mức ưu tiên', 'Trạng thái', 'Tiến độ (%)', 'Người thực hiện', 'Dự án', 'Hạn hoàn thành', 'Quá hạn'];
       const rows = summary.tasks.items.map((t: any) => [
         this.escapeCsv(t.code),
         this.escapeCsv(t.title),
@@ -354,7 +352,7 @@ export class ReportsService {
         this.escapeCsv(t.status),
         t.progressPercent,
         this.escapeCsv(t.assignee),
-        this.escapeCsv(t.department),
+        this.escapeCsv(t.project),
         this.escapeCsv(t.dueDate ? new Date(t.dueDate).toLocaleDateString('vi-VN') : ''),
         t.isOverdue ? 'Có' : 'Không',
       ]);
@@ -520,7 +518,7 @@ export class ReportsService {
 
     if (type === 'documents') {
       const summary = await this.getSummary(user, filter);
-      const headers = ['Mã hồ sơ', 'Tiêu đề', 'Loại hồ sơ', 'Trạng thái', 'Người tạo', 'Phòng ban', 'Ngày tạo'];
+      const headers = ['Mã hồ sơ', 'Tiêu đề', 'Loại hồ sơ', 'Trạng thái', 'Người tạo', 'Dự án', 'Ngày tạo'];
       this.buildSheetHeader(sheet, this.reportTitle(type), headers.length);
       const headerRow = sheet.addRow(headers);
       this.styleHeaderRow(headerRow);
@@ -531,7 +529,7 @@ export class ReportsService {
           this.mapDocType(d.type),
           d.status,
           d.creator,
-          d.department,
+          d.project,
           new Date(d.createdAt).toLocaleDateString('vi-VN'),
         ]);
         this.styleDataRow(row, idx % 2 === 0);
@@ -539,7 +537,7 @@ export class ReportsService {
       this.autoFitColumns(sheet, headers, [12, 30, 16, 14, 18, 22, 12]);
     } else if (type === 'tasks') {
       const summary = await this.getSummary(user, filter);
-      const headers = ['Mã công việc', 'Tiêu đề', 'Mức ưu tiên', 'Trạng thái', 'Tiến độ (%)', 'Người thực hiện', 'Phòng ban', 'Hạn hoàn thành', 'Quá hạn'];
+      const headers = ['Mã công việc', 'Tiêu đề', 'Mức ưu tiên', 'Trạng thái', 'Tiến độ (%)', 'Người thực hiện', 'Dự án', 'Hạn hoàn thành', 'Quá hạn'];
       this.buildSheetHeader(sheet, this.reportTitle(type), headers.length);
       const headerRow = sheet.addRow(headers);
       this.styleHeaderRow(headerRow);
@@ -551,7 +549,7 @@ export class ReportsService {
           t.status,
           t.progressPercent,
           t.assignee,
-          t.department,
+          t.project,
           t.dueDate ? new Date(t.dueDate).toLocaleDateString('vi-VN') : '',
           t.isOverdue ? 'Có' : 'Không',
         ]);

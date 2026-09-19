@@ -105,7 +105,11 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
   const capabilities = dashboardData?.capabilities || {};
   const scopeLabel =
     dashboardData?.scope?.label ||
-    (isCeo ? "Toàn công ty" : isDeptHead ? "Phòng ban" : "Dữ liệu của tôi");
+    (isCeo
+      ? "Toàn công ty"
+      : isDeptHead
+        ? "Các dự án phụ trách"
+        : "Dữ liệu của tôi");
   const pendingActionCount =
     dashboardData?.actionRequired?.pendingApprovalsCount || 0;
   const returnedActionCount =
@@ -299,10 +303,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                       </div>
                       <p className="text-[11px] text-gray-400 mt-0.5">
                         Phụ trách:{" "}
-                        <UserNameButton user={t.assignee} fallback="N/A" />{" "}
-                        {t.assignee?.department
-                          ? `(${t.assignee.department.name})`
-                          : ""}
+                        <UserNameButton user={t.assignee} fallback="N/A" />
                       </p>
                     </div>
                     <span className="text-xs font-semibold text-red-600">

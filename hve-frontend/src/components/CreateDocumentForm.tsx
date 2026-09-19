@@ -39,7 +39,6 @@ interface CreateDocumentFormProps {
     id: number;
     name: string;
     email: string;
-    department?: { name: string };
   }>;
 }
 
@@ -359,9 +358,6 @@ export const CreateDocumentForm: React.FC<CreateDocumentFormProps> = ({
                     .map((candidate) => (
                       <option key={candidate.id} value={candidate.id}>
                         {candidate.name} — {candidate.email}
-                        {candidate.department
-                          ? ` (${candidate.department.name})`
-                          : ""}
                       </option>
                     ))}
                 </select>

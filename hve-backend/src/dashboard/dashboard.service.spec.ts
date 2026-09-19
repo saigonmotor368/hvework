@@ -70,7 +70,7 @@ describe('DashboardService role scopes', () => {
     });
 
     expect(result.scope).toMatchObject({ level: 'department', departmentId: 7 });
-    expect(result.scope.label).toContain('Vận hành');
+    expect(result.scope.label).toBe('Huy Võ Education');
     expect(result.metrics.tasks.total).toBe(2);
     expect(result.actionRequired.pendingApprovalsCount).toBe(1);
     expect(prismaMock.project.findMany).not.toHaveBeenCalled();
