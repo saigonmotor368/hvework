@@ -1,5 +1,6 @@
 import React from "react";
 import type { ProjectItem } from "../types";
+import { MultiFilePicker } from "./MultiFilePicker";
 
 export interface CreateFormData {
   type: "payment_request" | "proposal" | "contract";
@@ -20,7 +21,7 @@ export interface CreateFormData {
   manager: string;
   notes: string;
   // file
-  selectedFile: File | null;
+  selectedFiles: File[];
   projectId: string;
   linkedProjectIds: number[];
   targetUserId: string;
@@ -504,21 +505,16 @@ export const CreateDocumentForm: React.FC<CreateDocumentFormProps> = ({
                 ? "Chứng từ / Hóa đơn đính kèm (Bắt buộc khi gửi duyệt) *"
                 : "Tệp tài liệu tham khảo đính kèm (Tùy chọn)"}
           </label>
-          <div className="mt-1.5 flex items-center space-x-3">
-            <input
-              type="file"
-              onChange={(e) =>
-                setCreateForm({
-                  ...createForm,
-                  selectedFile: e.target.files ? e.target.files[0] : null,
-                })
+          <div className="mt-2">
+            <MultiFilePicker
+              files={createForm.selectedFiles}
+              disabled={isProcessing}
+              onChange={(selectedFiles) =>
+                setCreateForm({ ...createForm, selectedFiles })
               }
-              className="block w-full text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-[#0A66C2] hover:file:bg-blue-100 cursor-pointer border border-gray-200 rounded-xl p-1 bg-slate-50"
+              onError={(message) => window.alert(message)}
             />
           </div>
-          <p className="text-[11px] text-gray-400 mt-1">
-            Hỗ trợ định dạng: PDF, DOCX, XLSX, JPG, PNG (tối đa 10MB)
-          </p>
         </div>
 
         {/* Actions */}

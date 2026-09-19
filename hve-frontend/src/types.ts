@@ -132,6 +132,51 @@ export interface AnnouncementItem {
   createdBy?: { id: number; name: string };
 }
 
+export interface ProjectReportItem {
+  id: number;
+  code: string;
+  title: string;
+  content: string;
+  status: "draft" | "submitted" | "approved" | "rejected";
+  periodStart?: string | null;
+  periodEnd?: string | null;
+  projectId?: number | null;
+  project?: {
+    id: number;
+    code: string;
+    name: string;
+    location?: string | null;
+    leadUserId?: number | null;
+  } | null;
+  authorId: number;
+  author: { id: number; name: string; email: string };
+  viewers: Array<{
+    userId: number;
+    user: { id: number; name: string; email: string };
+  }>;
+  submittedAt?: string | null;
+  reviewedById?: number | null;
+  reviewedBy?: { id: number; name: string; email: string } | null;
+  reviewedAt?: string | null;
+  reviewComment?: string | null;
+  revision: number;
+  createdAt: string;
+  updatedAt: string;
+  attachments?: Array<{
+    id: number;
+    fileName: string;
+    size: number;
+    mimeType: string;
+    fileUrl: string;
+  }>;
+  permissions: {
+    canEdit: boolean;
+    canDelete: boolean;
+    canSubmit: boolean;
+    canReview: boolean;
+  };
+}
+
 export interface AdminUser {
   id: number;
   email: string;

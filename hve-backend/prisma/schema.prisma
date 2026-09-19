@@ -64,16 +64,19 @@ model User {
   roles Role[]
 
   // References for created documents/tasks
-  createdDocuments     Document[]         @relation("DocumentCreator")
-  targetedDocuments    Document[]         @relation("DocumentTarget")
-  assignedTasks        Task[]             @relation("AssignedTasks")
-  createdTasks         Task[]             @relation("CreatedTasks")
-  pushSubscriptions    PushSubscription[]
-  trustedDevices       TrustedDevice[]
-  loginChallenges      LoginChallenge[]
-  ledProjects          Project[]          @relation("ProjectLead")
-  projectMemberships   ProjectMember[]
-  createdAnnouncements Announcement[]     @relation("AnnouncementAuthor")
+  createdDocuments       Document[]            @relation("DocumentCreator")
+  targetedDocuments      Document[]            @relation("DocumentTarget")
+  assignedTasks          Task[]                @relation("AssignedTasks")
+  createdTasks           Task[]                @relation("CreatedTasks")
+  pushSubscriptions      PushSubscription[]
+  trustedDevices         TrustedDevice[]
+  loginChallenges        LoginChallenge[]
+  ledProjects            Project[]             @relation("ProjectLead")
+  projectMemberships     ProjectMember[]
+  createdAnnouncements   Announcement[]        @relation("AnnouncementAuthor")
+  authoredProjectReports ProjectReport[]       @relation("ProjectReportAuthor")
+  reviewedProjectReports ProjectReport[]       @relation("ProjectReportReviewer")
+  projectReportViews     ProjectReportViewer[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -247,6 +250,7 @@ model Project {
   documents     Document[]
   tasks         Task[]
   announcements Announcement[]
+  reports       ProjectReport[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -297,6 +301,49 @@ model ProjectMember {
 
   @@unique([projectId, userId])
   @@index([userId])
+}
+
+model ProjectReport {
+  id      Int    @id @default(autoincrement())
+  code    String @unique
+  title   String
+  content String
+  status  String @default("draft") // draft, submitted, approved, rejected
+
+  periodStart DateTime?
+  periodEnd   DateTime?
+
+  projectId Int?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  authorId Int
+  author   User @relation("ProjectReportAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+
+  viewers ProjectReportViewer[]
+
+  submittedAt   DateTime?
+  reviewedById  Int?
+  reviewedBy    User?     @relation("ProjectReportReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt    DateTime?
+  reviewComment String?
+  revision      Int       @default(1)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([authorId, status, createdAt])
+  @@index([projectId, status, createdAt])
+  @@index([status, submittedAt])
+}
+
+model ProjectReportViewer {
+  reportId Int
+  report   ProjectReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  userId   Int
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([reportId, userId])
+  @@index([userId, reportId])
 }
 
 model Attachment {

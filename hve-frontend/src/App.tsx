@@ -57,6 +57,11 @@ const ReportsView = lazy(() =>
     default: module.ReportsView,
   })),
 );
+const ProjectReportsView = lazy(() =>
+  import("./components/ProjectReportsView").then((module) => ({
+    default: module.ProjectReportsView,
+  })),
+);
 const AdminWorkflowView = lazy(() =>
   import("./components/AdminWorkflowView").then((module) => ({
     default: module.AdminWorkflowView,
@@ -126,6 +131,9 @@ export default function App() {
   // Check URL params on initial load for direct demo/screenshot routing
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    if (window.location.pathname.startsWith("/project-reports")) {
+      setActiveTab("project_reports");
+    }
     const viewParam = params.get("view");
     if (viewParam === "login") {
       setIsAuthenticated(false);
@@ -166,6 +174,7 @@ export default function App() {
     | "documents"
     | "create"
     | "tasks"
+    | "project_reports"
     | "reports"
     | "admin_workflows"
     | "admin_users"
@@ -187,6 +196,8 @@ export default function App() {
   const [dashboardPendingCount, setDashboardPendingCount] = useState<
     number | null
   >(null);
+  const [projectReportNavigationKey, setProjectReportNavigationKey] =
+    useState(0);
   const [taskNavigationFilter, setTaskNavigationFilter] = useState<{
     key: number;
     tab: "all" | "assigned_to_me" | "assigned_by_me" | "department";
@@ -245,7 +256,7 @@ export default function App() {
     endDate: "",
     manager: "",
     notes: "",
-    selectedFile: null,
+    selectedFiles: [],
     projectId: "",
     linkedProjectIds: [],
     targetUserId: "",
@@ -473,6 +484,10 @@ export default function App() {
             );
           }, 50);
         }
+      } else if (link.startsWith("/project-reports")) {
+        window.history.pushState({}, "", link);
+        setProjectReportNavigationKey((key) => key + 1);
+        setActiveTab("project_reports");
       }
     } catch {
       // ignore
@@ -734,7 +749,7 @@ export default function App() {
         );
         return;
       }
-      if (submitNow && !createForm.selectedFile) {
+      if (submitNow && createForm.selectedFiles.length === 0) {
         showToast(
           "Quy định HVE: Bắt buộc đính kèm ít nhất 1 chứng từ / hóa đơn trước khi gửi duyệt!",
           "error",
@@ -771,7 +786,7 @@ export default function App() {
         );
         return;
       }
-      if (submitNow && !createForm.selectedFile) {
+      if (submitNow && createForm.selectedFiles.length === 0) {
         showToast(
           "Quy định HVE: Bắt buộc đính kèm tệp hợp đồng trước khi gửi duyệt!",
           "error",
@@ -785,8 +800,8 @@ export default function App() {
 
     try {
       const attachmentIds: number[] = [];
-      if (createForm.selectedFile) {
-        const attId = await uploadAttachmentReal(createForm.selectedFile);
+      for (const file of createForm.selectedFiles) {
+        const attId = await uploadAttachmentReal(file);
         if (attId) {
           attachmentIds.push(attId);
         } else {
@@ -1265,6 +1280,7 @@ export default function App() {
               {activeTab === "overview" && "Tổng quan điều hành"}
               {activeTab === "documents" && "Danh sách hồ sơ phê duyệt"}
               {activeTab === "tasks" && "Quản lý công việc & Giao nhiệm vụ"}
+              {activeTab === "project_reports" && "Báo cáo dự án"}
               {activeTab === "reports" && "Báo cáo & Thống kê điều hành"}
               {activeTab === "admin_announcements" && "Quản lý thông báo"}
               {activeTab === "create" && "Khởi tạo hồ sơ phê duyệt mới"}
@@ -1438,6 +1454,16 @@ export default function App() {
                   }}
                   onSelectTask={(task) => setSelectedTaskId(task.id)}
                   navigationFilter={taskNavigationFilter}
+                />
+              )}
+
+              {activeTab === "project_reports" && (
+                <ProjectReportsView
+                  key={projectReportNavigationKey}
+                  apiBaseUrl={API_BASE_URL}
+                  currentUser={user}
+                  projects={primaryProjects}
+                  showToast={showToast}
                 />
               )}
 

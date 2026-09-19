@@ -6,6 +6,7 @@ import {
   type WorkloadSummaryItem,
 } from "../types";
 import { fetchWithSession, uploadAttachment } from "../api/client";
+import { MultiFilePicker } from "./MultiFilePicker";
 
 interface CreateTaskModalProps {
   isOpen: boolean;
@@ -52,7 +53,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
   const [dueDate, setDueDate] = useState("");
   const [tags, setTags] = useState("");
   const [recurrenceRule, setRecurrenceRule] = useState<string>("");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [projectId, setProjectId] = useState<string>(
     parentTask?.projectId ? String(parentTask.projectId) : "",
@@ -130,12 +131,8 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
       let attachmentIds: number[] = [];
 
       // 1. Tải file đính kèm nếu có
-      if (selectedFile) {
-        const attachmentId = await uploadAttachment(
-          apiBaseUrl,
-          token,
-          selectedFile,
-        );
+      for (const file of selectedFiles) {
+        const attachmentId = await uploadAttachment(apiBaseUrl, token, file);
         attachmentIds.push(attachmentId);
       }
 
@@ -439,10 +436,11 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
             <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
               Tệp đính kèm (nếu có)
             </label>
-            <input
-              type="file"
-              onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-              className="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-[#0A66C2] hover:file:bg-blue-100 transition-all cursor-pointer"
+            <MultiFilePicker
+              files={selectedFiles}
+              disabled={isSubmitting}
+              onChange={setSelectedFiles}
+              onError={(message) => showToast(message, "error")}
             />
           </div>
 

@@ -15,6 +15,7 @@ import { ReportsModule } from './reports/reports.module.js';
 import { ProjectsModule } from './projects/projects.module.js';
 import { AnnouncementsModule } from './announcements/announcements.module.js';
 import { UsersModule } from './users/users.module.js';
+import { ProjectReportsModule } from './project-reports/project-reports.module.js';
 
 import { ScheduleModule } from '@nestjs/schedule';
 import { APP_GUARD } from '@nestjs/core';
@@ -37,6 +38,7 @@ import { SimpleThrottlerGuard } from './common/simple-throttler.guard.js';
     ProjectsModule,
     AnnouncementsModule,
     UsersModule,
+    ProjectReportsModule,
   ],
   controllers: [AppController],
   providers: [

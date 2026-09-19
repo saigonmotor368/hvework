@@ -8,6 +8,7 @@ type AppTab =
   | "documents"
   | "create"
   | "tasks"
+  | "project_reports"
   | "reports"
   | "admin_workflows"
   | "admin_users"
@@ -137,6 +138,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   {taskCount}
                 </span>
               )}
+            </button>
+
+            <button
+              onClick={() => handleTabSelect("project_reports")}
+              className={`w-full flex items-center px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                activeTab === "project_reports"
+                  ? "bg-blue-50 text-[#0A66C2] font-semibold"
+                  : "text-gray-600 hover:bg-slate-50"
+              }`}
+            >
+              <span className="mr-3">📝</span> Báo cáo dự án
             </button>
 
             <button
