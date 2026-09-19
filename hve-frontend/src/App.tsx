@@ -39,48 +39,57 @@ import {
 } from "./api/client";
 import { ENABLE_MOCK_DATA } from "./config";
 import { MOCK_USERS, MOCK_DOCUMENTS } from "./mockData";
+import { loadLazyModuleWithRecovery } from "./utils/lazyModuleRecovery";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 const OverviewDashboard = lazy(() =>
-  import("./components/OverviewDashboard").then((module) => ({
-    default: module.OverviewDashboard,
-  })),
+  loadLazyModuleWithRecovery(
+    () => import("./components/OverviewDashboard"),
+    "overview",
+  ).then((module) => ({ default: module.OverviewDashboard })),
 );
 const TaskListView = lazy(() =>
-  import("./components/TaskListView").then((module) => ({
-    default: module.TaskListView,
-  })),
+  loadLazyModuleWithRecovery(
+    () => import("./components/TaskListView"),
+    "tasks",
+  ).then((module) => ({ default: module.TaskListView })),
 );
 const ReportsView = lazy(() =>
-  import("./components/ReportsView").then((module) => ({
-    default: module.ReportsView,
-  })),
+  loadLazyModuleWithRecovery(
+    () => import("./components/ReportsView"),
+    "reports",
+  ).then((module) => ({ default: module.ReportsView })),
 );
 const ProjectReportsView = lazy(() =>
-  import("./components/ProjectReportsView").then((module) => ({
-    default: module.ProjectReportsView,
-  })),
+  loadLazyModuleWithRecovery(
+    () => import("./components/ProjectReportsView"),
+    "project_reports",
+  ).then((module) => ({ default: module.ProjectReportsView })),
 );
 const AdminWorkflowView = lazy(() =>
-  import("./components/AdminWorkflowView").then((module) => ({
-    default: module.AdminWorkflowView,
-  })),
+  loadLazyModuleWithRecovery(
+    () => import("./components/AdminWorkflowView"),
+    "admin_workflows",
+  ).then((module) => ({ default: module.AdminWorkflowView })),
 );
 const AdminUserView = lazy(() =>
-  import("./components/AdminUserView").then((module) => ({
-    default: module.AdminUserView,
-  })),
+  loadLazyModuleWithRecovery(
+    () => import("./components/AdminUserView"),
+    "admin_users",
+  ).then((module) => ({ default: module.AdminUserView })),
 );
 const AdminProjectsView = lazy(() =>
-  import("./components/AdminProjectsView").then((module) => ({
-    default: module.AdminProjectsView,
-  })),
+  loadLazyModuleWithRecovery(
+    () => import("./components/AdminProjectsView"),
+    "admin_projects",
+  ).then((module) => ({ default: module.AdminProjectsView })),
 );
 const AdminAnnouncementsView = lazy(() =>
-  import("./components/AdminAnnouncementsView").then((module) => ({
-    default: module.AdminAnnouncementsView,
-  })),
+  loadLazyModuleWithRecovery(
+    () => import("./components/AdminAnnouncementsView"),
+    "admin_announcements",
+  ).then((module) => ({ default: module.AdminAnnouncementsView })),
 );
 
 export default function App() {
@@ -1243,6 +1252,10 @@ export default function App() {
         onSelectTab={(tab) => {
           setSelectedDoc(null);
           setSelectedTaskId(null);
+          const url = new URL(window.location.href);
+          url.pathname = "/";
+          url.searchParams.set("tab", tab);
+          window.history.replaceState({}, "", url);
           setActiveTab(tab);
         }}
         onLogout={handleLogout}
