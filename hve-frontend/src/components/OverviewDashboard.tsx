@@ -367,20 +367,32 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
 
         <button
           type="button"
-          onClick={() => onOpenTasks({ status: "Đang làm" })}
+          onClick={() => onOpenTasks({})}
           className="group bg-white rounded-2xl p-5 shadow-sm border border-slate-200 flex items-center justify-between text-left transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-400"
-          aria-label="Xem công việc đang thực hiện"
+          aria-label="Xem công việc chưa hoàn thành"
         >
           <div>
             <span className="text-xs font-bold text-blue-700 uppercase tracking-wider">
-              Việc đang thực hiện
+              Việc chưa hoàn thành
             </span>
             <p className="mt-2 text-3xl font-extrabold text-blue-900">
-              {dashboardData?.metrics?.tasks?.inProgress ??
+              {dashboardData?.metrics?.tasks?.active ??
+                dashboardData?.metrics?.tasks?.inProgress ??
                 dashboardData?.metrics?.departmentTasks?.inProgress ??
                 0}
             </p>
-            <p className="text-xs text-gray-400 mt-1">Đang chạy trong tuần</p>
+            <p className="text-xs text-gray-400 mt-1">
+              {capabilities.canViewCompany
+                ? "Tổng số chưa hoàn tất toàn công ty"
+                : "Chưa làm, đang làm hoặc chờ duyệt"}
+            </p>
+            {capabilities.canViewCompany &&
+              Number(dashboardData?.metrics?.tasks?.visibleActive || 0) <
+                Number(dashboardData?.metrics?.tasks?.active || 0) && (
+                <p className="mt-1 text-[10px] leading-snug text-slate-400">
+                  Chi tiết việc chỉ định riêng chỉ hiện cho người liên quan
+                </p>
+              )}
             <span className="mt-2 block text-[11px] font-bold text-blue-700 opacity-80 group-hover:opacity-100">
               Xem chi tiết →
             </span>

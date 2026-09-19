@@ -39,42 +39,47 @@ export class DashboardService {
 
     const now = new Date();
     const fiveDaysAgo = new Date(nowMs - 5 * 24 * 60 * 60 * 1000);
-    const [projects, openTasks, overdueTasks, pendingDocuments, overdueDocuments] =
-      await Promise.all([
-        this.prisma.project.findMany({
-          where: { isActive: true },
-          select: { id: true, code: true, name: true },
-          orderBy: { name: 'asc' },
-        }),
-        this.prisma.task.groupBy({
-          by: ['projectId'],
-          where: { projectId: { not: null }, status: { not: 'Hoàn thành' } },
-          _count: { _all: true },
-        }),
-        this.prisma.task.groupBy({
-          by: ['projectId'],
-          where: {
-            projectId: { not: null },
-            status: { not: 'Hoàn thành' },
-            dueDate: { lt: now },
-          },
-          _count: { _all: true },
-        }),
-        this.prisma.document.groupBy({
-          by: ['projectId'],
-          where: { projectId: { not: null }, status: 'Chờ duyệt' },
-          _count: { _all: true },
-        }),
-        this.prisma.document.groupBy({
-          by: ['projectId'],
-          where: {
-            projectId: { not: null },
-            status: 'Chờ duyệt',
-            createdAt: { lt: fiveDaysAgo },
-          },
-          _count: { _all: true },
-        }),
-      ]);
+    const [
+      projects,
+      openTasks,
+      overdueTasks,
+      pendingDocuments,
+      overdueDocuments,
+    ] = await Promise.all([
+      this.prisma.project.findMany({
+        where: { isActive: true },
+        select: { id: true, code: true, name: true },
+        orderBy: { name: 'asc' },
+      }),
+      this.prisma.task.groupBy({
+        by: ['projectId'],
+        where: { projectId: { not: null }, status: { not: 'Hoàn thành' } },
+        _count: { _all: true },
+      }),
+      this.prisma.task.groupBy({
+        by: ['projectId'],
+        where: {
+          projectId: { not: null },
+          status: { not: 'Hoàn thành' },
+          dueDate: { lt: now },
+        },
+        _count: { _all: true },
+      }),
+      this.prisma.document.groupBy({
+        by: ['projectId'],
+        where: { projectId: { not: null }, status: 'Chờ duyệt' },
+        _count: { _all: true },
+      }),
+      this.prisma.document.groupBy({
+        by: ['projectId'],
+        where: {
+          projectId: { not: null },
+          status: 'Chờ duyệt',
+          createdAt: { lt: fiveDaysAgo },
+        },
+        _count: { _all: true },
+      }),
+    ]);
 
     const toCountMap = (rows: any[]) =>
       new Map<number, number>(
@@ -191,59 +196,93 @@ export class DashboardService {
       createdBy: { select: { id: true, name: true, departmentId: true } },
     } as const;
 
-    const [documents, tasks, pendingDocuments, returnedDocuments, projects] =
-      await Promise.all([
-        this.prisma.document.findMany({
-          relationLoadStrategy: 'join',
-          where: documentScope,
-          select: documentSelect,
-          orderBy: { createdAt: 'desc' },
-        }),
-        this.prisma.task.findMany({
-          relationLoadStrategy: 'join',
-          where: { AND: [taskScope, { parentTaskId: null }] },
-          select: taskSelect,
-          orderBy: { createdAt: 'desc' },
-        }),
-        pendingStepConditions.length > 0
-          ? this.prisma.document.findMany({
-              relationLoadStrategy: 'join',
-              where: {
-                AND: [
-                  documentScope,
-                  { status: 'Chờ duyệt' },
-                  {
-                    steps: {
-                      some:
-                        pendingStepConditions.length === 1
-                          ? pendingStepConditions[0]
-                          : { OR: pendingStepConditions },
-                    },
+    const [
+      documents,
+      tasks,
+      pendingDocuments,
+      returnedDocuments,
+      projects,
+      companyTaskStatusGroups,
+      companyDocumentStatusGroups,
+      companyOverdueTaskCount,
+    ] = await Promise.all([
+      this.prisma.document.findMany({
+        relationLoadStrategy: 'join',
+        where: documentScope,
+        select: documentSelect,
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.task.findMany({
+        relationLoadStrategy: 'join',
+        where: { AND: [taskScope, { parentTaskId: null }] },
+        select: taskSelect,
+        orderBy: { createdAt: 'desc' },
+      }),
+      pendingStepConditions.length > 0
+        ? this.prisma.document.findMany({
+            relationLoadStrategy: 'join',
+            where: {
+              AND: [
+                documentScope,
+                { status: 'Chờ duyệt' },
+                {
+                  steps: {
+                    some:
+                      pendingStepConditions.length === 1
+                        ? pendingStepConditions[0]
+                        : { OR: pendingStepConditions },
                   },
-                ],
-              },
-              select: documentSelect,
-              orderBy: { createdAt: 'asc' },
-            })
-          : Promise.resolve([]),
-        this.prisma.document.findMany({
-          relationLoadStrategy: 'join',
-          where: {
-            createdById: user.id,
-            status: { in: ['Nháp', 'Trả lại'] },
-            steps: { some: { status: 'returned' } },
-          },
-          select: documentSelect,
-          orderBy: { updatedAt: 'desc' },
-        }),
-        scope.capabilities.canViewCompany
-          ? this.prisma.project.findMany({
-              where: { isActive: true },
-              select: { id: true, code: true, name: true },
-              orderBy: { name: 'asc' },
-            })
-          : Promise.resolve([]),
-      ]);
+                },
+              ],
+            },
+            select: documentSelect,
+            orderBy: { createdAt: 'asc' },
+          })
+        : Promise.resolve([]),
+      this.prisma.document.findMany({
+        relationLoadStrategy: 'join',
+        where: {
+          createdById: user.id,
+          status: { in: ['Nháp', 'Trả lại'] },
+          steps: { some: { status: 'returned' } },
+        },
+        select: documentSelect,
+        orderBy: { updatedAt: 'desc' },
+      }),
+      scope.capabilities.canViewCompany
+        ? this.prisma.project.findMany({
+            where: { isActive: true },
+            select: { id: true, code: true, name: true },
+            orderBy: { name: 'asc' },
+          })
+        : Promise.resolve([]),
+      // Dashboard điều hành phải phản ánh toàn bộ số liệu công ty. Không dùng
+      // danh sách chi tiết đã lọc theo visibility để tránh bỏ sót công việc
+      // "targeted" mà BGĐ không phải người giao/nhận. Chỉ trả về số đếm tổng
+      // hợp, không làm lộ nội dung công việc chỉ định riêng.
+      scope.capabilities.canViewCompany
+        ? this.prisma.task.groupBy({
+            by: ['projectId', 'status'],
+            where: { parentTaskId: null },
+            _count: { _all: true },
+          })
+        : Promise.resolve([]),
+      scope.capabilities.canViewCompany
+        ? this.prisma.document.groupBy({
+            by: ['status'],
+            _count: { _all: true },
+          })
+        : Promise.resolve([]),
+      scope.capabilities.canViewCompany
+        ? this.prisma.task.count({
+            where: {
+              parentTaskId: null,
+              status: { not: 'Hoàn thành' },
+              dueDate: { lt: now },
+            },
+          })
+        : Promise.resolve(0),
+    ]);
 
     const overdueTasks = tasks.filter(
       (task: any) =>
@@ -277,23 +316,55 @@ export class DashboardService {
       0,
     );
 
-    const projectStats = projects.map((project: any) => {
-      const projectTasks = tasks.filter(
-        (task: any) => task.projectId === project.id,
+    const safeCompanyTaskGroups = Array.isArray(companyTaskStatusGroups)
+      ? (companyTaskStatusGroups as any[])
+      : [];
+    const safeCompanyDocumentGroups = Array.isArray(companyDocumentStatusGroups)
+      ? (companyDocumentStatusGroups as any[])
+      : [];
+    const companyTaskCountByStatus = new Map<string, number>();
+    for (const row of safeCompanyTaskGroups) {
+      companyTaskCountByStatus.set(
+        row.status,
+        (companyTaskCountByStatus.get(row.status) || 0) +
+          Number(row._count._all),
       );
-      const completed = projectTasks.filter(
-        (task: any) => task.status === 'Hoàn thành',
-      ).length;
+    }
+    const companyDocumentCountByStatus = new Map<string, number>(
+      safeCompanyDocumentGroups.map((row) => [
+        row.status,
+        Number(row._count._all),
+      ]),
+    );
+    const companyTaskTotal = [...companyTaskCountByStatus.values()].reduce(
+      (sum, count) => sum + count,
+      0,
+    );
+    const companyTaskCompleted =
+      companyTaskCountByStatus.get('Hoàn thành') || 0;
+    const visibleActiveTasks = tasks.filter(
+      (task: any) => task.status !== 'Hoàn thành',
+    ).length;
+
+    const projectStats = projects.map((project: any) => {
+      const projectGroups = scope.capabilities.canViewCompany
+        ? safeCompanyTaskGroups.filter((row) => row.projectId === project.id)
+        : [];
+      const totalTasks = projectGroups.reduce(
+        (sum, row) => sum + Number(row._count._all),
+        0,
+      );
+      const completed = projectGroups
+        .filter((row) => row.status === 'Hoàn thành')
+        .reduce((sum, row) => sum + Number(row._count._all), 0);
       return {
         id: project.id,
         name: project.name,
         code: project.code,
-        totalTasks: projectTasks.length,
+        totalTasks,
         completedTasks: completed,
         completionRate:
-          projectTasks.length > 0
-            ? Math.round((completed / projectTasks.length) * 100)
-            : 0,
+          totalTasks > 0 ? Math.round((completed / totalTasks) * 100) : 0,
       };
     });
 
@@ -325,26 +396,48 @@ export class DashboardService {
       },
       metrics: {
         documents: {
-          total: documents.length,
-          pending: documents.filter((doc: any) => doc.status === 'Chờ duyệt')
-            .length,
-          approved: documents.filter((doc: any) => doc.status === 'Đã duyệt')
-            .length,
-          draft: documents.filter((doc: any) => doc.status === 'Nháp').length,
-          rejected: documents.filter((doc: any) =>
-            ['Từ chối', 'Trả lại'].includes(doc.status),
-          ).length,
+          total: scope.capabilities.canViewCompany
+            ? [...companyDocumentCountByStatus.values()].reduce(
+                (sum, count) => sum + count,
+                0,
+              )
+            : documents.length,
+          pending: scope.capabilities.canViewCompany
+            ? companyDocumentCountByStatus.get('Chờ duyệt') || 0
+            : documents.filter((doc: any) => doc.status === 'Chờ duyệt').length,
+          approved: scope.capabilities.canViewCompany
+            ? companyDocumentCountByStatus.get('Đã duyệt') || 0
+            : documents.filter((doc: any) => doc.status === 'Đã duyệt').length,
+          draft: scope.capabilities.canViewCompany
+            ? companyDocumentCountByStatus.get('Nháp') || 0
+            : documents.filter((doc: any) => doc.status === 'Nháp').length,
+          rejected: scope.capabilities.canViewCompany
+            ? (companyDocumentCountByStatus.get('Từ chối') || 0) +
+              (companyDocumentCountByStatus.get('Trả lại') || 0)
+            : documents.filter((doc: any) =>
+                ['Từ chối', 'Trả lại'].includes(doc.status),
+              ).length,
         },
         tasks: {
-          total: tasks.length,
-          completed: tasks.filter((task: any) => task.status === 'Hoàn thành')
-            .length,
-          inProgress: tasks.filter((task: any) => task.status === 'Đang làm')
-            .length,
-          pendingReview: tasks.filter(
-            (task: any) => task.status === 'Chờ duyệt',
-          ).length,
-          overdue: overdueTasks.length,
+          total: scope.capabilities.canViewCompany
+            ? companyTaskTotal
+            : tasks.length,
+          completed: scope.capabilities.canViewCompany
+            ? companyTaskCompleted
+            : tasks.filter((task: any) => task.status === 'Hoàn thành').length,
+          active: scope.capabilities.canViewCompany
+            ? companyTaskTotal - companyTaskCompleted
+            : visibleActiveTasks,
+          visibleActive: visibleActiveTasks,
+          inProgress: scope.capabilities.canViewCompany
+            ? companyTaskCountByStatus.get('Đang làm') || 0
+            : tasks.filter((task: any) => task.status === 'Đang làm').length,
+          pendingReview: scope.capabilities.canViewCompany
+            ? companyTaskCountByStatus.get('Chờ duyệt') || 0
+            : tasks.filter((task: any) => task.status === 'Chờ duyệt').length,
+          overdue: scope.capabilities.canViewCompany
+            ? Number(companyOverdueTaskCount || 0)
+            : overdueTasks.length,
         },
         financials: scope.capabilities.canViewFinancials
           ? { approvedPayments: approvedPayments.length, totalApprovedAmount }
