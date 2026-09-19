@@ -191,7 +191,10 @@ export class DocumentsService {
     doc: {
       projectId: number | null;
       linkedProjectIds: unknown;
-      createdBy?: { departmentId?: number | null } | null;
+      createdBy?: {
+        departmentId?: number | null;
+        roles?: Array<string | { name: string }>;
+      } | null;
     },
     steps: Array<{ id: number; stepOrder: number; roleRequired: string }>,
     fromStepOrder: number,
@@ -208,6 +211,22 @@ export class DocumentsService {
         return { finalStatus: 'Đã duyệt', activatedStepOrder: null, skippedStepOrders };
       }
       if (step.roleRequired === 'department_head') {
+        const creatorRoles = (doc.createdBy?.roles || []).map((role) =>
+          typeof role === 'string' ? role : role.name,
+        );
+        if (creatorRoles.includes('department_head')) {
+          await tx.documentApprovalStep.update({
+            where: { id: step.id },
+            data: {
+              status: 'approved',
+              comment:
+                'Tự động bỏ qua: người tạo hồ sơ đồng thời là Trưởng Ban. Chuyển thẳng CEO rà soát.',
+            },
+          });
+          skippedStepOrders.push(order);
+          order += 1;
+          continue;
+        }
         const eligible = await this.hasEligibleDepartmentHeadApprover(doc);
         if (!eligible) {
           await tx.documentApprovalStep.update({
@@ -866,7 +885,15 @@ export class DocumentsService {
     const doc = await this.prisma.document.findUnique({
       where: { id: documentId },
       include: {
-        createdBy: { select: { id: true, name: true, email: true, departmentId: true } },
+        createdBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            departmentId: true,
+            roles: { select: { name: true } },
+          },
+        },
       },
     });
     if (!doc) {
@@ -1238,6 +1265,11 @@ export class DocumentsService {
     });
 
     if (!doc) throw new NotFoundException('Không tìm thấy hồ sơ');
+    if (doc.type === 'payment_request') {
+      throw new BadRequestException(
+        'Đề nghị thanh toán phải được CEO rà soát rồi chuyển Kế toán xử lý chi tiền; không được duyệt thẳng toàn bộ quy trình.',
+      );
+    }
     if (doc.status !== 'Chờ duyệt') {
       throw new BadRequestException('Hồ sơ không ở trạng thái Chờ duyệt');
     }

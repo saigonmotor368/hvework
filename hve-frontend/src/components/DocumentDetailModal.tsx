@@ -6,7 +6,7 @@ import {
   ROLE_LABELS,
   DOCUMENT_TYPE_LABELS,
 } from "../types";
-import { uploadAttachment } from "../api/client";
+import { authenticatedFileUrl, uploadAttachment } from "../api/client";
 import { UserNameButton } from "./UserNameButton";
 
 interface DocumentDetailModalProps {
@@ -210,6 +210,7 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
           {/* Header Actions */}
           <div className="flex w-full flex-wrap items-center gap-2 md:w-auto">
             {selectedDoc.status === "Chờ duyệt" &&
+              selectedDoc.type !== "payment_request" &&
               (user?.roles?.includes("ceo") || delegatedCeo) &&
               selectedDoc.createdById !== user?.id && (
                 <button
@@ -378,7 +379,9 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
                   typeof window !== "undefined"
                     ? localStorage.getItem("access_token")
                     : "";
-                const downloadUrl = `${apiBaseUrl}${att.fileUrl}${token ? `?token=${token}` : ""}`;
+                const downloadUrl = token
+                  ? authenticatedFileUrl(apiBaseUrl, att.fileUrl, token)
+                  : att.fileUrl;
                 return (
                   <a
                     key={att.id}
@@ -639,8 +642,14 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
                                   className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 shadow-sm transition-all disabled:opacity-50"
                                 >
                                   {isProcessing
-                                    ? "Đang duyệt..."
-                                    : "✓ Phê duyệt"}
+                                    ? "Đang xử lý..."
+                                    : selectedDoc.type === "payment_request" &&
+                                        step.roleRequired === "accountant"
+                                      ? "✓ Xác nhận đã chi tiền & hoàn tất"
+                                      : selectedDoc.type === "payment_request" &&
+                                          step.roleRequired === "ceo"
+                                        ? "✓ Phê duyệt đề nghị"
+                                        : "✓ Phê duyệt"}
                                 </button>
                                 <button
                                   onClick={() =>
@@ -655,19 +664,24 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
                                 >
                                   Trả lại để sửa
                                 </button>
-                                <button
-                                  onClick={() =>
-                                    onOpenModalAction(
-                                      "reject",
-                                      step.id,
-                                      selectedDoc.id,
-                                    )
-                                  }
-                                  disabled={isProcessing}
-                                  className="px-4 py-2 rounded-xl bg-red-600 text-white text-xs font-bold hover:bg-red-700 shadow-sm transition-all disabled:opacity-50"
-                                >
-                                  Từ chối hồ sơ
-                                </button>
+                                {step.roleRequired !== "accountant" && (
+                                  <button
+                                    onClick={() =>
+                                      onOpenModalAction(
+                                        "reject",
+                                        step.id,
+                                        selectedDoc.id,
+                                      )
+                                    }
+                                    disabled={isProcessing}
+                                    className="px-4 py-2 rounded-xl bg-red-600 text-white text-xs font-bold hover:bg-red-700 shadow-sm transition-all disabled:opacity-50"
+                                  >
+                                    {selectedDoc.type === "payment_request" &&
+                                    step.roleRequired === "ceo"
+                                      ? "Huỷ hồ sơ"
+                                      : "Từ chối hồ sơ"}
+                                  </button>
+                                )}
                               </div>
                             </div>
                           ) : (

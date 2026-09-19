@@ -350,6 +350,77 @@ describe('DocumentsService', () => {
       );
     });
 
+    it('should skip self-approval and activate CEO when the creator is Trưởng Ban', async () => {
+      prisma.document.findUnique.mockResolvedValue({
+        id: 3,
+        code: 'DNTT-2026-003',
+        title: 'Đề nghị do Trưởng Ban tạo',
+        type: 'payment_request',
+        status: 'Nháp',
+        createdById: 10,
+        version: 1,
+        projectId: 5,
+        linkedProjectIds: null,
+        createdBy: {
+          id: 10,
+          departmentId: 1,
+          roles: [{ name: 'department_head' }],
+        },
+        dataJson: {
+          amount: 5000000,
+          receiver: 'Nhà cung cấp',
+          bankName: 'VCB',
+          bankAccount: '123456',
+          content: 'Thanh toán dịch vụ',
+          attachmentIds: [99],
+        },
+      });
+      prisma.attachment.count.mockResolvedValue(1);
+      prisma.workflowTemplate.findUnique.mockResolvedValue({
+        type: 'payment_request',
+        steps: [
+          { stepOrder: 1, roleRequired: 'department_head' },
+          { stepOrder: 2, roleRequired: 'ceo' },
+          { stepOrder: 3, roleRequired: 'accountant' },
+        ],
+      });
+
+      let nextStepId = 1;
+      const createdStepsById: Record<number, any> = {};
+      prisma.documentApprovalStep.create.mockImplementation(({ data }: any) => {
+        const step = { id: nextStepId++, ...data };
+        createdStepsById[step.id] = step;
+        return Promise.resolve(step);
+      });
+      prisma.documentApprovalStep.update.mockImplementation(({ where, data }: any) => {
+        Object.assign(createdStepsById[where.id], data);
+        return Promise.resolve(createdStepsById[where.id]);
+      });
+      prisma.document.update.mockResolvedValue({
+        id: 3,
+        code: 'DNTT-2026-003',
+        title: 'Đề nghị do Trưởng Ban tạo',
+        status: 'Chờ duyệt',
+        version: 2,
+        createdBy: { name: 'Trưởng Ban' },
+      });
+
+      await service.submitForApproval(3, 10);
+
+      expect(createdStepsById[1]).toEqual(
+        expect.objectContaining({
+          status: 'approved',
+          comment: expect.stringContaining('người tạo hồ sơ đồng thời là Trưởng Ban'),
+        }),
+      );
+      expect(createdStepsById[2].status).toBe('pending');
+      expect(createdStepsById[3].status).toBe('not_started');
+      expect(prisma.user.count).not.toHaveBeenCalled();
+      expect(notificationsService.dispatchNotification).toHaveBeenCalledWith(
+        expect.objectContaining({ eventType: 'document_pending_approval' }),
+      );
+    });
+
     it('should throw ForbiddenException if user is not creator', async () => {
       prisma.document.findUnique.mockResolvedValue({
         id: 1,
@@ -773,6 +844,31 @@ describe('DocumentsService', () => {
           1,
         ),
       ).rejects.toThrow('Chỉ CEO mới có quyền duyệt thẳng hồ sơ');
+    });
+
+    it('should never let CEO bypass the accountant for a payment request', async () => {
+      prisma.document.findUnique.mockResolvedValue({
+        id: 9,
+        type: 'payment_request',
+        status: 'Chờ duyệt',
+        createdById: 10,
+        version: 2,
+        steps: [
+          { id: 91, stepOrder: 2, roleRequired: 'ceo', status: 'pending' },
+          { id: 92, stepOrder: 3, roleRequired: 'accountant', status: 'not_started' },
+        ],
+      });
+
+      await expect(
+        service.approveDirect(
+          9,
+          { id: 30, roles: [{ name: 'ceo' }] },
+          { pin: '123456' },
+          2,
+        ),
+      ).rejects.toThrow('không được duyệt thẳng toàn bộ quy trình');
+
+      expect(prisma.documentApprovalStep.updateMany).not.toHaveBeenCalled();
     });
   });
 

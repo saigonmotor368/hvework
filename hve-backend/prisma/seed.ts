@@ -156,25 +156,33 @@ async function main() {
   }
 
   // Workflow Templates
-  // 1. payment_request: Trưởng BP -> Kế toán -> CEO
-  const existingWfPayment = await prisma.workflowTemplate.findUnique({
+  // 1. payment_request: Trưởng Ban -> CEO rà soát -> Kế toán chi tiền.
+  // Nếu Trưởng Ban là người tạo, service tự bỏ qua bước 1 để tránh tự duyệt.
+  await prisma.workflowTemplate.upsert({
     where: { type: 'payment_request' },
-  });
-  if (!existingWfPayment) {
-    await prisma.workflowTemplate.create({
-      data: {
-        type: 'payment_request',
-        name: 'Quy trình duyệt Đề nghị thanh toán',
-        steps: {
-          create: [
-            { stepOrder: 1, roleRequired: 'department_head' },
-            { stepOrder: 2, roleRequired: 'accountant' },
-            { stepOrder: 3, roleRequired: 'ceo' },
-          ],
-        },
+    update: {
+      name: 'Quy trình duyệt Đề nghị thanh toán',
+      steps: {
+        deleteMany: {},
+        create: [
+          { stepOrder: 1, roleRequired: 'department_head' },
+          { stepOrder: 2, roleRequired: 'ceo' },
+          { stepOrder: 3, roleRequired: 'accountant' },
+        ],
       },
-    });
-  }
+    },
+    create: {
+      type: 'payment_request',
+      name: 'Quy trình duyệt Đề nghị thanh toán',
+      steps: {
+        create: [
+          { stepOrder: 1, roleRequired: 'department_head' },
+          { stepOrder: 2, roleRequired: 'ceo' },
+          { stepOrder: 3, roleRequired: 'accountant' },
+        ],
+      },
+    },
+  });
 
   // 2. proposal: Trưởng BP -> CEO
   const existingWfProposal = await prisma.workflowTemplate.findUnique({
