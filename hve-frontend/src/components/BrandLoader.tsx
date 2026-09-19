@@ -34,14 +34,14 @@ export const BrandLoader: React.FC<BrandLoaderProps> = ({
       <div className={`brand-loader__mark ${markClass}`}>
         <span className="brand-loader__halo" aria-hidden="true" />
         <img
-          src={isSplash ? "/hve-logo-loader.svg" : "/hve-logo-transparent.svg"}
+          src="/hve-logo-transparent.svg"
           alt=""
           className="brand-loader__logo"
           draggable={false}
         />
       </div>
       <p
-        className={`font-semibold ${isSplash ? "mt-6 text-sm text-white/90" : "mt-3 text-xs text-slate-600"}`}
+        className={`font-semibold ${isSplash ? "mt-6 text-sm text-slate-600" : "mt-3 text-xs text-slate-600"}`}
       >
         {label}
       </p>

@@ -1,7 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Huy Võ Education">
-  <rect width="512" height="512" fill="#0A66C2"/>
-  <circle cx="256" cy="105" r="32" fill="#FFC631"/>
-  <path d="M135 165 L256 345" fill="none" stroke="#FFFFFF" stroke-width="62" stroke-linecap="round"/>
-  <path d="M256 345 L377 165" fill="none" stroke="#20C25A" stroke-width="62" stroke-linecap="round"/>
-  <path d="M145 405 Q256 470 367 405" fill="none" stroke="#FFFFFF" stroke-width="30" stroke-linecap="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Huy Võ Education">
+  <rect width="512" height="512" fill="#FFFFFF"/>
+  <g transform="translate(-51.2 -51.2) scale(1.2)">
+    <circle cx="256" cy="148" r="30" fill="#FFC631"/>
+    <path d="M168 195 L256 336" fill="none" stroke="#0A66C2" stroke-width="56" stroke-linecap="round"/>
+    <path d="M256 336 L344 195" fill="none" stroke="#20B84D" stroke-width="56" stroke-linecap="round"/>
+    <path d="M174 385 Q256 428 338 385" fill="none" stroke="#1D1D1F" stroke-width="28" stroke-linecap="round"/>
+  </g>
 </svg>
