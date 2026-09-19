@@ -862,7 +862,8 @@ export default function App() {
         !createForm.amount ||
         !createForm.receiver ||
         !createForm.bankName ||
-        !createForm.bankAccount
+        !createForm.bankAccount ||
+        !createForm.content.trim()
       ) {
         showToast(
           "Vui lòng điền đầy đủ các thông tin thanh toán bắt buộc!",
@@ -1042,7 +1043,7 @@ export default function App() {
       const savedDocumentId = doc.id;
       resetDocumentEditor();
       setActiveTab("documents");
-      fetchDocuments();
+      await fetchDocuments();
       await refreshDocumentDetail(savedDocumentId);
     } catch (err: any) {
       showToast(err.message || "Thao tác thất bại", "error");
