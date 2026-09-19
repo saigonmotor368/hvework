@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200" role="img" aria-label="Huy Võ Education">
-  <rect width="200" height="200" rx="42" fill="#F8FAFC"/>
-  <circle cx="100" cy="58" r="11" fill="#FFC631"/>
-  <path d="M66 75 L100 130" fill="none" stroke="#0A66C2" stroke-width="22" stroke-linecap="round"/>
-  <path d="M100 130 L134 75" fill="none" stroke="#20B84D" stroke-width="22" stroke-linecap="round"/>
-  <path d="M68 150 Q100 170 132 150" fill="none" stroke="#1D1D1F" stroke-width="11" stroke-linecap="round"/>
+  <rect width="200" height="200" fill="#0A66C2"/>
+  <circle cx="100" cy="41" r="13" fill="#FFC631"/>
+  <path d="M53 64 L100 135" fill="none" stroke="#FFFFFF" stroke-width="24" stroke-linecap="round"/>
+  <path d="M100 135 L147 64" fill="none" stroke="#20C25A" stroke-width="24" stroke-linecap="round"/>
+  <path d="M57 158 Q100 184 143 158" fill="none" stroke="#FFFFFF" stroke-width="12" stroke-linecap="round"/>
 </svg>

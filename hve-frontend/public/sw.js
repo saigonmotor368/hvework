@@ -1,9 +1,9 @@
 // ==============================================================================
-// HVE Work - Progressive Web App Service Worker (v3.0.0)
+// HVE Work - Progressive Web App Service Worker (v4.0.0)
 // Hỗ trợ: Offline App Shell Caching, Web Push Notifications, Navigation Fallback
 // ==============================================================================
 
-const CACHE_NAME = 'hve-work-cache-v3';
+const CACHE_NAME = 'hve-work-cache-v4';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -13,7 +13,7 @@ const STATIC_ASSETS = [
   '/icons/icon-512.png',
   '/icons/icon-192-any.png',
   '/icons/icon-512-any.png',
-  '/icons/apple-touch-icon-v2.png',
+  '/icons/apple-touch-icon-v3.png',
 ];
 
 // 1. Install Event: Cache App Shell core assets
