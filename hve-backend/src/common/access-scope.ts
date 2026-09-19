@@ -313,6 +313,12 @@ export function buildTaskAccessWhere(user: UserWithBusinessScope): any {
   const roles = getRoleNames(user);
   const canViewScopedCompany = roles.includes('ceo') || roles.includes('bgd');
 
+  // CEO/BGĐ chịu trách nhiệm giám sát tiến độ toàn doanh nghiệp nên phải xem
+  // được mọi công việc, kể cả việc được giao đích danh (visibility=targeted).
+  // Quyền này chỉ áp dụng cho công việc; hồ sơ/đề xuất chỉ định riêng vẫn giữ
+  // nguyên phạm vi bảo mật tại buildDocumentAccessWhere.
+  if (canViewScopedCompany) return {};
+
   const departmentId = getDepartmentId(user);
   const conditions: any[] = [{ assigneeId: user.id }, { createdById: user.id }];
   if (roles.includes('department_head')) {
@@ -336,7 +342,7 @@ export function buildTaskAccessWhere(user: UserWithBusinessScope): any {
     }
   }
 
-  const scopedAccess = canViewScopedCompany ? {} : { OR: conditions };
+  const scopedAccess = { OR: conditions };
   return {
     OR: [
       { visibility: 'company' },

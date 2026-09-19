@@ -386,13 +386,6 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                 ? "Tổng số chưa hoàn tất toàn công ty"
                 : "Chưa làm, đang làm hoặc chờ duyệt"}
             </p>
-            {capabilities.canViewCompany &&
-              Number(dashboardData?.metrics?.tasks?.visibleActive || 0) <
-                Number(dashboardData?.metrics?.tasks?.active || 0) && (
-                <p className="mt-1 text-[10px] leading-snug text-slate-400">
-                  Chi tiết việc chỉ định riêng chỉ hiện cho người liên quan
-                </p>
-              )}
             <span className="mt-2 block text-[11px] font-bold text-blue-700 opacity-80 group-hover:opacity-100">
               Xem chi tiết →
             </span>

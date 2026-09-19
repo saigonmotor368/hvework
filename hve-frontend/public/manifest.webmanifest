@@ -4,21 +4,22 @@
   "description": "Hệ thống quản lý điều hành, phê duyệt hồ sơ và giám sát công việc nội bộ HVE",
   "start_url": "/",
   "id": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#F8FAFC",
+  "background_color": "#0A66C2",
   "theme_color": "#0A66C2",
   "orientation": "portrait",
   "lang": "vi",
   "categories": ["business", "productivity", "education"],
   "icons": [
     {
-      "src": "/icons/icon-192.png",
+      "src": "/icons/icon-192-any.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/icon-512.png",
+      "src": "/icons/icon-512-any.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"

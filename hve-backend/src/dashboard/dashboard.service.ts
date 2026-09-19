@@ -256,10 +256,9 @@ export class DashboardService {
             orderBy: { name: 'asc' },
           })
         : Promise.resolve([]),
-      // Dashboard điều hành phải phản ánh toàn bộ số liệu công ty. Không dùng
-      // danh sách chi tiết đã lọc theo visibility để tránh bỏ sót công việc
-      // "targeted" mà BGĐ không phải người giao/nhận. Chỉ trả về số đếm tổng
-      // hợp, không làm lộ nội dung công việc chỉ định riêng.
+      // Dashboard điều hành của CEO/BGĐ phải phản ánh toàn bộ công việc công ty.
+      // taskScope của hai vai trò này đã cho phép xem cả việc được giao đích danh;
+      // groupBy ở đây giữ số tổng hợp đồng nhất với danh sách chi tiết.
       scope.capabilities.canViewCompany
         ? this.prisma.task.groupBy({
             by: ['projectId', 'status'],

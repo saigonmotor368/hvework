@@ -130,7 +130,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
   useEffect(() => {
     if (
       !currentUser?.roles?.some((role: string) =>
-        ["ceo", "department_head"].includes(role),
+        ["ceo", "bgd", "department_head"].includes(role),
       )
     ) {
       return;

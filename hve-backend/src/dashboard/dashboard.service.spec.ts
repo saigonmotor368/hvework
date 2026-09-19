@@ -62,9 +62,13 @@ describe('DashboardService role scopes', () => {
     });
   });
 
-  it('gives BGĐ complete company counts without exposing targeted task details', async () => {
+  it('gives BGĐ company counts and every task detail for supervision', async () => {
     prismaMock.document.findMany.mockResolvedValue([]);
-    prismaMock.task.findMany.mockResolvedValue([]);
+    prismaMock.task.findMany.mockResolvedValue([
+      { id: 21, status: 'Chưa làm', dueDate: null },
+      { id: 22, status: 'Chưa làm', dueDate: null },
+      { id: 23, status: 'Chưa làm', dueDate: null },
+    ]);
     prismaMock.project.findMany.mockResolvedValue([]);
     prismaMock.task.groupBy.mockResolvedValue([
       { projectId: 1, status: 'Chưa làm', _count: { _all: 3 } },
@@ -81,7 +85,7 @@ describe('DashboardService role scopes', () => {
     expect(result.metrics.tasks).toMatchObject({
       total: 3,
       active: 3,
-      visibleActive: 0,
+      visibleActive: 3,
       inProgress: 0,
     });
     expect(result.actionRequired.overdueTasks).toEqual([]);

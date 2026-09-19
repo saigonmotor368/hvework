@@ -14,8 +14,7 @@ describe('business access scopes', () => {
 
   it('gives CEO company scope but does not elevate IT admin', () => {
     const taskScope = buildTaskAccessWhere({ id: 1, roles: ['ceo'] });
-    expect(taskScope.OR).toContainEqual({ visibility: 'company' });
-    expect(taskScope.OR[2]).toEqual({ AND: [{ visibility: 'scoped' }, {}] });
+    expect(taskScope).toEqual({});
     expect(describeBusinessScope({ id: 1, roles: ['ceo'] }).level).toBe(
       'company',
     );
@@ -134,12 +133,11 @@ describe('business access scopes', () => {
     });
   });
 
-  it('lets BGĐ create work while keeping targeted items private', () => {
+  it('lets BGĐ supervise every task while keeping targeted documents private', () => {
     const taskScope = buildTaskAccessWhere({ id: 6, roles: ['bgd'] });
     const documentScope = buildDocumentAccessWhere({ id: 6, roles: ['bgd'] });
-    expect(taskScope.OR).toContainEqual({ visibility: 'company' });
+    expect(taskScope).toEqual({});
     expect(documentScope.OR).toContainEqual({ visibility: 'company' });
-    expect(taskScope.OR[1].AND[1].OR).toContainEqual({ assigneeId: 6 });
     expect(documentScope.OR[1].AND[1].OR).toContainEqual({ targetUserId: 6 });
 
     const scope = describeBusinessScope({ id: 6, roles: ['bgd'] });
