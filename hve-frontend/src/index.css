@@ -78,6 +78,11 @@ button {
     0 18px 45px rgb(10 101 192 / 18%);
 }
 
+.brand-loader--inline {
+  color: #475569;
+  background: #ffffff;
+}
+
 .brand-loader--splash .brand-loader__mark {
   border-radius: 2.25rem;
 }
