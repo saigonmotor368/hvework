@@ -130,6 +130,81 @@ describe('DocumentsService', () => {
     });
   });
 
+  describe('findById', () => {
+    it('should include uploader identity for every attachment', async () => {
+      prisma.document.findFirst.mockResolvedValue({
+        id: 1,
+        type: 'payment_request',
+        title: 'Thanh toán nhà cung cấp',
+        status: 'Chờ duyệt',
+        createdById: 10,
+        dataJson: {},
+      });
+      prisma.attachment.findMany.mockResolvedValue([
+        {
+          id: 100,
+          entityId: 1,
+          entityType: 'document',
+          fileName: 'hoa-don.pdf',
+          uploadedById: 20,
+        },
+      ]);
+      prisma.user.findMany.mockResolvedValue([
+        {
+          id: 20,
+          name: 'Kế toán HVE',
+          email: 'ketoan@huyvoeducation.vn',
+          roles: [{ name: 'accountant' }],
+        },
+      ]);
+
+      const result = await service.findById(
+        { id: 1, roles: ['ceo'] },
+        1,
+      );
+
+      expect(prisma.user.findMany).toHaveBeenCalledWith({
+        where: { id: { in: [20] } },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          roles: { select: { name: true } },
+        },
+      });
+      expect(result.attachments).toEqual([
+        expect.objectContaining({
+          id: 100,
+          uploadedBy: expect.objectContaining({
+            id: 20,
+            name: 'Kế toán HVE',
+            roles: [{ name: 'accountant' }],
+          }),
+        }),
+      ]);
+    });
+
+    it('should return an empty attachment list without querying users', async () => {
+      prisma.document.findFirst.mockResolvedValue({
+        id: 2,
+        type: 'proposal',
+        title: 'Đề xuất nội bộ',
+        status: 'Nháp',
+        createdById: 10,
+        dataJson: {},
+      });
+      prisma.attachment.findMany.mockResolvedValue([]);
+
+      const result = await service.findById(
+        { id: 10, roles: ['employee'] },
+        2,
+      );
+
+      expect(result.attachments).toEqual([]);
+      expect(prisma.user.findMany).not.toHaveBeenCalled();
+    });
+  });
+
   describe('createNewVersion', () => {
     it('should create new version (-v2) for approved document even when optimistic-lock version is high (e.g. 6)', async () => {
       prisma.document.findUnique.mockResolvedValue({

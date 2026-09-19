@@ -65,6 +65,15 @@ export interface DocumentItem {
     size: number;
     mimeType: string;
     fileUrl: string;
+    version?: number;
+    uploadedAt?: string;
+    uploadedById?: number;
+    uploadedBy?: {
+      id: number;
+      name: string;
+      email: string;
+      roles?: Array<{ name: string }>;
+    } | null;
   }>;
 }
 

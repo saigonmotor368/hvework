@@ -1673,10 +1673,30 @@ export class DocumentsService {
       where: { entityId: id, entityType: 'document' },
       orderBy: { uploadedAt: 'desc' },
     });
+    const uploaderIds = [
+      ...new Set(attachments.map((attachment) => attachment.uploadedById)),
+    ];
+    const uploaders = uploaderIds.length
+      ? await this.prisma.user.findMany({
+          where: { id: { in: uploaderIds } },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            roles: { select: { name: true } },
+          },
+        })
+      : [];
+    const uploaderById = new Map(
+      uploaders.map((uploader) => [uploader.id, uploader]),
+    );
 
     return this.enrichDocument({
       ...doc,
-      attachments,
+      attachments: attachments.map((attachment) => ({
+        ...attachment,
+        uploadedBy: uploaderById.get(attachment.uploadedById) || null,
+      })),
     });
   }
 

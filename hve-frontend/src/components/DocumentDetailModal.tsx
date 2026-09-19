@@ -362,18 +362,23 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
           </div>
         )}
 
-        {/* Attachments Section */}
-        {selectedDoc.attachments && selectedDoc.attachments.length > 0 && (
-          <div className="mt-6 pt-6 border-t border-slate-100">
-            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-3">
+        {/* Luôn hiển thị để người xem biết rõ hồ sơ có/không có tài liệu. */}
+        <div className="mt-6 border-t border-slate-100 pt-6">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
               {selectedDoc.type === "contract"
                 ? "Tệp Hợp đồng đính kèm"
                 : selectedDoc.type === "proposal"
                   ? "Tài liệu đính kèm"
                   : "Chứng từ & Hóa đơn đính kèm"}{" "}
-              ({selectedDoc.attachments.length})
+              ({selectedDoc.attachments?.length || 0})
             </span>
-            <div className="flex flex-wrap gap-3">
+            <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-bold text-[#0A66C2]">
+              Minh bạch hồ sơ
+            </span>
+          </div>
+          {selectedDoc.attachments && selectedDoc.attachments.length > 0 ? (
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {selectedDoc.attachments.map((att) => {
                 const token =
                   typeof window !== "undefined"
@@ -382,25 +387,57 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
                 const downloadUrl = token
                   ? authenticatedFileUrl(apiBaseUrl, att.fileUrl, token)
                   : att.fileUrl;
+                const isAccountingProof =
+                  selectedDoc.type === "payment_request" &&
+                  att.uploadedBy?.roles?.some(
+                    (role) => role.name === "accountant",
+                  );
                 return (
                   <a
                     key={att.id}
                     href={downloadUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex min-w-0 max-w-full items-center space-x-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 px-3.5 py-2 rounded-xl text-xs font-semibold text-[#0A66C2] transition-colors"
+                    className="group min-w-0 rounded-xl border border-slate-200 bg-slate-50 p-3.5 text-xs transition-colors hover:border-blue-300 hover:bg-blue-50/60"
                   >
-                    <span>📎</span>
-                    <span className="truncate">{att.fileName}</span>
-                    <span className="text-gray-400 text-[10px]">
-                      ({Math.round(att.size / 1024)} KB)
-                    </span>
+                    <div className="flex min-w-0 items-center gap-2 font-bold text-[#0A66C2]">
+                      <span>📎</span>
+                      <span className="truncate group-hover:underline">
+                        {att.fileName}
+                      </span>
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px] text-slate-500">
+                      <span>{Math.max(1, Math.round(att.size / 1024))} KB</span>
+                      {att.version && <span>• Phiên bản {att.version}</span>}
+                      {isAccountingProof && (
+                        <span className="rounded bg-emerald-100 px-1.5 py-0.5 font-bold text-emerald-700">
+                          Chứng từ thanh toán
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-2 truncate text-[11px] text-slate-600">
+                      Tải lên bởi: {att.uploadedBy?.name || "Không xác định"}
+                    </p>
+                    {att.uploadedAt && (
+                      <p className="mt-0.5 text-[10px] text-slate-400">
+                        {new Date(att.uploadedAt).toLocaleString("vi-VN")}
+                      </p>
+                    )}
                   </a>
                 );
               })}
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="rounded-xl border border-dashed border-amber-300 bg-amber-50 px-4 py-5 text-center">
+              <p className="text-sm font-bold text-amber-800">
+                Chưa có tệp đính kèm
+              </p>
+              <p className="mt-1 text-xs text-amber-700">
+                Hồ sơ hiện chưa có tài liệu hoặc chứng từ nào để đối chiếu.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Dynamic Workflow Timeline */}
