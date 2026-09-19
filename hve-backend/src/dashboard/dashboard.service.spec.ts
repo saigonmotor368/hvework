@@ -99,8 +99,8 @@ describe('DashboardService role scopes', () => {
       .mockResolvedValueOnce([{ id: 2, status: 'Chờ duyệt' }])
       .mockResolvedValueOnce([]);
     prismaMock.task.findMany.mockResolvedValue([
-      { id: 11, status: 'Đang làm', dueDate: null },
-      { id: 12, status: 'Hoàn thành', dueDate: null },
+      { id: 11, assigneeId: 2, status: 'Đang làm', dueDate: null },
+      { id: 12, assigneeId: 99, status: 'Hoàn thành', dueDate: null },
     ]);
 
     const result = await service.getDashboardData({
@@ -115,7 +115,12 @@ describe('DashboardService role scopes', () => {
       departmentId: 7,
     });
     expect(result.scope.label).toBe('Huy Võ Education');
-    expect(result.metrics.tasks.total).toBe(2);
+    expect(result.metrics.tasks).toMatchObject({
+      total: 1,
+      active: 1,
+      visibleActive: 1,
+      inProgress: 1,
+    });
     expect(result.actionRequired.pendingApprovalsCount).toBe(1);
     expect(prismaMock.project.findMany).not.toHaveBeenCalled();
   });
@@ -164,7 +169,18 @@ describe('DashboardService role scopes', () => {
         { id: 1, type: 'proposal', status: 'Nháp', dataJson: {} },
       ]);
     prismaMock.task.findMany.mockResolvedValue([
-      { id: 5, status: 'Đang làm', dueDate: new Date(Date.now() - 3600000) },
+      {
+        id: 5,
+        assigneeId: 10,
+        status: 'Đang làm',
+        dueDate: new Date(Date.now() - 3600000),
+      },
+      {
+        id: 6,
+        assigneeId: 11,
+        status: 'Đang làm',
+        dueDate: null,
+      },
     ]);
 
     const result = await service.getDashboardData({

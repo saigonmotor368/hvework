@@ -255,7 +255,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                 {capabilities.canViewCompany
                   ? "Việc quá hạn leo thang CEO (≥3 ngày)"
                   : capabilities.canViewDepartment
-                    ? "Việc quá hạn trong phòng ban"
+                    ? "Việc quá hạn trong phạm vi phụ trách"
                     : "Nhiệm vụ đến hạn hôm nay / quá hạn"}
               </span>
               <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-rose-100 text-rose-800">
@@ -367,13 +367,19 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
 
         <button
           type="button"
-          onClick={() => onOpenTasks({})}
+          onClick={() =>
+            onOpenTasks({
+              tab: capabilities.canViewCompany ? "all" : "assigned_to_me",
+            })
+          }
           className="group bg-white rounded-2xl p-5 shadow-sm border border-slate-200 flex items-center justify-between text-left transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-400"
           aria-label="Xem công việc chưa hoàn thành"
         >
           <div>
             <span className="text-xs font-bold text-blue-700 uppercase tracking-wider">
-              Việc chưa hoàn thành
+              {capabilities.canViewCompany
+                ? "Việc chưa hoàn thành"
+                : "Việc được giao chưa hoàn thành"}
             </span>
             <p className="mt-2 text-3xl font-extrabold text-blue-900">
               {dashboardData?.metrics?.tasks?.active ??
@@ -384,7 +390,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
             <p className="text-xs text-gray-400 mt-1">
               {capabilities.canViewCompany
                 ? "Tổng số chưa hoàn tất toàn công ty"
-                : "Chưa làm, đang làm hoặc chờ duyệt"}
+                : "Chỉ tính việc giao trực tiếp cho bạn"}
             </p>
             <span className="mt-2 block text-[11px] font-bold text-blue-700 opacity-80 group-hover:opacity-100">
               Xem chi tiết →
@@ -397,7 +403,12 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
 
         <button
           type="button"
-          onClick={() => onOpenTasks({ isOverdueOnly: true })}
+          onClick={() =>
+            onOpenTasks({
+              tab: capabilities.canViewCompany ? "all" : "assigned_to_me",
+              isOverdueOnly: true,
+            })
+          }
           className="group bg-white rounded-2xl p-5 shadow-sm border border-slate-200 flex items-center justify-between text-left transition hover:-translate-y-0.5 hover:border-rose-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-rose-400"
           aria-label="Xem công việc quá hạn"
         >
