@@ -186,6 +186,7 @@ export class DashboardService {
       progressPercent: true,
       projectId: true,
       assigneeId: true,
+      collaboratorIds: true,
       assignee: {
         select: {
           id: true,
@@ -345,17 +346,19 @@ export class DashboardService {
     const visibleActiveTasks = tasks.filter(
       (task: any) => task.status !== 'Hoàn thành',
     ).length;
-    // KPI cá nhân chỉ phản ánh công việc giao trực tiếp cho người đăng nhập.
-    // Trưởng dự án vẫn xem được việc thuộc dự án/cộng tác ở actionRequired và
-    // danh sách công việc, nhưng các việc đó không được cộng vào thẻ "Việc
-    // được giao chưa hoàn thành" của họ.
-    const assignedTasks = tasks.filter(
-      (task: any) => task.assigneeId === user.id,
+    // KPI cá nhân phản ánh đúng các việc người đăng nhập đang thực sự tham gia:
+    // được giao chính hoặc được chỉ định là người phối hợp. Các việc chỉ nhìn
+    // thấy do quyền trưởng dự án/phạm vi quản lý không được cộng vào KPI này.
+    const participatingTasks = tasks.filter(
+      (task: any) =>
+        task.assigneeId === user.id ||
+        (Array.isArray(task.collaboratorIds) &&
+          task.collaboratorIds.includes(user.id)),
     );
-    const assignedActiveTasks = assignedTasks.filter(
+    const participatingActiveTasks = participatingTasks.filter(
       (task: any) => task.status !== 'Hoàn thành',
     );
-    const assignedOverdueTasks = assignedActiveTasks.filter(
+    const participatingOverdueTasks = participatingActiveTasks.filter(
       (task: any) =>
         task.dueDate && new Date(task.dueDate).getTime() < now.getTime(),
     );
@@ -435,31 +438,31 @@ export class DashboardService {
         tasks: {
           total: scope.capabilities.canViewCompany
             ? companyTaskTotal
-            : assignedTasks.length,
+            : participatingTasks.length,
           completed: scope.capabilities.canViewCompany
             ? companyTaskCompleted
-            : assignedTasks.filter(
+            : participatingTasks.filter(
                 (task: any) => task.status === 'Hoàn thành',
               ).length,
           active: scope.capabilities.canViewCompany
             ? companyTaskTotal - companyTaskCompleted
-            : assignedActiveTasks.length,
+            : participatingActiveTasks.length,
           visibleActive: scope.capabilities.canViewCompany
             ? visibleActiveTasks
-            : assignedActiveTasks.length,
+            : participatingActiveTasks.length,
           inProgress: scope.capabilities.canViewCompany
             ? companyTaskCountByStatus.get('Đang làm') || 0
-            : assignedTasks.filter(
+            : participatingTasks.filter(
                 (task: any) => task.status === 'Đang làm',
               ).length,
           pendingReview: scope.capabilities.canViewCompany
             ? companyTaskCountByStatus.get('Chờ duyệt') || 0
-            : assignedTasks.filter(
+            : participatingTasks.filter(
                 (task: any) => task.status === 'Chờ duyệt',
               ).length,
           overdue: scope.capabilities.canViewCompany
             ? Number(companyOverdueTaskCount || 0)
-            : assignedOverdueTasks.length,
+            : participatingOverdueTasks.length,
         },
         financials: scope.capabilities.canViewFinancials
           ? { approvedPayments: approvedPayments.length, totalApprovedAmount }

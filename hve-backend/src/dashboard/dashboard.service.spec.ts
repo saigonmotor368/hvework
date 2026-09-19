@@ -99,8 +99,27 @@ describe('DashboardService role scopes', () => {
       .mockResolvedValueOnce([{ id: 2, status: 'Chờ duyệt' }])
       .mockResolvedValueOnce([]);
     prismaMock.task.findMany.mockResolvedValue([
-      { id: 11, assigneeId: 2, status: 'Đang làm', dueDate: null },
-      { id: 12, assigneeId: 99, status: 'Hoàn thành', dueDate: null },
+      {
+        id: 11,
+        assigneeId: 2,
+        collaboratorIds: [],
+        status: 'Đang làm',
+        dueDate: null,
+      },
+      {
+        id: 12,
+        assigneeId: 99,
+        collaboratorIds: [2],
+        status: 'Hoàn thành',
+        dueDate: null,
+      },
+      {
+        id: 13,
+        assigneeId: 99,
+        collaboratorIds: [],
+        status: 'Đang làm',
+        dueDate: null,
+      },
     ]);
 
     const result = await service.getDashboardData({
@@ -116,7 +135,8 @@ describe('DashboardService role scopes', () => {
     });
     expect(result.scope.label).toBe('Huy Võ Education');
     expect(result.metrics.tasks).toMatchObject({
-      total: 1,
+      total: 2,
+      completed: 1,
       active: 1,
       visibleActive: 1,
       inProgress: 1,
@@ -172,12 +192,21 @@ describe('DashboardService role scopes', () => {
       {
         id: 5,
         assigneeId: 10,
+        collaboratorIds: [],
         status: 'Đang làm',
         dueDate: new Date(Date.now() - 3600000),
       },
       {
         id: 6,
         assigneeId: 11,
+        collaboratorIds: [10],
+        status: 'Đang làm',
+        dueDate: null,
+      },
+      {
+        id: 7,
+        assigneeId: 11,
+        collaboratorIds: [],
         status: 'Đang làm',
         dueDate: null,
       },
@@ -190,7 +219,12 @@ describe('DashboardService role scopes', () => {
 
     expect(result.scope.level).toBe('personal');
     expect(result.metrics.documents.total).toBe(2);
-    expect(result.metrics.tasks.total).toBe(1);
+    expect(result.metrics.tasks).toMatchObject({
+      total: 2,
+      active: 2,
+      inProgress: 2,
+      overdue: 1,
+    });
     expect(result.actionRequired.returnedDocumentsCount).toBe(1);
     expect(result.projectStats).toBeUndefined();
   });

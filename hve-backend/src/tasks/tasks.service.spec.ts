@@ -505,6 +505,25 @@ describe('TasksService', () => {
   });
 
   describe('findAll & Department Filtering', () => {
+    it('tab "assigned_to_me" includes primary assignments and collaboration', async () => {
+      prisma.task.findMany.mockResolvedValue([]);
+
+      await service.findAll(
+        { id: 5, departmentId: 2, roles: ['employee'] },
+        { tab: 'assigned_to_me' },
+      );
+
+      const call = prisma.task.findMany.mock.calls[0][0];
+      expect(JSON.stringify(call.where)).toContain(
+        JSON.stringify({
+          OR: [
+            { assigneeId: 5 },
+            { collaboratorIds: { array_contains: [5] } },
+          ],
+        }),
+      );
+    });
+
     it('tab "department" should filter by user department on both assignee and creator', async () => {
       prisma.task.findMany.mockResolvedValue([]);
 

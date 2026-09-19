@@ -379,7 +379,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
             <span className="text-xs font-bold text-blue-700 uppercase tracking-wider">
               {capabilities.canViewCompany
                 ? "Việc chưa hoàn thành"
-                : "Việc được giao chưa hoàn thành"}
+                : "Việc đang tham gia"}
             </span>
             <p className="mt-2 text-3xl font-extrabold text-blue-900">
               {dashboardData?.metrics?.tasks?.active ??
@@ -390,7 +390,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
             <p className="text-xs text-gray-400 mt-1">
               {capabilities.canViewCompany
                 ? "Tổng số chưa hoàn tất toàn công ty"
-                : "Chỉ tính việc giao trực tiếp cho bạn"}
+                : "Gồm việc được giao chính hoặc tham gia phối hợp"}
             </p>
             <span className="mt-2 block text-[11px] font-bold text-blue-700 opacity-80 group-hover:opacity-100">
               Xem chi tiết →

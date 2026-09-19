@@ -895,7 +895,13 @@ export class TasksService {
 
     // 1. Phân loại theo 4 Tabs
     if (tab === 'assigned_to_me') {
-      andConditions.push({ assigneeId: user.id });
+      // "Việc tôi làm" bao gồm cả người thực hiện chính và người phối hợp.
+      andConditions.push({
+        OR: [
+          { assigneeId: user.id },
+          { collaboratorIds: { array_contains: [user.id] } },
+        ],
+      });
     } else if (tab === 'assigned_by_me') {
       andConditions.push({ createdById: user.id });
     } else if (tab === 'department') {
