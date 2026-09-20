@@ -116,6 +116,16 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
     dashboardData?.actionRequired?.returnedDocumentsCount || 0;
   const recentDocuments: DocumentItem[] =
     dashboardData?.recentDocuments || documents;
+  const projectStats: any[] = dashboardData?.projectStats || [];
+  const projectOverview = Array.from(
+    new Set([
+      ...projectHealth.map((project) => project.id),
+      ...projectStats.map((project) => project.id),
+    ]),
+  ).map((projectId) => ({
+    health: projectHealth.find((project) => project.id === projectId),
+    stats: projectStats.find((project) => project.id === projectId),
+  }));
 
   if (isLoading && !dashboardData) {
     return <BrandLoader label="Đang tổng hợp dữ liệu điều hành..." />;
@@ -473,143 +483,114 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
         </div>
       )}
 
-      {/* KHỐI 3: SỨC KHỎE VÀ TIẾN ĐỘ DỰ ÁN */}
-      {capabilities.canViewCompany && projectHealth.length > 0 && (
+      {/* KHỐI 3: TỔNG QUAN SỨC KHỎE VÀ TIẾN ĐỘ DỰ ÁN */}
+      {capabilities.canViewCompany && projectOverview.length > 0 && (
         <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-6">
           <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h2 className="text-base font-extrabold text-slate-900">
-                Sức khỏe dự án
+                Tổng quan tiến độ dự án
               </h2>
               <p className="text-xs text-slate-500">
-                Tỷ lệ công việc quá hạn và hồ sơ chờ duyệt trên 5 ngày.
+                Tỷ lệ hoàn thành, công việc quá hạn và hồ sơ chờ duyệt trên 5 ngày.
               </p>
             </div>
-            <span className="text-[11px] text-slate-400">
-              Bấm vào dự án để xem công việc
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-medium text-slate-500">
+              Cập nhật tự động · Bấm để xem công việc
             </span>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {projectHealth.map((project) => {
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {projectOverview.map(({ health, stats }) => {
+              const project = health || stats;
+              const completionRate = stats?.completionRate || 0;
+              const completedTasks = stats?.completedTasks || 0;
+              const totalTasks = stats?.totalTasks || 0;
+              const openItems = health?.total || 0;
+              const overdueItems = health?.overdue || 0;
               const style =
-                project.level === "rui_ro_cao"
+                health?.level === "rui_ro_cao"
                   ? {
-                      icon: "🔴",
                       label: "Rủi ro cao",
-                      card: "border-rose-200 bg-rose-50/60",
+                      badge: "border-rose-200 bg-rose-50 text-rose-700",
                       text: "text-rose-700",
+                      bar: "bg-rose-500",
                     }
-                  : project.level === "tre_tien_do"
+                  : health?.level === "tre_tien_do"
                     ? {
-                        icon: "🟠",
                         label: "Trễ tiến độ",
-                        card: "border-orange-200 bg-orange-50/60",
+                        badge: "border-orange-200 bg-orange-50 text-orange-700",
                         text: "text-orange-700",
+                        bar: "bg-orange-500",
                       }
-                    : project.level === "can_chu_y"
+                    : health?.level === "can_chu_y"
                       ? {
-                          icon: "🟡",
                           label: "Cần chú ý",
-                          card: "border-amber-200 bg-amber-50/60",
+                          badge: "border-amber-200 bg-amber-50 text-amber-700",
                           text: "text-amber-700",
+                          bar: "bg-amber-500",
                         }
                       : {
-                          icon: "🟢",
                           label: "Bình thường",
-                          card: "border-emerald-200 bg-emerald-50/60",
+                          badge: "border-emerald-200 bg-emerald-50 text-emerald-700",
                           text: "text-emerald-700",
+                          bar: "bg-[#0A66C2]",
                         };
               return (
                 <button
                   key={project.id}
                   type="button"
                   onClick={() => onOpenTasks({ projectId: project.id })}
-                  className={`rounded-xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md ${style.card}`}
+                  className="group rounded-xl border border-slate-200 bg-white p-4 text-left transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md"
+                  aria-label={`Xem công việc dự án ${project.name}`}
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="rounded-md bg-white/80 px-2 py-0.5 text-[11px] font-bold text-slate-600">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-[#0A66C2]">
                       {project.code}
-                    </span>
-                    <span aria-hidden>{style.icon}</span>
-                  </div>
-                  <strong className="mt-3 block truncate text-sm text-slate-900">
-                    {project.name}
-                  </strong>
-                  <div className="mt-2 flex items-end justify-between gap-2">
-                    <span className={`text-xs font-bold ${style.text}`}>
+                      </span>
+                      <strong className="mt-0.5 block truncate text-sm text-slate-900 group-hover:text-[#0A66C2]">
+                        {project.name}
+                      </strong>
+                    </div>
+                    <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-bold ${style.badge}`}>
                       {style.label}
                     </span>
-                    <span className={`text-xl font-black ${style.text}`}>
-                      {project.percent}%
+                  </div>
+
+                  <div className="mt-4 flex items-end justify-between gap-3">
+                    <span className="text-xs font-semibold text-slate-500">
+                      Tiến độ công việc
+                    </span>
+                    <span className="text-lg font-black text-[#0A66C2]">
+                      {totalTasks === 0 ? "Chưa có việc" : `${completionRate}%`}
                     </span>
                   </div>
-                  <p className="mt-1 text-[11px] text-slate-500">
-                    {project.overdue}/{project.total} mục đang mở bị trễ
-                  </p>
+                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ${style.bar}`}
+                      style={{ width: `${totalTasks === 0 ? 0 : completionRate}%` }}
+                    />
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-3 divide-x divide-slate-100 rounded-xl bg-slate-50 py-2.5 text-center">
+                    <div className="px-1">
+                      <strong className="block text-sm text-slate-800">{completedTasks}/{totalTasks}</strong>
+                      <span className="text-[10px] text-slate-500">Hoàn thành</span>
+                    </div>
+                    <div className="px-1">
+                      <strong className="block text-sm text-slate-800">{openItems}</strong>
+                      <span className="text-[10px] text-slate-500">Đang mở</span>
+                    </div>
+                    <div className="px-1">
+                      <strong className={`block text-sm ${style.text}`}>{overdueItems}</strong>
+                      <span className="text-[10px] text-slate-500">Bị trễ</span>
+                    </div>
+                  </div>
                 </button>
               );
             })}
           </div>
         </section>
-      )}
-
-      {capabilities.canViewCompany && dashboardData?.projectStats && (
-        <div className="bg-white rounded-2xl p-4 md:p-6 shadow-sm border border-slate-200">
-          <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-            <h3 className="text-base font-bold text-gray-900">
-              Tỷ lệ hoàn thành công việc theo Dự án
-            </h3>
-            <span className="text-xs text-gray-400 font-medium">
-              Cập nhật tự động
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {dashboardData.projectStats.map((project: any) => (
-              <button
-                type="button"
-                key={project.id}
-                onClick={() => onOpenTasks({ projectId: project.id })}
-                className="rounded-xl border border-slate-100 bg-slate-50/50 p-4 text-left transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md"
-                aria-label={`Xem công việc dự án ${project.name}`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="min-w-0 pr-3">
-                    <span className="text-[10px] font-black uppercase tracking-wider text-[#0A66C2]">
-                      {project.code}
-                    </span>
-                    <span className="block truncate text-sm font-bold text-gray-800">
-                      {project.name}
-                    </span>
-                  </div>
-                  <span
-                    className={`text-xs font-extrabold px-2 py-0.5 rounded-md ${
-                      project.totalTasks === 0
-                        ? "text-gray-400 bg-gray-100"
-                        : "text-[#0A66C2] bg-blue-50"
-                    }`}
-                  >
-                    {project.totalTasks === 0
-                      ? "Chưa có việc"
-                      : `${project.completionRate}%`}
-                  </span>
-                </div>
-                <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden mb-2">
-                  <div
-                    className="bg-[#0A66C2] h-2 rounded-full transition-all duration-500"
-                    style={{
-                      width: `${project.totalTasks === 0 ? 0 : project.completionRate}%`,
-                    }}
-                  />
-                </div>
-                <div className="flex justify-between text-[11px] text-gray-500">
-                  <span>Hoàn thành: {project.completedTasks}</span>
-                  <span>Tổng số: {project.totalTasks} việc</span>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
       )}
 
       {/* KHỐI 4: HỒ SƠ GẦN ĐÂY */}

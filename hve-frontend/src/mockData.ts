@@ -474,6 +474,12 @@ export const MOCK_TASKS: TaskItem[] = [
 ];
 
 export const MOCK_DASHBOARD_DATA = {
+  capabilities: {
+    canViewCompany: true,
+    canViewFinancials: true,
+    canViewLegal: true,
+  },
+  scope: { label: 'Toàn công ty' },
   actionRequired: {
     pendingApprovalsCount: 2,
     pendingDocuments: [
