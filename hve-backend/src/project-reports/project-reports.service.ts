@@ -43,7 +43,14 @@ export class ProjectReportsService {
     return getRoleNames(user).some((role) => ['ceo', 'bgd'].includes(role));
   }
 
+  private isItAdmin(user: any) {
+    return getRoleNames(user).includes('it_admin');
+  }
+
   private visibleWhere(user: any) {
+    // Quản trị IT cần nhìn thấy cả bản nháp/bản bị treo để hỗ trợ vận hành.
+    // Quyền xem này không đồng nghĩa với quyền phê duyệt báo cáo.
+    if (this.isItAdmin(user)) return {};
     if (this.isBoard(user)) {
       return { OR: [{ authorId: user.id }, { status: { not: 'draft' } }] };
     }
@@ -89,12 +96,19 @@ export class ProjectReportsService {
 
   private permissions(user: any, report: any) {
     const isAuthor = report.authorId === user.id;
-    const editable = isAuthor && ['draft', 'rejected'].includes(report.status);
+    const isItAdmin = this.isItAdmin(user);
+    const authorCanChange =
+      isAuthor && ['draft', 'submitted', 'rejected'].includes(report.status);
+    const canReviewByBusinessScope =
+      this.isBoard(user) ||
+      report.viewers?.some((viewer: any) => viewer.userId === user.id) ||
+      report.project?.leadUserId === user.id;
     return {
-      canEdit: editable,
-      canDelete: editable,
-      canSubmit: editable,
-      canReview: !isAuthor && report.status === 'submitted',
+      canEdit: authorCanChange,
+      canDelete: authorCanChange || isItAdmin,
+      canSubmit: isAuthor && ['draft', 'rejected'].includes(report.status),
+      canReview:
+        !isAuthor && report.status === 'submitted' && canReviewByBusinessScope,
     };
   }
 
@@ -276,10 +290,10 @@ export class ProjectReportsService {
     if (!existing) throw new NotFoundException('Không tìm thấy báo cáo');
     if (
       existing.authorId !== user.id ||
-      !['draft', 'rejected'].includes(existing.status)
+      !['draft', 'submitted', 'rejected'].includes(existing.status)
     ) {
       throw new ForbiddenException(
-        'Báo cáo đã nộp hoặc đã duyệt không thể chỉnh sửa',
+        'Chỉ người lập mới được chỉnh sửa; báo cáo đã duyệt đã bị khóa',
       );
     }
     const data = this.normalize(dto);
@@ -297,6 +311,9 @@ export class ProjectReportsService {
           periodEnd: data.periodEnd,
           projectId: data.projectId,
           viewers: { create: data.viewerIds.map((userId) => ({ userId })) },
+          ...(existing.status === 'submitted'
+            ? { revision: { increment: 1 } }
+            : {}),
         },
         include: reportInclude,
       });
@@ -330,12 +347,13 @@ export class ProjectReportsService {
       where: { id },
     });
     if (!report) throw new NotFoundException('Không tìm thấy báo cáo');
-    if (
-      report.authorId !== user.id ||
-      !['draft', 'rejected'].includes(report.status)
-    ) {
+    const isAuthor = report.authorId === user.id;
+    const isItAdmin = this.isItAdmin(user);
+    const authorCanDelete =
+      isAuthor && ['draft', 'submitted', 'rejected'].includes(report.status);
+    if (!authorCanDelete && !isItAdmin) {
       throw new ForbiddenException(
-        'Chỉ được xóa báo cáo nháp hoặc báo cáo bị yêu cầu làm lại',
+        'Chỉ người lập được xóa báo cáo chưa duyệt; Quản trị IT được xóa cưỡng chế khi cần hỗ trợ vận hành',
       );
     }
     await this.prisma.$transaction([
@@ -347,9 +365,17 @@ export class ProjectReportsService {
     await this.audit.logEvent({
       entityType: 'ProjectReport',
       entityId: id,
-      action: 'delete_report',
+      action:
+        isItAdmin && !authorCanDelete
+          ? 'admin_force_delete_report'
+          : 'delete_report',
       actorId: user.id,
-      beforeJson: { code: report.code, title: report.title },
+      beforeJson: {
+        code: report.code,
+        title: report.title,
+        status: report.status,
+        authorId: report.authorId,
+      },
       ip,
     });
   }

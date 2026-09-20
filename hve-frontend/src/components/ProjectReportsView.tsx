@@ -64,6 +64,10 @@ export const ProjectReportsView: React.FC<Props> = ({
   const [reviewComment, setReviewComment] = useState("");
 
   const token = localStorage.getItem("access_token") || "";
+  const roleNames = (currentUser?.roles || []).map((role: any) =>
+    typeof role === "string" ? role : role.name,
+  );
+  const isItAdmin = roleNames.includes("it_admin");
 
   const load = useCallback(async () => {
     if (!token) {
@@ -194,7 +198,11 @@ export const ProjectReportsView: React.FC<Props> = ({
         }
       }
       showToast(
-        submitNow ? "Đã nộp báo cáo để duyệt" : "Đã lưu bản nháp báo cáo",
+        submitNow
+          ? "Đã nộp báo cáo để duyệt"
+          : editing?.status === "submitted"
+            ? "Đã cập nhật báo cáo đang chờ duyệt"
+            : "Đã lưu thay đổi báo cáo",
       );
       setFormOpen(false);
       setEditing(null);
@@ -227,12 +235,18 @@ export const ProjectReportsView: React.FC<Props> = ({
   };
 
   const remove = async (report: ProjectReportItem) => {
+    const forceDelete =
+      isItAdmin &&
+      (report.authorId !== currentUser?.id || report.status === "approved");
     if (
       !window.confirm(
-        `Xóa báo cáo “${report.title}”? Thao tác này không thể hoàn tác.`,
+        forceDelete
+          ? `Quản trị IT xóa cưỡng chế báo cáo “${report.title}” (${STATUS[report.status].label})? Hành động sẽ được ghi vào nhật ký và không thể hoàn tác.`
+          : `Xóa báo cáo “${report.title}”? Thao tác này không thể hoàn tác.`,
       )
     )
       return;
+    setSaving(true);
     try {
       const response = await fetchWithSession(
         `${apiBaseUrl}/project-reports/${report.id}`,
@@ -243,10 +257,12 @@ export const ProjectReportsView: React.FC<Props> = ({
         throw new Error(body.message || "Không thể xóa báo cáo");
       }
       setSelected(null);
-      showToast("Đã xóa báo cáo");
+      showToast(forceDelete ? "IT đã xóa cưỡng chế báo cáo" : "Đã xóa báo cáo");
       await load();
     } catch (error: any) {
       showToast(error.message || "Không thể xóa báo cáo", "error");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -357,7 +373,7 @@ export const ProjectReportsView: React.FC<Props> = ({
           Chưa có báo cáo phù hợp bộ lọc.
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+        <div className="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           {reports.map((report) => {
             const statusItem = STATUS[report.status];
             return (
@@ -367,37 +383,48 @@ export const ProjectReportsView: React.FC<Props> = ({
                   setSelected(report);
                   setReviewComment("");
                 }}
-                className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md sm:p-5"
+                className="grid min-h-[76px] w-full min-w-0 grid-cols-1 gap-2 px-3 py-3 text-left transition hover:bg-blue-50/60 focus:bg-blue-50 sm:grid-cols-[minmax(0,1fr)_minmax(10rem,0.45fr)_auto] sm:items-center sm:gap-4 sm:px-4"
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-[11px] font-bold uppercase tracking-wider text-blue-600">
-                      {report.code} · Phiên bản {report.revision}
+                <div className="min-w-0">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <p className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-blue-600">
+                      {report.code} · v{report.revision}
                     </p>
-                    <h4 className="mt-1 line-clamp-2 text-base font-black text-slate-900">
-                      {report.title}
-                    </h4>
+                    <span
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold sm:hidden ${statusItem.className}`}
+                    >
+                      {statusItem.label}
+                    </span>
                   </div>
-                  <span
-                    className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold ${statusItem.className}`}
-                  >
-                    {statusItem.label}
-                  </span>
+                  <h4 className="mt-0.5 truncate text-sm font-black text-slate-900 sm:text-base">
+                    {report.title}
+                  </h4>
+                  <p className="mt-0.5 line-clamp-1 text-xs text-slate-500">
+                    {report.content}
+                  </p>
                 </div>
-                <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-slate-600">
-                  {report.content}
-                </p>
-                <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-slate-100 pt-3 text-[11px] text-slate-500">
-                  <span>
+                <div className="min-w-0 text-[11px] text-slate-500">
+                  <p className="truncate font-semibold text-slate-700">
                     🏗️{" "}
                     {report.project
                       ? `${report.project.code} — ${report.project.name}`
                       : "Huy Võ Education"}
-                  </span>
-                  <span>
+                  </p>
+                  <p className="mt-1 truncate">
                     👤 <UserNameButton user={report.author} />
+                    <span className="mx-1.5 text-slate-300">·</span>
+                    📎 {report.attachments?.length || 0} tệp
+                  </p>
+                </div>
+                <div className="hidden justify-self-end text-right sm:block">
+                  <span
+                    className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold ${statusItem.className}`}
+                  >
+                    {statusItem.label}
                   </span>
-                  <span>📎 {report.attachments?.length || 0}</span>
+                  <p className="mt-1 text-[10px] text-slate-400">
+                    {new Date(report.updatedAt).toLocaleDateString("vi-VN")}
+                  </p>
                 </div>
               </button>
             );
@@ -570,15 +597,17 @@ export const ProjectReportsView: React.FC<Props> = ({
                 onClick={() => void save(false)}
                 className="min-h-11 rounded-xl border border-blue-200 px-4 text-sm font-bold text-blue-700"
               >
-                {saving ? "Đang lưu..." : "Lưu bản nháp"}
+                {saving ? "Đang lưu..." : "Lưu thay đổi"}
               </button>
-              <button
-                disabled={saving}
-                onClick={() => void save(true)}
-                className="min-h-11 rounded-xl bg-blue-600 px-5 text-sm font-black text-white"
-              >
-                {saving ? "Đang xử lý..." : "Lưu & nộp báo cáo"}
-              </button>
+              {(!editing || editing.permissions.canSubmit) && (
+                <button
+                  disabled={saving}
+                  onClick={() => void save(true)}
+                  className="min-h-11 rounded-xl bg-blue-600 px-5 text-sm font-black text-white"
+                >
+                  {saving ? "Đang xử lý..." : "Lưu & nộp báo cáo"}
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -727,7 +756,11 @@ export const ProjectReportsView: React.FC<Props> = ({
                   onClick={() => void remove(selected)}
                   className="min-h-10 rounded-xl px-4 text-sm font-bold text-rose-600 hover:bg-rose-50"
                 >
-                  Xóa
+                  {isItAdmin &&
+                  (selected.authorId !== currentUser?.id ||
+                    selected.status === "approved")
+                    ? "Xóa cưỡng chế (IT)"
+                    : "Xóa"}
                 </button>
               )}
               {selected.permissions.canEdit && (
