@@ -1801,12 +1801,17 @@ export class DocumentsService {
       where: { entityId: id, entityType: 'document' },
       orderBy: { uploadedAt: 'desc' },
     });
-    const uploaderIds = [
-      ...new Set(attachments.map((attachment) => attachment.uploadedById)),
+    const relatedUserIds = [
+      ...new Set([
+        ...attachments.map((attachment) => attachment.uploadedById),
+        ...(doc.steps || [])
+          .map((step: any) => step.actedById)
+          .filter((userId: number | null): userId is number => Boolean(userId)),
+      ]),
     ];
-    const uploaders = uploaderIds.length
+    const relatedUsers = relatedUserIds.length
       ? await this.prisma.user.findMany({
-          where: { id: { in: uploaderIds } },
+          where: { id: { in: relatedUserIds } },
           select: {
             id: true,
             name: true,
@@ -1815,15 +1820,21 @@ export class DocumentsService {
           },
         })
       : [];
-    const uploaderById = new Map(
-      uploaders.map((uploader) => [uploader.id, uploader]),
+    const userById = new Map(
+      relatedUsers.map((relatedUser) => [relatedUser.id, relatedUser]),
     );
 
     return this.enrichDocument({
       ...doc,
+      steps: (doc.steps || []).map((step: any) => ({
+        ...step,
+        actedBy: step.actedById
+          ? userById.get(step.actedById) || null
+          : null,
+      })),
       attachments: attachments.map((attachment) => ({
         ...attachment,
-        uploadedBy: uploaderById.get(attachment.uploadedById) || null,
+        uploadedBy: userById.get(attachment.uploadedById) || null,
       })),
     });
   }

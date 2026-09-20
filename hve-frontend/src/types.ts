@@ -4,6 +4,12 @@ export interface ApprovalStep {
   roleRequired: string;
   status: "not_started" | "pending" | "approved" | "returned" | "rejected";
   actedById?: number;
+  actedBy?: {
+    id: number;
+    name: string;
+    email: string;
+    roles?: Array<{ name: string }>;
+  } | null;
   actedAt?: string;
   comment?: string;
 }

@@ -139,6 +139,15 @@ describe('DocumentsService', () => {
         status: 'Chờ duyệt',
         createdById: 10,
         dataJson: {},
+        steps: [
+          {
+            id: 501,
+            stepOrder: 1,
+            roleRequired: 'accountant',
+            status: 'approved',
+            actedById: 20,
+          },
+        ],
       });
       prisma.attachment.findMany.mockResolvedValue([
         {
@@ -179,6 +188,15 @@ describe('DocumentsService', () => {
             id: 20,
             name: 'Kế toán HVE',
             roles: [{ name: 'accountant' }],
+          }),
+        }),
+      ]);
+      expect(result.steps).toEqual([
+        expect.objectContaining({
+          id: 501,
+          actedBy: expect.objectContaining({
+            id: 20,
+            name: 'Kế toán HVE',
           }),
         }),
       ]);

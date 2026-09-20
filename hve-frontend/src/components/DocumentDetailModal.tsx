@@ -6,8 +6,9 @@ import {
   ROLE_LABELS,
   DOCUMENT_TYPE_LABELS,
 } from "../types";
-import { authenticatedFileUrl, uploadAttachment } from "../api/client";
+import { authenticatedFileUrl } from "../api/client";
 import { UserNameButton } from "./UserNameButton";
+import { PaymentRequestAuditView } from "./PaymentRequestAuditView";
 
 interface DocumentDetailModalProps {
   selectedDoc: DocumentItem;
@@ -52,31 +53,7 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
   onAttachmentUploaded,
   showToast,
 }) => {
-  const [proofFile, setProofFile] = useState<File | null>(null);
-  const [uploadingProof, setUploadingProof] = useState(false);
-  const [proofUploaded, setProofUploaded] = useState(false);
-  const [approvalComment, setApprovalComment] = useState("");
   const [renderedAt] = useState(() => Date.now());
-
-  const uploadPaymentProof = async () => {
-    const token = localStorage.getItem("access_token");
-    if (!token || !proofFile) return;
-    setUploadingProof(true);
-    try {
-      await uploadAttachment(apiBaseUrl, token, proofFile, {
-        entityType: "document",
-        entityId: selectedDoc.id,
-      });
-      setProofUploaded(true);
-      setProofFile(null);
-      showToast("Đã đính kèm chứng từ giao dịch vào hồ sơ.");
-      onAttachmentUploaded();
-    } catch (error: any) {
-      showToast(error.message || "Không thể tải chứng từ giao dịch", "error");
-    } finally {
-      setUploadingProof(false);
-    }
-  };
 
   const linkedProjects = projects.filter((project) =>
     selectedDoc.linkedProjectIds?.includes(project.id),
@@ -326,54 +303,8 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
           </div>
         )}
 
-        {/* Details Grid: PAYMENT REQUEST */}
-        {selectedDoc.type === "payment_request" && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6 text-sm">
-            <div>
-              <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">
-                Số tiền đề nghị
-              </span>
-              <p className="text-2xl font-black text-[#0A66C2] mt-1">
-                {selectedDoc.dataJson?.amount?.toLocaleString("vi-VN")} VND
-              </p>
-            </div>
-
-            <div>
-              <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">
-                Đơn vị thụ hưởng
-              </span>
-              <p className="font-bold text-gray-800 mt-1">
-                {selectedDoc.dataJson?.receiver}
-              </p>
-              <p className="text-xs text-gray-500 mt-0.5">
-                {selectedDoc.dataJson?.bankName} - STK:{" "}
-                <strong className="text-gray-700">
-                  {selectedDoc.dataJson?.bankAccount}
-                </strong>
-              </p>
-            </div>
-
-            <div>
-              <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">
-                Hạn thanh toán
-              </span>
-              <p className="font-bold text-gray-800 mt-1">
-                {selectedDoc.dataJson?.deadline}
-              </p>
-            </div>
-
-            <div className="md:col-span-3">
-              <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">
-                Nội dung chi tiết
-              </span>
-              <p className="text-gray-700 mt-1 bg-slate-50 p-4 rounded-xl border border-slate-100">
-                {selectedDoc.dataJson?.content}
-              </p>
-            </div>
-          </div>
-        )}
-
         {/* Luôn hiển thị để người xem biết rõ hồ sơ có/không có tài liệu. */}
+        {selectedDoc.type !== "payment_request" && (
         <div className="mt-6 border-t border-slate-100 pt-6">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
@@ -449,9 +380,24 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
             </div>
           )}
         </div>
+        )}
       </div>
 
+      {selectedDoc.type === "payment_request" && (
+        <PaymentRequestAuditView
+          document={selectedDoc}
+          user={user}
+          isProcessing={isProcessing}
+          apiBaseUrl={apiBaseUrl}
+          onApproveStep={onApproveStep}
+          onOpenModalAction={onOpenModalAction}
+          onAttachmentUploaded={onAttachmentUploaded}
+          showToast={showToast}
+        />
+      )}
+
       {/* Dynamic Workflow Timeline */}
+      {selectedDoc.type !== "payment_request" && (
       <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-slate-200">
         <h4 className="text-base font-bold text-gray-900 mb-6">
           Tiến trình phê duyệt {(selectedDoc.steps?.length || 0) + 1} cấp
@@ -630,74 +576,19 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
                                   )
                                 </div>
                               )}
-                              {selectedDoc.type === "payment_request" &&
-                                step.roleRequired === "accountant" &&
-                                step.stepOrder ===
-                                  Math.max(
-                                    ...(selectedDoc.steps || []).map(
-                                      (item) => item.stepOrder,
-                                    ),
-                                  ) && (
-                                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
-                                    <p className="mb-2 text-xs font-bold text-emerald-800">
-                                      Chứng từ giao dịch bắt buộc trước khi
-                                      duyệt
-                                    </p>
-                                    <div className="flex flex-col gap-2 sm:flex-row">
-                                      <input
-                                        type="file"
-                                        onChange={(event) =>
-                                          setProofFile(
-                                            event.target.files?.[0] || null,
-                                          )
-                                        }
-                                        className="min-w-0 flex-1 text-xs"
-                                      />
-                                      <button
-                                        type="button"
-                                        onClick={uploadPaymentProof}
-                                        disabled={!proofFile || uploadingProof}
-                                        className="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white disabled:opacity-50"
-                                      >
-                                        {uploadingProof
-                                          ? "Đang tải..."
-                                          : proofUploaded
-                                            ? "Đã tải ✓"
-                                            : "Tải chứng từ"}
-                                      </button>
-                                    </div>
-                                    <textarea
-                                      value={approvalComment}
-                                      onChange={(event) =>
-                                        setApprovalComment(event.target.value)
-                                      }
-                                      placeholder="Ý kiến (tùy chọn): mã giao dịch, ngày chi tiền..."
-                                      rows={2}
-                                      className="mt-2 w-full rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs"
-                                    />
-                                  </div>
-                                )}
                               <div className="flex flex-wrap items-center gap-2">
                                 <button
                                   onClick={() =>
                                     onApproveStep(
                                       selectedDoc,
                                       step,
-                                      approvalComment.trim() || undefined,
+                                      undefined,
                                     )
                                   }
                                   disabled={isProcessing}
                                   className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 shadow-sm transition-all disabled:opacity-50"
                                 >
-                                  {isProcessing
-                                    ? "Đang xử lý..."
-                                    : selectedDoc.type === "payment_request" &&
-                                        step.roleRequired === "accountant"
-                                      ? "✓ Xác nhận đã chi tiền & hoàn tất"
-                                      : selectedDoc.type === "payment_request" &&
-                                          step.roleRequired === "ceo"
-                                        ? "✓ Phê duyệt đề nghị"
-                                        : "✓ Phê duyệt"}
+                                  {isProcessing ? "Đang xử lý..." : "✓ Phê duyệt"}
                                 </button>
                                 <button
                                   onClick={() =>
@@ -724,10 +615,7 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
                                     disabled={isProcessing}
                                     className="px-4 py-2 rounded-xl bg-red-600 text-white text-xs font-bold hover:bg-red-700 shadow-sm transition-all disabled:opacity-50"
                                   >
-                                    {selectedDoc.type === "payment_request" &&
-                                    step.roleRequired === "ceo"
-                                      ? "Huỷ hồ sơ"
-                                      : "Từ chối hồ sơ"}
+                                    Từ chối hồ sơ
                                   </button>
                                 )}
                               </div>
@@ -756,6 +644,7 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
           </div>
         )}
       </div>
+      )}
     </div>
   );
 };
