@@ -23,4 +23,26 @@ describe('UsersController avatar ownership', () => {
       '127.0.0.1',
     );
   });
+
+  it('allows the authenticated avatar response to render across Vercel and Railway origins', async () => {
+    const avatar = {
+      data: Buffer.from('avatar'),
+      mimeType: 'image/webp',
+      size: 6,
+    };
+    const usersService = { getAvatar: vi.fn().mockResolvedValue(avatar) };
+    const controller = new UsersController(usersService as any);
+    const response = {
+      setHeader: vi.fn(),
+      send: vi.fn(),
+    };
+
+    await controller.getAvatar(12, response as any);
+
+    expect(response.setHeader).toHaveBeenCalledWith(
+      'Cross-Origin-Resource-Policy',
+      'cross-origin',
+    );
+    expect(response.send).toHaveBeenCalledWith(avatar.data);
+  });
 });

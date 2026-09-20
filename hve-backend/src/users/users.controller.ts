@@ -39,6 +39,10 @@ export class UsersController {
     response.setHeader('Content-Type', avatar.mimeType);
     response.setHeader('Content-Length', String(avatar.size));
     response.setHeader('Cache-Control', 'private, max-age=86400');
+    // Frontend chạy trên Vercel, ảnh được phục vụ từ Railway. Helmet mặc định
+    // gắn same-origin khiến trình duyệt nhận HTTP 200 nhưng không cho <img>
+    // hiển thị. JWT vẫn bắt buộc nên mở CORP không làm ảnh thành công khai.
+    response.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
     response.send(avatar.data);
   }
 
