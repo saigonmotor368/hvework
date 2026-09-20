@@ -1,25 +1,45 @@
 import {
   Controller,
   Get,
-  Patch,
-  Body,
+  Put,
   Req,
+  Res,
   Param,
   ParseIntPipe,
+  UploadedFile,
+  UseInterceptors,
   UseGuards,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 import { UsersService } from './users.service.js';
-import { UpdateAvatarDto } from './dto/update-avatar.dto.js';
 
 @UseGuards(JwtAuthGuard)
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  @Patch('me/avatar')
-  updateMyAvatar(@Body() dto: UpdateAvatarDto, @Req() req: any) {
-    return this.usersService.updateAvatar(req.user.id, dto.avatarUrl, req.ip);
+  @Put('me/avatar')
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { fileSize: 256 * 1024, files: 1 } }),
+  )
+  updateMyAvatar(@UploadedFile() file: any, @Req() req: any) {
+    // ID đích luôn lấy từ JWT, không nhận userId từ client. Vì vậy kể cả IT
+    // cũng chỉ cập nhật được avatar của chính tài khoản đang đăng nhập.
+    return this.usersService.updateAvatar(req.user.id, file, req.ip);
+  }
+
+  @Get(':id/avatar')
+  async getAvatar(
+    @Param('id', ParseIntPipe) id: number,
+    @Res() response: Response,
+  ) {
+    const avatar = await this.usersService.getAvatar(id);
+    response.setHeader('Content-Type', avatar.mimeType);
+    response.setHeader('Content-Length', String(avatar.size));
+    response.setHeader('Cache-Control', 'private, max-age=86400');
+    response.send(avatar.data);
   }
 
   @Get(':id/profile')

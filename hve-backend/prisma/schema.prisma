@@ -84,11 +84,24 @@ model User {
   authoredProjectReports ProjectReport[]       @relation("ProjectReportAuthor")
   reviewedProjectReports ProjectReport[]       @relation("ProjectReportReviewer")
   projectReportViews     ProjectReportViewer[]
+  avatar                 UserAvatar?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([delegateToUserId, delegateUntil])
+}
+
+// Avatar được lưu riêng để các truy vấn User thông thường không phải kéo theo
+// dữ liệu nhị phân. Ảnh đã được frontend thu nhỏ/nén trước khi gửi lên.
+model UserAvatar {
+  userId    Int      @id
+  data      Bytes
+  mimeType  String
+  size      Int
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model TrustedDevice {

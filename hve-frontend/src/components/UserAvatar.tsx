@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { authenticatedFileUrl } from "../api/client";
 
 interface UserAvatarProps {
@@ -23,12 +23,14 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
     user?.avatarUrl && token
       ? authenticatedFileUrl(apiBaseUrl, user.avatarUrl, token)
       : null;
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
 
-  if (src) {
+  if (src && failedSrc !== src) {
     return (
       <img
         src={src}
         alt={`Ảnh đại diện ${user?.name || "người dùng"}`}
+        onError={() => setFailedSrc(src)}
         className={`shrink-0 object-cover ${className}`}
       />
     );

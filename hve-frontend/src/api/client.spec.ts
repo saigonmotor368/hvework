@@ -207,27 +207,23 @@ describe('API contracts', () => {
   it('uploads an avatar and updates the current user profile without creating an attachment record', async () => {
     const fetcher = vi
       .fn<Fetcher>()
-      .mockResolvedValueOnce(
-        jsonResponse({ uploadUrl: '/attachments/upload-storage/avatar.png?token=signed' }),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse({ fileUrl: '/attachments/file/avatar-drive-id', size: 4 }),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse({ id: 7, avatarUrl: '/attachments/file/avatar-drive-id' }),
-      );
+      .mockResolvedValueOnce(jsonResponse({ id: 7, avatarUrl: '/users/7/avatar?v=1' }));
     const file = new File(['test'], 'avatar.png', { type: 'image/png' });
+    const optimized = new File(['webp'], 'avatar.webp', { type: 'image/webp' });
 
     const result = await uploadUserAvatar(
       'https://api.example.com',
       'jwt',
       file,
       fetcher,
+      async () => optimized,
     );
 
-    expect(result.avatarUrl).toContain('avatar-drive-id');
-    expect(fetcher.mock.calls[2][0]).toBe('https://api.example.com/users/me/avatar');
-    expect(fetcher.mock.calls[2][1]?.method).toBe('PATCH');
+    expect(result.avatarUrl).toContain('/users/7/avatar');
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(fetcher.mock.calls[0][0]).toBe('https://api.example.com/users/me/avatar');
+    expect(fetcher.mock.calls[0][1]?.method).toBe('PUT');
+    expect(fetcher.mock.calls[0][1]?.body).toBeInstanceOf(FormData);
   });
 
   it('builds an authenticated download URL and preserves a 404-safe backend route', () => {

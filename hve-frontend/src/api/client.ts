@@ -181,50 +181,89 @@ export async function uploadUserAvatar(
   token: string,
   file: File,
   fetcher: Fetcher = fetch,
+  optimizer: (file: File) => Promise<File> = optimizeUserAvatar,
 ): Promise<{ avatarUrl: string }> {
   const allowedTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
   if (!allowedTypes.has(file.type)) {
     throw new Error('Ảnh đại diện chỉ hỗ trợ JPG, PNG hoặc WEBP');
   }
-  if (file.size > 2 * 1024 * 1024) {
-    throw new Error('Ảnh đại diện phải nhỏ hơn hoặc bằng 2MB');
+  if (file.size > 12 * 1024 * 1024) {
+    throw new Error('Ảnh gốc phải nhỏ hơn hoặc bằng 12MB');
   }
 
-  const presignResponse = await fetcher(apiUrl(apiBaseUrl, '/attachments/presigned-url'), {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({ fileName: file.name, mimeType: file.type, size: file.size }),
-  });
-  if (!presignResponse.ok) {
-    throw new Error(await responseMessage(presignResponse, 'Không chuẩn bị được nơi lưu ảnh'));
-  }
-  const presigned = await presignResponse.json();
-  const uploadResponse = await fetcher(apiUrl(apiBaseUrl, presigned.uploadUrl), {
+  const optimized = await optimizer(file);
+  const body = new FormData();
+  body.append('file', optimized, optimized.name);
+  const updateResponse = await fetcher(apiUrl(apiBaseUrl, '/users/me/avatar'), {
     method: 'PUT',
     headers: { Authorization: `Bearer ${token}` },
-    body: file,
-  });
-  if (!uploadResponse.ok) {
-    throw new Error(await responseMessage(uploadResponse, 'Không tải được ảnh đại diện'));
-  }
-  const uploaded = await uploadResponse.json();
-  if (!uploaded.fileUrl) throw new Error('Máy chủ không trả về đường dẫn ảnh');
-
-  const updateResponse = await fetcher(apiUrl(apiBaseUrl, '/users/me/avatar'), {
-    method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({ avatarUrl: uploaded.fileUrl }),
+    body,
   });
   if (!updateResponse.ok) {
     throw new Error(await responseMessage(updateResponse, 'Không cập nhật được ảnh đại diện'));
   }
   return updateResponse.json();
+}
+
+const canvasBlob = (
+  canvas: HTMLCanvasElement,
+  quality: number,
+): Promise<Blob> =>
+  new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) =>
+        blob ? resolve(blob) : reject(new Error('Không thể nén ảnh đại diện')),
+      'image/webp',
+      quality,
+    );
+  });
+
+export async function optimizeUserAvatar(file: File): Promise<File> {
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const element = new Image();
+      element.onload = () => resolve(element);
+      element.onerror = () => reject(new Error('Không đọc được ảnh đã chọn'));
+      element.src = objectUrl;
+    });
+    const sourceSize = Math.min(image.naturalWidth, image.naturalHeight);
+    if (!sourceSize) throw new Error('Kích thước ảnh không hợp lệ');
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 384;
+    canvas.height = 384;
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Thiết bị không hỗ trợ xử lý ảnh');
+    const sourceX = (image.naturalWidth - sourceSize) / 2;
+    const sourceY = (image.naturalHeight - sourceSize) / 2;
+    context.drawImage(
+      image,
+      sourceX,
+      sourceY,
+      sourceSize,
+      sourceSize,
+      0,
+      0,
+      canvas.width,
+      canvas.height,
+    );
+
+    let blob = await canvasBlob(canvas, 0.82);
+    for (const quality of [0.72, 0.62, 0.52]) {
+      if (blob.size <= 220 * 1024) break;
+      blob = await canvasBlob(canvas, quality);
+    }
+    if (blob.size > 256 * 1024) {
+      throw new Error('Không thể nén ảnh xuống dưới 256KB; vui lòng chọn ảnh khác');
+    }
+    return new File([blob], `avatar-${Date.now()}.webp`, {
+      type: blob.type || 'image/webp',
+      lastModified: Date.now(),
+    });
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
 }
 
 export async function markAllNotificationsRead(

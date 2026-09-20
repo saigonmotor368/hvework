@@ -168,6 +168,11 @@ export const UserProfileModal: React.FC<{
                 <p className="mt-1 break-all text-xs text-blue-50">
                   {profile.email}
                 </p>
+                {currentUser?.id === profile.id && (
+                  <p className="mt-1 text-[10px] text-blue-100">
+                    Chạm biểu tượng máy ảnh để đổi ảnh · tự động nén 384×384
+                  </p>
+                )}
               </div>
             </div>
           )}

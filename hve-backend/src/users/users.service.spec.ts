@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { UsersService } from './users.service.js';
@@ -10,7 +10,11 @@ describe('UsersService', () => {
   let auditService: any;
 
   beforeEach(async () => {
-    prisma = { user: { findUnique: vi.fn(), update: vi.fn() } };
+    prisma = {
+      user: { findUnique: vi.fn(), update: vi.fn() },
+      userAvatar: { findUnique: vi.fn(), upsert: vi.fn() },
+      $transaction: vi.fn(async (callback: any) => callback(prisma)),
+    };
     auditService = { logEvent: vi.fn().mockResolvedValue({ id: 1 }) };
     const module = await Test.createTestingModule({
       providers: [
@@ -57,18 +61,39 @@ describe('UsersService', () => {
       id: 12,
       name: 'Nguyễn Văn A',
       email: 'a@huyvoeducation.vn',
-      avatarUrl: '/attachments/file/avatar-drive-id',
+      avatarUrl: '/users/12/avatar?v=1',
     });
+
+    const webp = Buffer.concat([
+      Buffer.from('RIFF'),
+      Buffer.alloc(4),
+      Buffer.from('WEBP'),
+      Buffer.from('avatar'),
+    ]);
 
     const result = await service.updateAvatar(
       12,
-      '/attachments/file/avatar-drive-id',
+      { buffer: webp, size: webp.length, mimetype: 'image/webp' },
       '127.0.0.1',
     );
 
-    expect(result.avatarUrl).toContain('avatar-drive-id');
+    expect(prisma.userAvatar.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { userId: 12 } }),
+    );
+    expect(result.avatarUrl).toContain('/users/12/avatar');
     expect(auditService.logEvent).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'update_avatar', actorId: 12 }),
     );
+  });
+
+  it('rejects content that is not a real supported image', async () => {
+    await expect(
+      service.updateAvatar(12, {
+        buffer: Buffer.from('not-an-image'),
+        size: 12,
+        mimetype: 'image/webp',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.user.update).not.toHaveBeenCalled();
   });
 });
