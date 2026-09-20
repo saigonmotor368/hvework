@@ -176,6 +176,57 @@ export async function uploadAttachment(
   return registered.id;
 }
 
+export async function uploadUserAvatar(
+  apiBaseUrl: string,
+  token: string,
+  file: File,
+  fetcher: Fetcher = fetch,
+): Promise<{ avatarUrl: string }> {
+  const allowedTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
+  if (!allowedTypes.has(file.type)) {
+    throw new Error('Ảnh đại diện chỉ hỗ trợ JPG, PNG hoặc WEBP');
+  }
+  if (file.size > 2 * 1024 * 1024) {
+    throw new Error('Ảnh đại diện phải nhỏ hơn hoặc bằng 2MB');
+  }
+
+  const presignResponse = await fetcher(apiUrl(apiBaseUrl, '/attachments/presigned-url'), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ fileName: file.name, mimeType: file.type, size: file.size }),
+  });
+  if (!presignResponse.ok) {
+    throw new Error(await responseMessage(presignResponse, 'Không chuẩn bị được nơi lưu ảnh'));
+  }
+  const presigned = await presignResponse.json();
+  const uploadResponse = await fetcher(apiUrl(apiBaseUrl, presigned.uploadUrl), {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${token}` },
+    body: file,
+  });
+  if (!uploadResponse.ok) {
+    throw new Error(await responseMessage(uploadResponse, 'Không tải được ảnh đại diện'));
+  }
+  const uploaded = await uploadResponse.json();
+  if (!uploaded.fileUrl) throw new Error('Máy chủ không trả về đường dẫn ảnh');
+
+  const updateResponse = await fetcher(apiUrl(apiBaseUrl, '/users/me/avatar'), {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ avatarUrl: uploaded.fileUrl }),
+  });
+  if (!updateResponse.ok) {
+    throw new Error(await responseMessage(updateResponse, 'Không cập nhật được ảnh đại diện'));
+  }
+  return updateResponse.json();
+}
+
 export async function markAllNotificationsRead(
   apiBaseUrl: string,
   token: string,

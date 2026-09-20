@@ -16,6 +16,7 @@ import {
 } from './dto/set-approval-pin.dto.js';
 import { VerifyLoginDto } from './dto/verify-login.dto.js';
 import { ResendLoginCodeDto } from './dto/resend-login-code.dto.js';
+import { ChangeInitialPasswordDto } from './dto/change-initial-password.dto.js';
 import { LoginVerificationMailer } from './login-verification-mailer.service.js';
 import { createHash, randomInt, randomUUID } from 'node:crypto';
 
@@ -46,11 +47,30 @@ export class AuthService {
     };
   }
 
+  private initialPasswordChangeResponse(user: {
+    id: number;
+    email: string;
+    name: string;
+  }) {
+    return {
+      requiresPasswordChange: true,
+      passwordChangeToken: this.jwtService.sign(
+        { sub: user.id, email: user.email, purpose: 'password_change' },
+        { expiresIn: '15m' },
+      ),
+      user: { id: user.id, email: user.email, name: user.name },
+      message:
+        'Đây là lần đăng nhập đầu tiên bằng mật khẩu do IT cấp. Vui lòng đổi mật khẩu riêng trước khi tiếp tục.',
+    };
+  }
+
   private publicUser(user: any) {
     return {
       id: user.id,
       email: user.email,
       name: user.name,
+      avatarUrl: user.avatarUrl || null,
+      mustChangePassword: Boolean(user.mustChangePassword),
       department: user.department?.name || null,
       departmentId: user.departmentId || null,
       roles: user.roles.map((r: { name: string }) => r.name),
@@ -260,6 +280,26 @@ export class AuthService {
       });
     }
 
+    if (user.mustChangePassword) {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          failedLoginAttempts: 0,
+          lockedUntil: null,
+          refreshTokenHash: null,
+        },
+      });
+      await this.auditService.logEvent({
+        entityType: 'User',
+        entityId: user.id,
+        action: 'initial_password_change_required',
+        actorId: user.id,
+        ip,
+        device,
+      });
+      return this.initialPasswordChangeResponse(user);
+    }
+
     const { accessToken, refreshToken } = this.tokenPair(user);
     const refreshTokenHash = await bcrypt.hash(refreshToken, 10);
 
@@ -361,9 +401,58 @@ export class AuthService {
       throw new UnauthorizedException('Tài khoản không hoạt động');
     }
 
+    const verifiedAt = new Date();
+
+    if (user.mustChangePassword) {
+      await this.prisma.$transaction([
+        this.prisma.loginChallenge.update({
+          where: { id: challenge.id },
+          data: { consumedAt: verifiedAt },
+        }),
+        this.prisma.trustedDevice.upsert({
+          where: {
+            userId_deviceHash: {
+              userId: user.id,
+              deviceHash: challenge.deviceHash,
+            },
+          },
+          create: {
+            userId: user.id,
+            deviceHash: challenge.deviceHash,
+            label: challenge.deviceLabel || device,
+            lastIp: ip || challenge.ip,
+            lastUsedAt: verifiedAt,
+          },
+          update: {
+            revokedAt: null,
+            label: challenge.deviceLabel || device,
+            lastIp: ip || challenge.ip,
+            lastUsedAt: verifiedAt,
+          },
+        }),
+        this.prisma.user.update({
+          where: { id: user.id },
+          data: {
+            emailVerifiedAt: user.emailVerifiedAt || verifiedAt,
+            refreshTokenHash: null,
+            failedLoginAttempts: 0,
+            lockedUntil: null,
+          },
+        }),
+      ]);
+      await this.auditService.logEvent({
+        entityType: 'User',
+        entityId: user.id,
+        action: 'first_login_email_verified_password_change_required',
+        actorId: user.id,
+        ip,
+        device: challenge.deviceLabel || device,
+      });
+      return this.initialPasswordChangeResponse(user);
+    }
+
     const { accessToken, refreshToken } = this.tokenPair(user);
     const refreshTokenHash = await bcrypt.hash(refreshToken, 10);
-    const verifiedAt = new Date();
 
     await this.prisma.$transaction([
       this.prisma.loginChallenge.update({
@@ -505,6 +594,104 @@ export class AuthService {
       maskedEmail: this.maskEmail(previous.user.email),
       resendCooldownSeconds: 60,
       message: 'Đã gửi một mã xác minh mới tới email công việc.',
+    };
+  }
+
+  async changeInitialPassword(
+    dto: ChangeInitialPasswordDto,
+    ip?: string,
+    device?: string,
+  ) {
+    let payload: any;
+    try {
+      payload = this.jwtService.verify(dto.token);
+    } catch {
+      throw new UnauthorizedException(
+        'Phiên đổi mật khẩu đã hết hạn. Vui lòng đăng nhập lại.',
+      );
+    }
+    if (payload?.purpose !== 'password_change') {
+      throw new UnauthorizedException('Phiên đổi mật khẩu không hợp lệ');
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: Number(payload.sub) },
+      include: {
+        roles: true,
+        department: true,
+        ledProjects: true,
+        projectMemberships: { include: { project: true } },
+        delegatedFrom: {
+          where: { delegateUntil: { gte: new Date() }, status: 'active' },
+          include: {
+            roles: true,
+            department: true,
+            ledProjects: true,
+            projectMemberships: { include: { project: true } },
+          },
+        },
+      },
+    });
+    if (!user || user.status !== 'active' || !user.mustChangePassword) {
+      throw new UnauthorizedException(
+        'Tài khoản không còn yêu cầu đổi mật khẩu lần đầu.',
+      );
+    }
+
+    const currentPasswordMatches = await bcrypt.compare(
+      dto.currentPassword,
+      user.passwordHash,
+    );
+    if (!currentPasswordMatches) {
+      throw new UnauthorizedException('Mật khẩu hiện tại không chính xác');
+    }
+    if (dto.newPassword === dto.currentPassword) {
+      throw new BadRequestException(
+        'Mật khẩu mới phải khác mật khẩu do IT cấp.',
+      );
+    }
+    if (dto.newPassword === 'Hve@2026') {
+      throw new BadRequestException('Không được tiếp tục sử dụng mật khẩu mặc định.');
+    }
+    if (
+      !/[a-z]/.test(dto.newPassword) ||
+      !/[A-Z]/.test(dto.newPassword) ||
+      !/\d/.test(dto.newPassword) ||
+      !/[^A-Za-z0-9]/.test(dto.newPassword)
+    ) {
+      throw new BadRequestException(
+        'Mật khẩu mới phải có chữ hoa, chữ thường, số và ký tự đặc biệt.',
+      );
+    }
+
+    const passwordHash = await bcrypt.hash(dto.newPassword, 10);
+    const { accessToken, refreshToken } = this.tokenPair(user);
+    const refreshTokenHash = await bcrypt.hash(refreshToken, 10);
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordHash,
+        mustChangePassword: false,
+        passwordChangedAt: new Date(),
+        refreshTokenHash,
+        failedLoginAttempts: 0,
+        lockedUntil: null,
+      },
+    });
+    await this.auditService.logEvent({
+      entityType: 'User',
+      entityId: user.id,
+      action: 'initial_password_changed',
+      actorId: user.id,
+      ip,
+      device,
+    });
+
+    return {
+      access_token: accessToken,
+      refresh_token: refreshToken,
+      user: this.publicUser({ ...user, mustChangePassword: false }),
+      message: 'Đổi mật khẩu thành công.',
     };
   }
 

@@ -16,6 +16,7 @@ import { ResetPasswordDto } from './dto/reset-password.dto.js';
 import { SetApprovalPinDto, ToggleApprovalPinDto } from './dto/set-approval-pin.dto.js';
 import { VerifyLoginDto } from './dto/verify-login.dto.js';
 import { ResendLoginCodeDto } from './dto/resend-login-code.dto.js';
+import { ChangeInitialPasswordDto } from './dto/change-initial-password.dto.js';
 import { JwtAuthGuard } from './jwt-auth.guard.js';
 import { RolesGuard } from './roles.guard.js';
 import { Roles } from './roles.decorator.js';
@@ -53,6 +54,20 @@ export class AuthController {
     );
   }
 
+  @Throttle(5, 60000)
+  @Post('change-initial-password')
+  @HttpCode(HttpStatus.OK)
+  async changeInitialPassword(
+    @Body() body: ChangeInitialPasswordDto,
+    @Req() request: any,
+  ) {
+    return this.authService.changeInitialPassword(
+      body,
+      request.ip,
+      request.headers['user-agent'],
+    );
+  }
+
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   async refresh(@Body() body: RefreshTokenDto) {
@@ -82,6 +97,8 @@ export class AuthController {
       id: user.id,
       email: user.email,
       name: user.name,
+      avatarUrl: user.avatarUrl || null,
+      mustChangePassword: Boolean(user.mustChangePassword),
       departmentId: user.departmentId,
       department: user.department
         ? {

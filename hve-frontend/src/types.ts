@@ -197,6 +197,8 @@ export interface AdminUser {
   email: string;
   name: string;
   phone?: string;
+  avatarUrl?: string | null;
+  mustChangePassword?: boolean;
   status: "active" | "locked";
   departmentId?: number | null;
   department?: DepartmentItem | null;

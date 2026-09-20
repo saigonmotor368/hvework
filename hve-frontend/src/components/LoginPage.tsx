@@ -7,10 +7,13 @@ interface LoginPageProps {
   isProcessing: boolean;
   onLogin: (e: React.FormEvent<HTMLFormElement>) => void;
   verificationEmail?: string;
+  passwordChangeUser?: { name: string; email: string } | null;
+  onChangeInitialPassword: (e: React.FormEvent<HTMLFormElement>) => void;
   onVerifyEmail: (e: React.FormEvent<HTMLFormElement>) => void;
   onResendEmail: () => void;
   resendCooldown: number;
   onCancelVerification: () => void;
+  onCancelPasswordChange: () => void;
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({
@@ -18,16 +21,20 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   isProcessing,
   onLogin,
   verificationEmail,
+  passwordChangeUser,
+  onChangeInitialPassword,
   onVerifyEmail,
   onResendEmail,
   resendCooldown,
   onCancelVerification,
+  onCancelPasswordChange,
 }) => {
   const [verificationInput, setVerificationInput] = useState<{
     email?: string;
     code: string;
   }>({ code: "" });
   const [showPassword, setShowPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
   const verificationCode =
     verificationInput.email === verificationEmail ? verificationInput.code : "";
 
@@ -36,7 +43,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       <BrandLoader
         variant="splash"
         label={
-          verificationEmail
+          passwordChangeUser
+            ? "Đang bảo vệ tài khoản..."
+            : verificationEmail
             ? "Đang xác minh thiết bị..."
             : "Đang đăng nhập HVE Work..."
         }
@@ -87,7 +96,90 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
       <div className="mt-6 sm:mt-8 sm:mx-auto w-full sm:max-w-md">
         <div className="bg-white py-6 sm:py-8 px-4 sm:px-10 shadow-xl shadow-slate-200/60 rounded-2xl border border-slate-100">
-          {verificationEmail ? (
+          {passwordChangeUser ? (
+            <form className="space-y-4" onSubmit={onChangeInitialPassword}>
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                <strong className="block">Đổi mật khẩu lần đầu</strong>
+                <span className="mt-1 block text-xs leading-relaxed">
+                  Tài khoản <strong>{passwordChangeUser.name}</strong> đang dùng
+                  mật khẩu tạm do IT cấp. Hãy đặt mật khẩu riêng trước khi vào
+                  HVE Work.
+                </span>
+              </div>
+              {authError && (
+                <div className="rounded-lg border border-red-100 bg-red-50 p-3 text-sm text-red-700">
+                  {authError}
+                </div>
+              )}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700">
+                  Mật khẩu tạm hiện tại
+                </label>
+                <input
+                  name="currentPassword"
+                  type="password"
+                  required
+                  autoComplete="current-password"
+                  placeholder="Nhập mật khẩu IT đã cấp"
+                  className="mt-1 block w-full rounded-lg border border-gray-200 bg-slate-50 px-3.5 py-2.5 text-sm text-gray-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0A66C2]"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700">
+                  Mật khẩu mới
+                </label>
+                <div className="relative mt-1">
+                  <input
+                    name="newPassword"
+                    type={showNewPassword ? "text" : "password"}
+                    required
+                    minLength={8}
+                    autoComplete="new-password"
+                    placeholder="Ít nhất 8 ký tự"
+                    className="block w-full rounded-lg border border-gray-200 bg-slate-50 px-3.5 py-2.5 pr-16 text-sm text-gray-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0A66C2]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword((value) => !value)}
+                    className="absolute inset-y-0 right-0 px-3 text-xs font-semibold text-[#0A66C2]"
+                  >
+                    {showNewPassword ? "Ẩn" : "Hiện"}
+                  </button>
+                </div>
+                <p className="mt-1 text-[11px] text-gray-500">
+                  Cần có chữ hoa, chữ thường, số và ký tự đặc biệt.
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700">
+                  Nhập lại mật khẩu mới
+                </label>
+                <input
+                  name="confirmPassword"
+                  type={showNewPassword ? "text" : "password"}
+                  required
+                  minLength={8}
+                  autoComplete="new-password"
+                  placeholder="Nhập lại mật khẩu mới"
+                  className="mt-1 block w-full rounded-lg border border-gray-200 bg-slate-50 px-3.5 py-2.5 text-sm text-gray-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0A66C2]"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={isProcessing}
+                className="w-full rounded-lg bg-[#0A66C2] px-4 py-2.5 text-sm font-semibold text-white shadow-md hover:bg-blue-700 disabled:opacity-50"
+              >
+                Đổi mật khẩu và vào hệ thống
+              </button>
+              <button
+                type="button"
+                onClick={onCancelPasswordChange}
+                className="w-full text-sm font-medium text-gray-500 hover:text-gray-700"
+              >
+                Quay lại đăng nhập
+              </button>
+            </form>
+          ) : verificationEmail ? (
             <form
               className="space-y-5"
               onSubmit={onVerifyEmail}

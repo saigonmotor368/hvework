@@ -248,6 +248,97 @@ describe('AuthService', () => {
         }),
       );
     });
+
+    it('should require a newly created account to change its temporary password', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: 21,
+        email: 'new.staff@huyvoeducation.vn',
+        passwordHash: mockPasswordHash,
+        name: 'New Staff',
+        status: 'active',
+        failedLoginAttempts: 0,
+        lockedUntil: null,
+        mustChangePassword: true,
+        roles: [{ name: 'employee' }],
+        department: null,
+      });
+      prisma.user.update.mockResolvedValue({});
+
+      const result = await service.login({
+        email: 'new.staff@huyvoeducation.vn',
+        password: '123456',
+      });
+
+      expect(result).toMatchObject({
+        requiresPasswordChange: true,
+        passwordChangeToken: 'mock_jwt_token',
+      });
+      expect(result).not.toHaveProperty('access_token');
+    });
+  });
+
+  describe('changeInitialPassword', () => {
+    it('changes the temporary password and issues a full session', async () => {
+      jwtService.verify.mockReturnValue({
+        sub: 21,
+        email: 'new.staff@huyvoeducation.vn',
+        purpose: 'password_change',
+      });
+      prisma.user.findUnique.mockResolvedValue({
+        id: 21,
+        email: 'new.staff@huyvoeducation.vn',
+        passwordHash: mockPasswordHash,
+        name: 'New Staff',
+        status: 'active',
+        mustChangePassword: true,
+        roles: [{ name: 'employee' }],
+        department: null,
+        ledProjects: [],
+        projectMemberships: [],
+        delegatedFrom: [],
+      });
+      prisma.user.update.mockResolvedValue({});
+
+      const result = await service.changeInitialPassword(
+        {
+          token: 'change-token',
+          currentPassword: '123456',
+          newPassword: 'HveSecure@2027',
+        },
+        '127.0.0.1',
+        'Chrome',
+      );
+
+      expect(result).toHaveProperty('access_token');
+      expect(result.user.mustChangePassword).toBe(false);
+      expect(prisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 21 },
+          data: expect.objectContaining({ mustChangePassword: false }),
+        }),
+      );
+    });
+
+    it('rejects reuse of the temporary password', async () => {
+      jwtService.verify.mockReturnValue({
+        sub: 21,
+        purpose: 'password_change',
+      });
+      prisma.user.findUnique.mockResolvedValue({
+        id: 21,
+        passwordHash: mockPasswordHash,
+        status: 'active',
+        mustChangePassword: true,
+      });
+
+      await expect(
+        service.changeInitialPassword({
+          token: 'change-token',
+          currentPassword: '123456',
+          newPassword: '123456',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
   });
 
   describe('verifyLoginChallenge', () => {

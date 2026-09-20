@@ -1,13 +1,15 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { fetchWithSession } from "../api/client";
+import { fetchWithSession, uploadUserAvatar } from "../api/client";
 import { ROLE_LABELS } from "../types";
 import { BrandLoader } from "./BrandLoader";
+import { UserAvatar } from "./UserAvatar";
 
 interface UserProfile {
   id: number;
   name: string;
   email: string;
   phone?: string | null;
+  avatarUrl?: string | null;
   status: string;
   department?: { id: number; code: string; name: string } | null;
   roles: Array<{ id: number; name: string; description?: string | null }>;
@@ -28,12 +30,16 @@ interface UserProfile {
   }>;
 }
 
-export const UserProfileModal: React.FC<{ apiBaseUrl: string }> = ({
-  apiBaseUrl,
-}) => {
+export const UserProfileModal: React.FC<{
+  apiBaseUrl: string;
+  currentUser?: { id?: number; avatarUrl?: string | null } | null;
+  onCurrentUserUpdated?: (user: any) => void;
+  showToast?: (message: string, type?: "success" | "error") => void;
+}> = ({ apiBaseUrl, currentUser, onCurrentUserUpdated, showToast }) => {
   const [userId, setUserId] = useState<number | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [error, setError] = useState("");
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
 
   useEffect(() => {
     const handleOpen = (event: Event) => {
@@ -72,17 +78,6 @@ export const UserProfileModal: React.FC<{ apiBaseUrl: string }> = ({
     return () => controller.abort();
   }, [apiBaseUrl, userId]);
 
-  const initials = useMemo(
-    () =>
-      (profile?.name || "HVE")
-        .split(/\s+/)
-        .filter(Boolean)
-        .slice(-2)
-        .map((part) => part[0]?.toUpperCase())
-        .join(""),
-    [profile?.name],
-  );
-
   const assignedProjects = useMemo(() => {
     if (!profile) return [];
     const projects = new Map<
@@ -97,6 +92,26 @@ export const UserProfileModal: React.FC<{ apiBaseUrl: string }> = ({
   }, [profile]);
 
   if (!userId) return null;
+
+  const handleAvatarUpload = async (file?: File) => {
+    if (!file || !profile || currentUser?.id !== profile.id) return;
+    const token = localStorage.getItem("access_token");
+    if (!token) return;
+    setIsUploadingAvatar(true);
+    try {
+      const updated = await uploadUserAvatar(apiBaseUrl, token, file);
+      const nextProfile = { ...profile, avatarUrl: updated.avatarUrl };
+      setProfile(nextProfile);
+      const nextCurrentUser = { ...currentUser, avatarUrl: updated.avatarUrl };
+      localStorage.setItem("user", JSON.stringify(nextCurrentUser));
+      onCurrentUserUpdated?.(nextCurrentUser);
+      showToast?.("Đã cập nhật ảnh đại diện.");
+    } catch (reason: any) {
+      showToast?.(reason?.message || "Không thể cập nhật ảnh đại diện", "error");
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
 
   return (
     <div
@@ -118,8 +133,30 @@ export const UserProfileModal: React.FC<{ apiBaseUrl: string }> = ({
           </button>
           {profile && (
             <div className="relative flex items-center gap-4 pr-10">
-              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-white/30 bg-white/20 text-xl font-black shadow-lg">
-                {initials}
+              <div className="relative shrink-0">
+                <UserAvatar
+                  user={profile}
+                  apiBaseUrl={apiBaseUrl}
+                  className="h-16 w-16 rounded-2xl border-2 border-white/40 shadow-lg"
+                />
+                {currentUser?.id === profile.id && (
+                  <label
+                    className="absolute -bottom-2 -right-2 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border-2 border-white bg-[#0A66C2] text-xs shadow-lg hover:bg-blue-700"
+                    title="Thay ảnh đại diện"
+                  >
+                    {isUploadingAvatar ? "…" : "📷"}
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      disabled={isUploadingAvatar}
+                      onChange={(event) => {
+                        void handleAvatarUpload(event.target.files?.[0]);
+                        event.target.value = "";
+                      }}
+                      className="hidden"
+                    />
+                  </label>
+                )}
               </div>
               <div className="min-w-0">
                 <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-blue-100">

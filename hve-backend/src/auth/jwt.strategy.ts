@@ -143,6 +143,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: any) {
+    // Short-lived tokens for one-purpose flows (for example the mandatory
+    // first-password change) must never be accepted as API access tokens.
+    if (payload?.purpose) {
+      throw new UnauthorizedException();
+    }
+
     const userId = Number(payload?.sub);
     if (!Number.isInteger(userId) || userId <= 0) {
       throw new UnauthorizedException();

@@ -111,6 +111,11 @@ export default function App() {
     id: string;
     maskedEmail: string;
   } | null>(null);
+  const [passwordChangeRequest, setPasswordChangeRequest] = useState<{
+    token: string;
+    name: string;
+    email: string;
+  } | null>(null);
   const [resendCooldown, setResendCooldown] = useState(0);
 
   useEffect(() => {
@@ -128,6 +133,7 @@ export default function App() {
       setUser(null);
       setIsAuthenticated(false);
       setEmailChallenge(null);
+      setPasswordChangeRequest(null);
       setAuthError(
         message || "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.",
       );
@@ -158,6 +164,11 @@ export default function App() {
         const profile = await response.json().catch(() => ({}));
         if (!response.ok) {
           throw new Error(profile.message || "Không thể xác minh phiên đăng nhập");
+        }
+        if (profile.mustChangePassword) {
+          throw new Error(
+            "Tài khoản vừa được IT cấp lại mật khẩu. Vui lòng đăng nhập bằng mật khẩu tạm để đổi mật khẩu mới.",
+          );
         }
         if (cancelled) return;
         localStorage.setItem("user", JSON.stringify(profile));
@@ -642,6 +653,7 @@ export default function App() {
     localStorage.setItem("refresh_token", data.refresh_token);
     localStorage.setItem("user", JSON.stringify(data.user));
     setEmailChallenge(null);
+    setPasswordChangeRequest(null);
     setUser(data.user);
     setIsAuthenticated(true);
     showToast(`Chào mừng ${data.user.name} đã đăng nhập!`);
@@ -690,6 +702,17 @@ export default function App() {
         return;
       }
 
+      if (data.requiresPasswordChange) {
+        setPasswordChangeRequest({
+          token: data.passwordChangeToken,
+          name: data.user?.name || "Người dùng HVE",
+          email: data.user?.email || email,
+        });
+        setEmailChallenge(null);
+        showToast(data.message || "Vui lòng đổi mật khẩu lần đầu.");
+        return;
+      }
+
       completeLogin(data);
     } catch (err: any) {
       showToast(err.message || "Không thể kết nối đến máy chủ", "error");
@@ -722,9 +745,61 @@ export default function App() {
         );
         return;
       }
+      if (data.requiresPasswordChange) {
+        setPasswordChangeRequest({
+          token: data.passwordChangeToken,
+          name: data.user?.name || "Người dùng HVE",
+          email: data.user?.email || "",
+        });
+        setEmailChallenge(null);
+        showToast(data.message || "Vui lòng đổi mật khẩu lần đầu.");
+        return;
+      }
       completeLogin(data);
     } catch (err: any) {
       setAuthError(err.message || "Không thể kết nối đến máy chủ");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleInitialPasswordChange = async (
+    event: React.FormEvent<HTMLFormElement>,
+  ) => {
+    event.preventDefault();
+    if (!passwordChangeRequest) return;
+    setAuthError("");
+    const formData = new FormData(event.currentTarget);
+    const currentPassword = String(formData.get("currentPassword") || "");
+    const newPassword = String(formData.get("newPassword") || "");
+    const confirmPassword = String(formData.get("confirmPassword") || "");
+    if (newPassword !== confirmPassword) {
+      setAuthError("Mật khẩu xác nhận chưa khớp.");
+      return;
+    }
+    setIsProcessing(true);
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/auth/change-initial-password`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            token: passwordChangeRequest.token,
+            currentPassword,
+            newPassword,
+          }),
+        },
+      );
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setAuthError(data.message || "Không thể đổi mật khẩu.");
+        return;
+      }
+      completeLogin(data);
+      showToast("Đổi mật khẩu thành công. Tài khoản đã sẵn sàng sử dụng.");
+    } catch (error: any) {
+      setAuthError(error?.message || "Không thể kết nối đến máy chủ");
     } finally {
       setIsProcessing(false);
     }
@@ -768,6 +843,7 @@ export default function App() {
     setUser(null);
     setIsAuthenticated(false);
     setSelectedDoc(null);
+    setPasswordChangeRequest(null);
     showToast("Đã đăng xuất tài khoản.");
   };
 
@@ -1369,12 +1445,18 @@ export default function App() {
           isProcessing={isProcessing}
           onLogin={handleLogin}
           verificationEmail={emailChallenge?.maskedEmail}
+          passwordChangeUser={passwordChangeRequest}
+          onChangeInitialPassword={handleInitialPasswordChange}
           onVerifyEmail={handleVerifyEmail}
           onResendEmail={handleResendEmail}
           resendCooldown={resendCooldown}
           onCancelVerification={() => {
             setEmailChallenge(null);
             setResendCooldown(0);
+            setAuthError("");
+          }}
+          onCancelPasswordChange={() => {
+            setPasswordChangeRequest(null);
             setAuthError("");
           }}
         />
@@ -1780,7 +1862,12 @@ export default function App() {
       {isAuthenticated && user && (
         <>
           <EnableNotificationsPrompt apiBaseUrl={API_BASE_URL} />
-          <UserProfileModal apiBaseUrl={API_BASE_URL} />
+          <UserProfileModal
+            apiBaseUrl={API_BASE_URL}
+            currentUser={user}
+            onCurrentUserUpdated={setUser}
+            showToast={showToast}
+          />
         </>
       )}
 

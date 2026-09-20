@@ -30,6 +30,8 @@ export class AdminService {
         email: true,
         name: true,
         phone: true,
+        avatarUrl: true,
+        mustChangePassword: true,
         status: true,
         departmentId: true,
         department: {
@@ -167,6 +169,7 @@ export class AdminService {
         email: emailLower,
         name: dto.name.trim(),
         passwordHash,
+        mustChangePassword: true,
         departmentId: dto.departmentId || null,
         status: 'active',
         roles: {
@@ -177,6 +180,8 @@ export class AdminService {
         id: true,
         email: true,
         name: true,
+        avatarUrl: true,
+        mustChangePassword: true,
         status: true,
         department: { select: { id: true, name: true, code: true } },
         roles: { select: { id: true, name: true, description: true } },

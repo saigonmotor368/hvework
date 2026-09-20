@@ -8,6 +8,7 @@ import {
 } from "../types";
 import { fetchWithSession } from "../api/client";
 import { UserNameButton } from "./UserNameButton";
+import { UserAvatar } from "./UserAvatar";
 
 interface AdminUserViewProps {
   apiBaseUrl: string;
@@ -68,7 +69,6 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
   const [newName, setNewName] = useState<string>("");
   const [newEmail, setNewEmail] = useState<string>("");
-  const [newPassword, setNewPassword] = useState<string>("Hve@2026");
   const [newProjectIds, setNewProjectIds] = useState<number[]>([]);
   const [newProjectPositions, setNewProjectPositions] = useState<
     Record<number, string>
@@ -139,9 +139,26 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
       id: 7,
       name: "bgd",
       description:
-        "Ban Giám Đốc - Xem toàn bộ dữ liệu công ty, không thực thi lệnh",
+        "Ban Giám Đốc - Xem toàn công ty, giao việc và tạo đề xuất theo người nhận",
     },
   ];
+
+  const ROLE_PERMISSION_SUMMARY: Record<string, string> = {
+    employee:
+      "Xem và xử lý công việc được giao/phối hợp; tạo hồ sơ, đề xuất và báo cáo trong phạm vi của mình.",
+    department_head:
+      "Quản lý thành viên và công việc thuộc dự án phụ trách; duyệt hồ sơ ở cấp Trưởng Ban/Trưởng dự án.",
+    accountant:
+      "Xem hồ sơ thanh toán; trả hồ sơ, xác nhận thu/chi và đính kèm chứng từ kế toán.",
+    legal:
+      "Thẩm định hợp đồng và nội dung pháp lý; theo dõi hợp đồng sắp hết hạn.",
+    ceo:
+      "Xem toàn công ty; giao việc, phê duyệt cấp CEO và theo dõi toàn bộ tiến độ.",
+    it_admin:
+      "Quản lý người dùng, vai trò, dự án, quy trình, thông báo và dữ liệu hệ thống.",
+    bgd:
+      "Xem toàn công ty; giao việc và tạo đề xuất, giới hạn theo người được chỉ định.",
+  };
 
   const fetchUsersAndMeta = async () => {
     setIsLoading(true);
@@ -276,7 +293,7 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
         body: JSON.stringify({
           name: newName.trim(),
           email: newEmail.trim().toLowerCase(),
-          password: newPassword || "Hve@2026",
+          password: "Hve@2026",
           projectIds: newProjectIds,
           projectPositions: Object.fromEntries(
             newProjectIds.map((id) => [
@@ -295,7 +312,6 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
         setIsAddModalOpen(false);
         setNewName("");
         setNewEmail("");
-        setNewPassword("Hve@2026");
         setNewProjectIds([]);
         setNewProjectPositions({});
         setNewRoleIds([1]);
@@ -654,7 +670,13 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                     className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
                   >
                     <div className="flex min-w-0 items-start justify-between gap-3">
-                      <div className="min-w-0">
+                      <div className="flex min-w-0 items-start gap-3">
+                        <UserAvatar
+                          user={user}
+                          apiBaseUrl={apiBaseUrl}
+                          className="h-11 w-11 rounded-xl border border-slate-200"
+                        />
+                        <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-1.5 text-sm font-bold text-gray-900">
                           <UserNameButton user={user} />
                           {user.id === currentUser?.id && (
@@ -666,6 +688,12 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                         <p className="mt-1 break-all text-xs text-gray-500">
                           {user.email}
                         </p>
+                        {user.mustChangePassword && (
+                          <span className="mt-1 inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">
+                            Chờ đổi mật khẩu lần đầu
+                          </span>
+                        )}
+                        </div>
                       </div>
                       <span
                         className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold ${
@@ -807,6 +835,13 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                         className="hover:bg-slate-50/60 transition-colors"
                       >
                         <td className="px-5 py-4 font-bold text-gray-900 whitespace-nowrap">
+                          <div className="flex items-center gap-2.5">
+                          <UserAvatar
+                            user={user}
+                            apiBaseUrl={apiBaseUrl}
+                            className="h-9 w-9 rounded-lg border border-slate-200"
+                          />
+                          <div>
                           <UserNameButton user={user} />
                           {user.id === currentUser?.id && (
                             <span className="ml-2 text-[10px] font-bold bg-blue-100 text-[#0A66C2] px-1.5 py-0.5 rounded">
@@ -832,6 +867,13 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                               🔄 Duyệt thay
                             </span>
                           )}
+                          {user.mustChangePassword && (
+                            <span className="mt-1 block w-fit rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800">
+                              Chờ đổi mật khẩu
+                            </span>
+                          )}
+                          </div>
+                          </div>
                         </td>
                         <td className="px-5 py-4 text-xs text-gray-600 whitespace-nowrap">
                           {user.email}
@@ -1239,20 +1281,13 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                 />
               </div>
 
-              {/* Password */}
-              <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
-                  Mật khẩu khởi tạo
-                </label>
-                <input
-                  type="text"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Mặc định: Hve@2026"
-                  className="w-full text-xs font-mono font-medium bg-slate-50 border border-gray-200 rounded-lg p-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#0A66C2]"
-                />
-                <p className="text-[11px] text-gray-400 mt-1">
-                  Mặc định hệ thống là Hve@2026
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+                <p className="text-xs font-bold uppercase tracking-wider text-amber-900">
+                  Mật khẩu khởi tạo: <span className="font-mono">Hve@2026</span>
+                </p>
+                <p className="mt-1 text-[11px] leading-relaxed text-amber-800">
+                  Chỉ dùng cho lần đăng nhập đầu. Sau khi xác minh email, người
+                  dùng bắt buộc đặt mật khẩu riêng mới được vào hệ thống.
                 </p>
               </div>
 
@@ -1331,7 +1366,7 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                 <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
                   Vai trò đảm nhiệm <span className="text-red-500">*</span>
                 </label>
-                <div className="grid grid-cols-1 gap-2 max-h-40 overflow-y-auto p-1 border border-slate-100 rounded-xl sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-2 max-h-60 overflow-y-auto p-1 border border-slate-100 rounded-xl">
                   {roles.map((r) => {
                     const isChecked = newRoleIds.includes(r.id);
                     const isProjectLeadRole = r.name === "department_head";
@@ -1343,7 +1378,7 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                             ? "Vai trò này được cấp tại màn Quản lý dự án"
                             : undefined
                         }
-                        className={`flex items-center space-x-2 p-2 rounded-lg border text-xs transition-all ${
+                        className={`flex items-start space-x-2 p-3 rounded-xl border text-xs transition-all ${
                           isProjectLeadRole
                             ? "cursor-not-allowed opacity-60"
                             : "cursor-pointer"
@@ -1368,10 +1403,32 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                           }}
                           className="rounded text-[#0A66C2] focus:ring-[#0A66C2]"
                         />
-                        <span>{ROLE_LABELS[r.name] || r.name}</span>
+                        <span className="min-w-0">
+                          <strong className="block text-xs">
+                            {ROLE_LABELS[r.name] || r.name}
+                          </strong>
+                          <span className="mt-0.5 block text-[11px] font-normal leading-relaxed text-gray-500">
+                            {ROLE_PERMISSION_SUMMARY[r.name] || r.description || r.name}
+                          </span>
+                        </span>
                       </label>
                     );
                   })}
+                </div>
+                <div className="mt-2 rounded-xl bg-blue-50 p-3">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-blue-700">
+                    Quyền sẽ được cấp
+                  </p>
+                  <ul className="mt-1.5 space-y-1 text-[11px] leading-relaxed text-blue-900">
+                    {roles
+                      .filter((role) => newRoleIds.includes(role.id))
+                      .map((role) => (
+                        <li key={role.id}>
+                          <strong>{ROLE_LABELS[role.name] || role.name}:</strong>{" "}
+                          {ROLE_PERMISSION_SUMMARY[role.name] || role.description}
+                        </li>
+                      ))}
+                  </ul>
                 </div>
               </div>
 
@@ -1566,7 +1623,9 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                             {ROLE_LABELS[r.name] || r.name}
                           </span>
                           <span className="text-[11px] text-gray-400">
-                            {r.description || r.name}
+                            {ROLE_PERMISSION_SUMMARY[r.name] ||
+                              r.description ||
+                              r.name}
                           </span>
                         </div>
                         <input

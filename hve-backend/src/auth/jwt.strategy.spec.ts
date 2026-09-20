@@ -129,4 +129,22 @@ describe('JwtStrategy auth context cache', () => {
       UnauthorizedException,
     );
   });
+
+  it('rejects a one-purpose password-change token as an API access token', async () => {
+    const prisma = {
+      user: {
+        findUnique: vi.fn(),
+        findMany: vi.fn(),
+      },
+      department: { findUnique: vi.fn() },
+      role: { findMany: vi.fn() },
+      project: { findMany: vi.fn() },
+    } as any;
+    const strategy = new JwtStrategy(prisma);
+
+    await expect(
+      strategy.validate({ sub: 7, purpose: 'password_change' }),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(prisma.user.findUnique).not.toHaveBeenCalled();
+  });
 });

@@ -33,7 +33,14 @@ model User {
   passwordHash String
   name         String
   phone        String?
+  avatarUrl    String?
   status       String  @default("active") // active, locked
+
+  // Tài khoản do IT tạo hoặc vừa reset mật khẩu phải đổi mật khẩu trước khi
+  // được cấp phiên đăng nhập đầy đủ. Giá trị mặc định false giữ nguyên trạng
+  // thái của các tài khoản đang vận hành khi triển khai migration.
+  mustChangePassword Boolean   @default(false)
+  passwordChangedAt  DateTime?
 
   failedLoginAttempts  Int       @default(0)
   lockedUntil          DateTime?

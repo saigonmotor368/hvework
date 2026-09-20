@@ -105,6 +105,12 @@ describe('AdminService', () => {
         1,
       );
 
+      expect(prisma.user.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ mustChangePassword: true }),
+        }),
+      );
+
       expect(prisma.projectMember.createMany).toHaveBeenCalledWith({
         data: [{ userId: 15, projectId: 4, position: 'Cứu hộ' }],
       });

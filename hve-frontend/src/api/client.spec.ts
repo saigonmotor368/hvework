@@ -6,6 +6,7 @@ import {
   markAllNotificationsRead,
   SESSION_EXPIRED_EVENT,
   uploadAttachment,
+  uploadUserAvatar,
   type Fetcher,
 } from './client';
 
@@ -201,6 +202,32 @@ describe('API contracts', () => {
       'https://api.example.com/notifications/read-all',
       expect.objectContaining({ method: 'PATCH' }),
     );
+  });
+
+  it('uploads an avatar and updates the current user profile without creating an attachment record', async () => {
+    const fetcher = vi
+      .fn<Fetcher>()
+      .mockResolvedValueOnce(
+        jsonResponse({ uploadUrl: '/attachments/upload-storage/avatar.png?token=signed' }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({ fileUrl: '/attachments/file/avatar-drive-id', size: 4 }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({ id: 7, avatarUrl: '/attachments/file/avatar-drive-id' }),
+      );
+    const file = new File(['test'], 'avatar.png', { type: 'image/png' });
+
+    const result = await uploadUserAvatar(
+      'https://api.example.com',
+      'jwt',
+      file,
+      fetcher,
+    );
+
+    expect(result.avatarUrl).toContain('avatar-drive-id');
+    expect(fetcher.mock.calls[2][0]).toBe('https://api.example.com/users/me/avatar');
+    expect(fetcher.mock.calls[2][1]?.method).toBe('PATCH');
   });
 
   it('builds an authenticated download URL and preserves a 404-safe backend route', () => {
