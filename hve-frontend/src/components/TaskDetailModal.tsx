@@ -42,6 +42,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   const [progress, setProgress] = useState<number>(0);
   const [progressNote, setProgressNote] = useState<string>("");
   const [isUpdatingProgress, setIsUpdatingProgress] = useState(false);
+  const [isAccepting, setIsAccepting] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
 
   // Comment state
@@ -137,6 +138,34 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     }
   };
 
+  const handleAcceptTask = async () => {
+    if (!task) return;
+    const token = localStorage.getItem("access_token");
+    if (!token) return;
+
+    try {
+      setIsAccepting(true);
+      const res = await fetchWithSession(
+        `${apiBaseUrl}/tasks/${task.id}/accept`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || "Không thể nhận công việc");
+      }
+      showToast("Đã nhận việc. Bạn có thể cập nhật tiến độ ngay bây giờ!");
+      await fetchTaskDetail();
+      onRefreshList();
+    } catch (err: any) {
+      showToast(err.message || "Lỗi khi nhận công việc", "error");
+    } finally {
+      setIsAccepting(false);
+    }
+  };
+
   const handleConfirmCompletion = async () => {
     if (!task) return;
     const token = localStorage.getItem("access_token");
@@ -225,6 +254,10 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     currentUser?.roles?.includes("bgd");
   const hasSubTasks = task?.subTasks && task.subTasks.length > 0;
   const canConfirm = task?.status === "Chờ duyệt" && (isCreator || isCeo);
+  const isPrimaryAssignee = task?.assigneeId === currentUser?.id;
+  const canAccept = isPrimaryAssignee && task?.status === "Chưa làm";
+  const canUpdateProgress =
+    isPrimaryAssignee && task?.status !== "Chưa làm";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 overflow-y-auto">
@@ -292,6 +325,28 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
           </div>
         ) : (
           <div className="mobile-scroll flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 sm:space-y-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
+            {canAccept && (
+              <div className="flex flex-col gap-3 rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-50 to-cyan-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h4 className="text-sm font-black text-blue-950">
+                    Công việc mới đang chờ bạn nhận
+                  </h4>
+                  <p className="mt-1 text-xs leading-relaxed text-blue-700">
+                    Bấm “Nhận việc” để xác nhận bắt đầu xử lý. Sau đó bạn có
+                    thể cập nhật phần trăm tiến độ và ghi chú thực hiện.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleAcceptTask}
+                  disabled={isAccepting}
+                  className="min-h-11 shrink-0 rounded-xl bg-[#0A66C2] px-5 py-2.5 text-sm font-black text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {isAccepting ? "Đang nhận việc..." : "✓ Nhận việc"}
+                </button>
+              </div>
+            )}
+
             {/* Thông báo nghiệm thu hoàn thành */}
             {canConfirm && (
               <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -397,7 +452,11 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                   <span className="text-xs text-gray-500">
                     {hasSubTasks
                       ? "Tiến độ được tự động tính trung bình cộng từ các việc con"
-                      : "Kéo thanh trượt để cập nhật tiến độ thực hiện"}
+                      : canAccept
+                        ? "Nhận việc trước khi cập nhật tiến độ thực hiện"
+                        : canUpdateProgress
+                          ? "Kéo thanh trượt để cập nhật tiến độ thực hiện"
+                          : "Chỉ người thực hiện chính được cập nhật tiến độ"}
                   </span>
                 </div>
                 <span className="text-lg font-bold text-[#0A66C2]">
@@ -414,7 +473,9 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
               </div>
 
               {/* Cập nhật tiến độ form (chỉ khi không có subtasks và chưa hoàn thành) */}
-              {!hasSubTasks && task.status !== "Hoàn thành" && (
+              {!hasSubTasks &&
+                task.status !== "Hoàn thành" &&
+                canUpdateProgress && (
                 <div className="pt-2 border-t border-blue-100/60 space-y-2">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:space-x-4">
                     <input

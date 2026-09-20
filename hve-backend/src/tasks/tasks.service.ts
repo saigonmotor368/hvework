@@ -635,6 +635,60 @@ export class TasksService {
   }
 
   /**
+   * Người thực hiện chính thức nhận việc trước khi cập nhật tiến độ.
+   */
+  async acceptTask(user: { id: number }, taskId: number, ip?: string) {
+    const task = await this.prisma.task.findFirst({
+      where: { AND: [{ id: taskId }, buildTaskAccessWhere(user)] },
+    });
+
+    if (!task) {
+      throw new NotFoundException('Không tìm thấy công việc');
+    }
+    if (task.assigneeId !== user.id) {
+      throw new ForbiddenException(
+        'Chỉ người thực hiện chính được quyền nhận công việc này',
+      );
+    }
+    if (task.status !== 'Chưa làm') {
+      throw new BadRequestException('Công việc đã được nhận hoặc đã xử lý');
+    }
+
+    const acceptedAt = new Date();
+    const updatedTask = await this.prisma.task.update({
+      where: { id: taskId },
+      data: {
+        status: 'Đang làm',
+        startDate: task.startDate || acceptedAt,
+      },
+    });
+
+    if (task.createdById !== user.id) {
+      await this.notificationsService.dispatchNotification({
+        userId: task.createdById,
+        eventType: 'task_accepted',
+        entityRef: `task:${taskId}`,
+        title: `Công việc đã được nhận: ${task.code}`,
+        content: `Người thực hiện đã nhận việc "${task.title}" và bắt đầu xử lý.`,
+        link: `/tasks?id=${taskId}`,
+        dedupeKey: `task_accepted_${taskId}_${user.id}`,
+      });
+    }
+
+    await this.auditService.logEvent({
+      entityType: 'task',
+      entityId: taskId,
+      action: 'accept_task',
+      actorId: user.id,
+      beforeJson: { status: task.status, startDate: task.startDate },
+      afterJson: { status: 'Đang làm', startDate: updatedTask.startDate },
+      ip,
+    });
+
+    return updatedTask;
+  }
+
+  /**
    * Cập nhật tiến độ (%) và tự động chuyển trạng thái
    */
   async updateProgress(
@@ -655,6 +709,17 @@ export class TasksService {
       throw new NotFoundException('Không tìm thấy công việc');
     }
 
+    if (task.assigneeId !== user.id) {
+      throw new ForbiddenException(
+        'Chỉ người thực hiện chính được cập nhật tiến độ công việc',
+      );
+    }
+    if (task.status === 'Chưa làm') {
+      throw new BadRequestException(
+        'Vui lòng bấm Nhận việc trước khi cập nhật tiến độ',
+      );
+    }
+
     // Điểm chốt 1: Khóa không cho nhập tay trực tiếp trên việc cha khi đã có con
     if (task.subTasks && task.subTasks.length > 0) {
       throw new BadRequestException(
@@ -666,10 +731,8 @@ export class TasksService {
     let newStatus = task.status;
     if (dto.progressPercent === 100) {
       newStatus = 'Chờ duyệt';
-    } else if (dto.progressPercent > 0) {
+    } else if (dto.progressPercent >= 0) {
       newStatus = 'Đang làm';
-    } else if (dto.progressPercent === 0) {
-      newStatus = 'Chưa làm';
     }
 
     const updatedTask = await this.prisma.task.update({

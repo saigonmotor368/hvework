@@ -77,6 +77,15 @@ export class TasksController {
     return this.tasksService.updateProgress(req.user, id, dto, req.ip);
   }
 
+  @Post(':id/accept')
+  @HttpCode(HttpStatus.OK)
+  async acceptTask(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() req: any,
+  ) {
+    return this.tasksService.acceptTask(req.user, id, req.ip);
+  }
+
   @Post(':id/confirm-completion')
   @HttpCode(HttpStatus.OK)
   async confirmCompletion(

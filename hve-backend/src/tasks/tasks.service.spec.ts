@@ -365,9 +365,55 @@ describe('TasksService', () => {
   });
 
   describe('updateProgress & Progress Calculation', () => {
+    it('allows only the primary assignee to accept a new task', async () => {
+      prisma.task.findUnique.mockResolvedValue({
+        id: 8,
+        code: 'CV-2026-008',
+        title: 'Chuẩn bị hồ sơ',
+        status: 'Chưa làm',
+        startDate: null,
+        assigneeId: 5,
+        createdById: 1,
+      });
+      prisma.task.update.mockImplementation(async ({ data }: any) => ({
+        id: 8,
+        ...data,
+      }));
+
+      const result = await service.acceptTask({ id: 5 }, 8, '127.0.0.1');
+
+      expect(result.status).toBe('Đang làm');
+      expect(result.startDate).toBeInstanceOf(Date);
+      expect(notificationsService.dispatchNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 1,
+          eventType: 'task_accepted',
+        }),
+      );
+      expect(auditService.logEvent).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'accept_task', actorId: 5 }),
+      );
+    });
+
+    it('rejects acceptance by someone other than the primary assignee', async () => {
+      prisma.task.findUnique.mockResolvedValue({
+        id: 8,
+        status: 'Chưa làm',
+        assigneeId: 5,
+        createdById: 1,
+      });
+
+      await expect(service.acceptTask({ id: 6 }, 8)).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(prisma.task.update).not.toHaveBeenCalled();
+    });
+
     it('should disallow direct progress update on parent task that has subtasks', async () => {
       prisma.task.findUnique.mockResolvedValue({
         id: 1,
+        assigneeId: 1,
+        status: 'Đang làm',
         subTasks: [{ id: 2 }],
       });
 
@@ -382,6 +428,8 @@ describe('TasksService', () => {
         parentTaskId: 1,
         subTasks: [],
         createdById: 10,
+        assigneeId: 2,
+        status: 'Đang làm',
       });
       prisma.task.update.mockResolvedValue({
         id: 2,
@@ -412,6 +460,7 @@ describe('TasksService', () => {
         parentTaskId: null,
         subTasks: [],
         createdById: 10,
+        assigneeId: 5,
         status: 'Đang làm',
       });
       prisma.task.update.mockResolvedValue({
@@ -428,6 +477,20 @@ describe('TasksService', () => {
           eventType: 'task_pending_approval',
         }),
       );
+    });
+
+    it('requires the assignee to accept before updating progress', async () => {
+      prisma.task.findUnique.mockResolvedValue({
+        id: 9,
+        assigneeId: 5,
+        status: 'Chưa làm',
+        subTasks: [],
+      });
+
+      await expect(
+        service.updateProgress({ id: 5 }, 9, { progressPercent: 25 }),
+      ).rejects.toThrow('Vui lòng bấm Nhận việc');
+      expect(prisma.task.update).not.toHaveBeenCalled();
     });
   });
 
