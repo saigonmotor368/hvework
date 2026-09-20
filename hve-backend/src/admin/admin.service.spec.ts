@@ -98,6 +98,7 @@ describe('AdminService', () => {
         {
           email: 'cuuho@huyvoeducation.vn',
           name: 'Nhân viên Cứu hộ',
+          phone: '0901 234 567',
           roleIds: [1],
           projectIds: [4],
           projectPositions: { '4': 'Cứu hộ' },
@@ -107,7 +108,10 @@ describe('AdminService', () => {
 
       expect(prisma.user.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ mustChangePassword: true }),
+          data: expect.objectContaining({
+            mustChangePassword: true,
+            phone: '0901 234 567',
+          }),
         }),
       );
 

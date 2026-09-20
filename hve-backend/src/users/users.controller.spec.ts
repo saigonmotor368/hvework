@@ -45,4 +45,25 @@ describe('UsersController avatar ownership', () => {
     );
     expect(response.send).toHaveBeenCalledWith(avatar.data);
   });
+
+  it('uses the JWT user id when updating a phone number', async () => {
+    const usersService = {
+      updateMyPhone: vi.fn().mockResolvedValue({
+        id: 12,
+        phone: '0901 234 567',
+      }),
+    };
+    const controller = new UsersController(usersService as any);
+
+    await controller.updateMyProfile(
+      { phone: '0901 234 567' },
+      { user: { id: 12 }, ip: '127.0.0.1' },
+    );
+
+    expect(usersService.updateMyPhone).toHaveBeenCalledWith(
+      12,
+      '0901 234 567',
+      '127.0.0.1',
+    );
+  });
 });

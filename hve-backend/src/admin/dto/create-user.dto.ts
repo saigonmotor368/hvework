@@ -7,6 +7,8 @@ import {
   IsObject,
   IsOptional,
   MinLength,
+  Matches,
+  MaxLength,
 } from 'class-validator';
 
 export class CreateUserDto {
@@ -17,6 +19,14 @@ export class CreateUserDto {
   @IsString({ message: 'Họ tên phải là chuỗi' })
   @IsNotEmpty({ message: 'Họ tên không được để trống' })
   name: string;
+
+  @IsOptional()
+  @IsString({ message: 'Số điện thoại phải là chuỗi' })
+  @MaxLength(30, { message: 'Số điện thoại tối đa 30 ký tự' })
+  @Matches(/^(?:|\+?[0-9][0-9\s().-]{7,28})$/, {
+    message: 'Số điện thoại không hợp lệ',
+  })
+  phone?: string;
 
   @IsOptional()
   @IsString()

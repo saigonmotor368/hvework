@@ -168,6 +168,7 @@ export class AdminService {
       data: {
         email: emailLower,
         name: dto.name.trim(),
+        phone: dto.phone?.trim() || null,
         passwordHash,
         mustChangePassword: true,
         departmentId: dto.departmentId || null,
@@ -180,6 +181,7 @@ export class AdminService {
         id: true,
         email: true,
         name: true,
+        phone: true,
         avatarUrl: true,
         mustChangePassword: true,
         status: true,
@@ -256,6 +258,10 @@ export class AdminService {
       updateData.refreshTokenHash = null;
     }
 
+    if (dto.phone !== undefined) {
+      updateData.phone = dto.phone.trim() || null;
+    }
+
     if (dto.departmentId !== undefined) {
       if (dto.departmentId !== null) {
         const dept = await this.prisma.department.findUnique({
@@ -310,6 +316,7 @@ export class AdminService {
         id: true,
         email: true,
         name: true,
+        phone: true,
         status: true,
         department: { select: { id: true, name: true, code: true } },
         roles: { select: { id: true, name: true, description: true } },
@@ -342,6 +349,7 @@ export class AdminService {
       beforeJson: {
         name: user.name,
         email: user.email,
+        phone: user.phone,
         departmentId: user.departmentId,
         roles: user.roles.map((r) => r.name),
         status: user.status,
@@ -349,6 +357,7 @@ export class AdminService {
       afterJson: {
         name: updatedUser.name,
         email: updatedUser.email,
+        phone: updatedUser.phone,
         departmentId: updatedUser.department?.id,
         roles: updatedUser.roles.map((r) => r.name),
         status: updatedUser.status,

@@ -1,5 +1,6 @@
 import {
   Controller,
+  Body,
   Get,
   Put,
   Req,
@@ -14,6 +15,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 import { UsersService } from './users.service.js';
+import { UpdateMyProfileDto } from './dto/update-my-profile.dto.js';
 
 @UseGuards(JwtAuthGuard)
 @Controller('users')
@@ -28,6 +30,11 @@ export class UsersController {
     // ID đích luôn lấy từ JWT, không nhận userId từ client. Vì vậy kể cả IT
     // cũng chỉ cập nhật được avatar của chính tài khoản đang đăng nhập.
     return this.usersService.updateAvatar(req.user.id, file, req.ip);
+  }
+
+  @Put('me/profile')
+  updateMyProfile(@Body() dto: UpdateMyProfileDto, @Req() req: any) {
+    return this.usersService.updateMyPhone(req.user.id, dto.phone, req.ip);
   }
 
   @Get(':id/avatar')

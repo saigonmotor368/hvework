@@ -196,7 +196,7 @@ export interface AdminUser {
   id: number;
   email: string;
   name: string;
-  phone?: string;
+  phone?: string | null;
   avatarUrl?: string | null;
   mustChangePassword?: boolean;
   status: "active" | "locked";

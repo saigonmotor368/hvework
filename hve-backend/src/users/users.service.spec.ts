@@ -96,4 +96,32 @@ describe('UsersService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(prisma.user.update).not.toHaveBeenCalled();
   });
+
+  it('only updates the authenticated user phone and records an audit event', async () => {
+    prisma.user.findUnique.mockResolvedValue({ id: 12, phone: null });
+    prisma.user.update.mockResolvedValue({
+      id: 12,
+      name: 'Nguyễn Văn A',
+      email: 'a@huyvoeducation.vn',
+      phone: '0901 234 567',
+      avatarUrl: null,
+    });
+
+    const result = await service.updateMyPhone(
+      12,
+      ' 0901 234 567 ',
+      '127.0.0.1',
+    );
+
+    expect(prisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 12 },
+        data: { phone: '0901 234 567' },
+      }),
+    );
+    expect(result.phone).toBe('0901 234 567');
+    expect(auditService.logEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'update_own_phone', actorId: 12 }),
+    );
+  });
 });

@@ -109,6 +109,37 @@ export class UsersService {
     return avatar;
   }
 
+  async updateMyPhone(userId: number, phone: string, ip?: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, phone: true },
+    });
+    if (!user) throw new NotFoundException('Không tìm thấy người dùng');
+
+    const normalizedPhone = phone.trim() || null;
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: { phone: normalizedPhone },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        avatarUrl: true,
+      },
+    });
+    await this.auditService.logEvent({
+      entityType: 'User',
+      entityId: userId,
+      action: 'update_own_phone',
+      actorId: userId,
+      beforeJson: { phone: user.phone },
+      afterJson: { phone: normalizedPhone },
+      ip,
+    });
+    return updated;
+  }
+
   async findProfile(id: number) {
     const user = await this.prisma.user.findUnique({
       where: { id },

@@ -32,7 +32,11 @@ interface UserProfile {
 
 export const UserProfileModal: React.FC<{
   apiBaseUrl: string;
-  currentUser?: { id?: number; avatarUrl?: string | null } | null;
+  currentUser?: {
+    id?: number;
+    phone?: string | null;
+    avatarUrl?: string | null;
+  } | null;
   onCurrentUserUpdated?: (user: any) => void;
   showToast?: (message: string, type?: "success" | "error") => void;
 }> = ({ apiBaseUrl, currentUser, onCurrentUserUpdated, showToast }) => {
@@ -40,6 +44,8 @@ export const UserProfileModal: React.FC<{
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [error, setError] = useState("");
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [phoneDraft, setPhoneDraft] = useState("");
+  const [isSavingPhone, setIsSavingPhone] = useState(false);
 
   useEffect(() => {
     const handleOpen = (event: Event) => {
@@ -69,6 +75,7 @@ export const UserProfileModal: React.FC<{
         if (!response.ok)
           throw new Error(body.message || "Không thể tải hồ sơ người dùng");
         setProfile(body);
+        setPhoneDraft(body.phone || "");
       })
       .catch((reason) => {
         if (reason?.name !== "AbortError") {
@@ -107,9 +114,50 @@ export const UserProfileModal: React.FC<{
       onCurrentUserUpdated?.(nextCurrentUser);
       showToast?.("Đã cập nhật ảnh đại diện.");
     } catch (reason: any) {
-      showToast?.(reason?.message || "Không thể cập nhật ảnh đại diện", "error");
+      showToast?.(
+        reason?.message || "Không thể cập nhật ảnh đại diện",
+        "error",
+      );
     } finally {
       setIsUploadingAvatar(false);
+    }
+  };
+
+  const handlePhoneSave = async () => {
+    if (!profile || currentUser?.id !== profile.id) return;
+    const token = localStorage.getItem("access_token");
+    if (!token) return;
+    setIsSavingPhone(true);
+    try {
+      const response = await fetchWithSession(
+        `${apiBaseUrl}/users/me/profile`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ phone: phoneDraft.trim() }),
+        },
+      );
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(body.message || "Không thể cập nhật số điện thoại");
+      }
+      const nextProfile = { ...profile, phone: body.phone || null };
+      setProfile(nextProfile);
+      setPhoneDraft(body.phone || "");
+      const nextCurrentUser = { ...currentUser, phone: body.phone || null };
+      localStorage.setItem("user", JSON.stringify(nextCurrentUser));
+      onCurrentUserUpdated?.(nextCurrentUser);
+      showToast?.("Đã cập nhật số điện thoại liên hệ.");
+    } catch (reason: any) {
+      showToast?.(
+        reason?.message || "Không thể cập nhật số điện thoại",
+        "error",
+      );
+    } finally {
+      setIsSavingPhone(false);
     }
   };
 
@@ -213,9 +261,42 @@ export const UserProfileModal: React.FC<{
                 >
                   {profile.email}
                 </a>
-                <p className="mt-0.5 text-xs text-gray-500">
-                  {profile.phone || "Chưa cập nhật số điện thoại"}
-                </p>
+                {currentUser?.id === profile.id ? (
+                  <div className="mt-2 flex gap-2">
+                    <input
+                      type="tel"
+                      inputMode="tel"
+                      maxLength={30}
+                      value={phoneDraft}
+                      onChange={(event) => setPhoneDraft(event.target.value)}
+                      placeholder="Nhập số điện thoại"
+                      aria-label="Số điện thoại liên hệ"
+                      className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs text-gray-800 outline-none focus:ring-2 focus:ring-[#0A66C2]"
+                    />
+                    <button
+                      type="button"
+                      disabled={
+                        isSavingPhone ||
+                        phoneDraft.trim() === (profile.phone || "")
+                      }
+                      onClick={() => void handlePhoneSave()}
+                      className="shrink-0 rounded-lg bg-[#0A66C2] px-3 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      {isSavingPhone ? "Đang lưu…" : "Lưu"}
+                    </button>
+                  </div>
+                ) : profile.phone ? (
+                  <a
+                    href={`tel:${profile.phone.replace(/[^+\d]/g, "")}`}
+                    className="mt-1.5 inline-flex items-center gap-1 text-xs font-bold text-emerald-700 hover:underline"
+                  >
+                    📞 {profile.phone}
+                  </a>
+                ) : (
+                  <p className="mt-0.5 text-xs text-gray-500">
+                    Chưa cập nhật số điện thoại
+                  </p>
+                )}
               </div>
             </div>
 

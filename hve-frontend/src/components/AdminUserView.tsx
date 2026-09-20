@@ -69,6 +69,7 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
   const [newName, setNewName] = useState<string>("");
   const [newEmail, setNewEmail] = useState<string>("");
+  const [newPhone, setNewPhone] = useState<string>("");
   const [newProjectIds, setNewProjectIds] = useState<number[]>([]);
   const [newProjectPositions, setNewProjectPositions] = useState<
     Record<number, string>
@@ -80,6 +81,7 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
   const [editUser, setEditUser] = useState<AdminUser | null>(null);
   const [editName, setEditName] = useState<string>("");
   const [editEmail, setEditEmail] = useState<string>("");
+  const [editPhone, setEditPhone] = useState<string>("");
   const [editRoleIds, setEditRoleIds] = useState<number[]>([]);
   const [editProjectIds, setEditProjectIds] = useState<number[]>([]);
   const [editProjectPositions, setEditProjectPositions] = useState<
@@ -152,12 +154,10 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
       "Xem hồ sơ thanh toán; trả hồ sơ, xác nhận thu/chi và đính kèm chứng từ kế toán.",
     legal:
       "Thẩm định hợp đồng và nội dung pháp lý; theo dõi hợp đồng sắp hết hạn.",
-    ceo:
-      "Xem toàn công ty; giao việc, phê duyệt cấp CEO và theo dõi toàn bộ tiến độ.",
+    ceo: "Xem toàn công ty; giao việc, phê duyệt cấp CEO và theo dõi toàn bộ tiến độ.",
     it_admin:
       "Quản lý người dùng, vai trò, dự án, quy trình, thông báo và dữ liệu hệ thống.",
-    bgd:
-      "Xem toàn công ty; giao việc và tạo đề xuất, giới hạn theo người được chỉ định.",
+    bgd: "Xem toàn công ty; giao việc và tạo đề xuất, giới hạn theo người được chỉ định.",
   };
 
   const fetchUsersAndMeta = async () => {
@@ -293,6 +293,7 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
         body: JSON.stringify({
           name: newName.trim(),
           email: newEmail.trim().toLowerCase(),
+          phone: newPhone.trim(),
           password: "Hve@2026",
           projectIds: newProjectIds,
           projectPositions: Object.fromEntries(
@@ -312,6 +313,7 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
         setIsAddModalOpen(false);
         setNewName("");
         setNewEmail("");
+        setNewPhone("");
         setNewProjectIds([]);
         setNewProjectPositions({});
         setNewRoleIds([1]);
@@ -331,6 +333,7 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
     setEditUser(user);
     setEditName(user.name);
     setEditEmail(user.email);
+    setEditPhone(user.phone || "");
     setEditRoleIds(user.roles.map((r) => r.id));
     setEditProjectIds([
       ...new Set((user.projectMemberships || []).map((m) => m.project.id)),
@@ -395,6 +398,7 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
           body: JSON.stringify({
             name: editName.trim(),
             email: editEmail.trim().toLowerCase(),
+            phone: editPhone.trim(),
             roleIds: editRoleIds,
             projectIds: editProjectIds,
             projectPositions: Object.fromEntries(
@@ -532,7 +536,8 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
   const filteredUsers = users.filter((u) => {
     const matchSearch =
       u.name.toLowerCase().includes(search.toLowerCase()) ||
-      u.email.toLowerCase().includes(search.toLowerCase());
+      u.email.toLowerCase().includes(search.toLowerCase()) ||
+      (u.phone || "").toLowerCase().includes(search.toLowerCase());
     const userProjectIds = [
       ...(u.ledProjects || []).map((p) => p.id),
       ...(u.projectMemberships || []).map((m) => m.project.id),
@@ -623,7 +628,7 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
 
               <input
                 type="text"
-                placeholder="Tìm tên, email..."
+                placeholder="Tìm tên, email, số điện thoại..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full text-xs bg-slate-50 border border-gray-200 rounded-lg px-3.5 py-2 text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0A66C2] sm:w-64"
@@ -677,22 +682,30 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                           className="h-11 w-11 rounded-xl border border-slate-200"
                         />
                         <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-1.5 text-sm font-bold text-gray-900">
-                          <UserNameButton user={user} />
-                          {user.id === currentUser?.id && (
-                            <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold text-[#0A66C2]">
-                              Bạn
+                          <div className="flex flex-wrap items-center gap-1.5 text-sm font-bold text-gray-900">
+                            <UserNameButton user={user} />
+                            {user.id === currentUser?.id && (
+                              <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold text-[#0A66C2]">
+                                Bạn
+                              </span>
+                            )}
+                          </div>
+                          <p className="mt-1 break-all text-xs text-gray-500">
+                            {user.email}
+                          </p>
+                          {user.phone && (
+                            <a
+                              href={`tel:${user.phone.replace(/[^+\d]/g, "")}`}
+                              className="mt-1 block text-xs font-semibold text-[#0A66C2]"
+                            >
+                              📞 {user.phone}
+                            </a>
+                          )}
+                          {user.mustChangePassword && (
+                            <span className="mt-1 inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">
+                              Chờ đổi mật khẩu lần đầu
                             </span>
                           )}
-                        </div>
-                        <p className="mt-1 break-all text-xs text-gray-500">
-                          {user.email}
-                        </p>
-                        {user.mustChangePassword && (
-                          <span className="mt-1 inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">
-                            Chờ đổi mật khẩu lần đầu
-                          </span>
-                        )}
                         </div>
                       </div>
                       <span
@@ -702,7 +715,9 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                             : "bg-red-100 text-red-800"
                         }`}
                       >
-                        {user.status === "active" ? "● Hoạt động" : "🔒 Đã khóa"}
+                        {user.status === "active"
+                          ? "● Hoạt động"
+                          : "🔒 Đã khóa"}
                       </span>
                     </div>
 
@@ -802,7 +817,7 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                 <thead className="bg-slate-50/70 border-b border-slate-200 text-xs font-bold text-gray-500 uppercase tracking-wider">
                   <tr>
                     <th className="px-5 py-3.5">Họ và tên</th>
-                    <th className="px-5 py-3.5">Email</th>
+                    <th className="px-5 py-3.5">Liên hệ</th>
                     <th className="px-5 py-3.5">Dự án</th>
                     <th className="px-5 py-3.5">Vai trò đảm nhiệm</th>
                     <th className="px-5 py-3.5">Trạng thái</th>
@@ -836,47 +851,55 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                       >
                         <td className="px-5 py-4 font-bold text-gray-900 whitespace-nowrap">
                           <div className="flex items-center gap-2.5">
-                          <UserAvatar
-                            user={user}
-                            apiBaseUrl={apiBaseUrl}
-                            className="h-9 w-9 rounded-lg border border-slate-200"
-                          />
-                          <div>
-                          <UserNameButton user={user} />
-                          {user.id === currentUser?.id && (
-                            <span className="ml-2 text-[10px] font-bold bg-blue-100 text-[#0A66C2] px-1.5 py-0.5 rounded">
-                              Bạn
-                            </span>
-                          )}
-                          {user.delegateTo &&
-                            user.delegateUntil &&
-                            new Date(user.delegateUntil).getTime() >=
-                              renderedAt && (
-                              <span
-                                className="ml-2 rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-bold text-violet-700"
-                                title={`Ủy quyền duyệt cho ${user.delegateTo.name} đến ${new Date(user.delegateUntil).toLocaleDateString("vi-VN")}`}
-                              >
-                                🔄 Đang ủy quyền
-                              </span>
-                            )}
-                          {(user.delegatedFrom?.length || 0) > 0 && (
-                            <span
-                              className="ml-2 rounded bg-cyan-100 px-1.5 py-0.5 text-[10px] font-bold text-cyan-700"
-                              title={`Đang nhận ủy quyền từ ${user.delegatedFrom?.map((item) => item.name).join(", ")}`}
-                            >
-                              🔄 Duyệt thay
-                            </span>
-                          )}
-                          {user.mustChangePassword && (
-                            <span className="mt-1 block w-fit rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800">
-                              Chờ đổi mật khẩu
-                            </span>
-                          )}
-                          </div>
+                            <UserAvatar
+                              user={user}
+                              apiBaseUrl={apiBaseUrl}
+                              className="h-9 w-9 rounded-lg border border-slate-200"
+                            />
+                            <div>
+                              <UserNameButton user={user} />
+                              {user.id === currentUser?.id && (
+                                <span className="ml-2 text-[10px] font-bold bg-blue-100 text-[#0A66C2] px-1.5 py-0.5 rounded">
+                                  Bạn
+                                </span>
+                              )}
+                              {user.delegateTo &&
+                                user.delegateUntil &&
+                                new Date(user.delegateUntil).getTime() >=
+                                  renderedAt && (
+                                  <span
+                                    className="ml-2 rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-bold text-violet-700"
+                                    title={`Ủy quyền duyệt cho ${user.delegateTo.name} đến ${new Date(user.delegateUntil).toLocaleDateString("vi-VN")}`}
+                                  >
+                                    🔄 Đang ủy quyền
+                                  </span>
+                                )}
+                              {(user.delegatedFrom?.length || 0) > 0 && (
+                                <span
+                                  className="ml-2 rounded bg-cyan-100 px-1.5 py-0.5 text-[10px] font-bold text-cyan-700"
+                                  title={`Đang nhận ủy quyền từ ${user.delegatedFrom?.map((item) => item.name).join(", ")}`}
+                                >
+                                  🔄 Duyệt thay
+                                </span>
+                              )}
+                              {user.mustChangePassword && (
+                                <span className="mt-1 block w-fit rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800">
+                                  Chờ đổi mật khẩu
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </td>
                         <td className="px-5 py-4 text-xs text-gray-600 whitespace-nowrap">
-                          {user.email}
+                          <span className="block">{user.email}</span>
+                          {user.phone && (
+                            <a
+                              href={`tel:${user.phone.replace(/[^+\d]/g, "")}`}
+                              className="mt-1 block font-semibold text-[#0A66C2]"
+                            >
+                              📞 {user.phone}
+                            </a>
+                          )}
                         </td>
                         <td className="px-5 py-4">
                           <div className="flex flex-wrap gap-1 max-w-[180px]">
@@ -1281,6 +1304,24 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                 />
               </div>
 
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+                  Số điện thoại liên hệ
+                </label>
+                <input
+                  type="tel"
+                  inputMode="tel"
+                  maxLength={30}
+                  placeholder="Ví dụ: 0901 234 567"
+                  value={newPhone}
+                  onChange={(e) => setNewPhone(e.target.value)}
+                  className="w-full text-xs font-medium bg-slate-50 border border-gray-200 rounded-lg p-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#0A66C2]"
+                />
+                <p className="mt-1 text-[11px] text-gray-400">
+                  Số này sẽ hiển thị trong hồ sơ để đồng nghiệp bấm gọi nhanh.
+                </p>
+              </div>
+
               <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
                 <p className="text-xs font-bold uppercase tracking-wider text-amber-900">
                   Mật khẩu khởi tạo: <span className="font-mono">Hve@2026</span>
@@ -1408,7 +1449,9 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                             {ROLE_LABELS[r.name] || r.name}
                           </strong>
                           <span className="mt-0.5 block text-[11px] font-normal leading-relaxed text-gray-500">
-                            {ROLE_PERMISSION_SUMMARY[r.name] || r.description || r.name}
+                            {ROLE_PERMISSION_SUMMARY[r.name] ||
+                              r.description ||
+                              r.name}
                           </span>
                         </span>
                       </label>
@@ -1424,8 +1467,11 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                       .filter((role) => newRoleIds.includes(role.id))
                       .map((role) => (
                         <li key={role.id}>
-                          <strong>{ROLE_LABELS[role.name] || role.name}:</strong>{" "}
-                          {ROLE_PERMISSION_SUMMARY[role.name] || role.description}
+                          <strong>
+                            {ROLE_LABELS[role.name] || role.name}:
+                          </strong>{" "}
+                          {ROLE_PERMISSION_SUMMARY[role.name] ||
+                            role.description}
                         </li>
                       ))}
                   </ul>
@@ -1494,6 +1540,21 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
                   type="email"
                   value={editEmail}
                   onChange={(e) => setEditEmail(e.target.value)}
+                  className="w-full text-xs font-medium bg-slate-50 border border-gray-200 rounded-lg p-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#0A66C2]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+                  Số điện thoại liên hệ
+                </label>
+                <input
+                  type="tel"
+                  inputMode="tel"
+                  maxLength={30}
+                  placeholder="Ví dụ: 0901 234 567"
+                  value={editPhone}
+                  onChange={(e) => setEditPhone(e.target.value)}
                   className="w-full text-xs font-medium bg-slate-50 border border-gray-200 rounded-lg p-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#0A66C2]"
                 />
               </div>
