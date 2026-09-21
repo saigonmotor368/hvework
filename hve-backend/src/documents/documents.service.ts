@@ -1255,17 +1255,23 @@ export class DocumentsService {
       doc.type === 'payment_request' &&
       step.roleRequired === 'accountant' &&
       step.stepOrder === maxStepOrder;
+    let paymentProofCount = 0;
     if (isFinalAccountantStep) {
-      const proofCount = await this.prisma.attachment.count({
+      paymentProofCount = await this.prisma.attachment.count({
         where: {
           entityType: 'document',
           entityId: documentId,
           uploadedById: user.id,
         },
       });
-      if (proofCount === 0) {
+      if (paymentProofCount === 0) {
         throw new BadRequestException(
           'Bắt buộc đính kèm chứng từ giao dịch trước khi Kế toán duyệt bước cuối.',
+        );
+      }
+      if (!dto?.paymentReference?.trim() || !dto?.paymentPaidAt) {
+        throw new BadRequestException(
+          'Bắt buộc nhập mã giao dịch và thời gian thanh toán trước khi hoàn tất.',
         );
       }
     }
@@ -1317,6 +1323,23 @@ export class DocumentsService {
         data: {
           status: newDocumentStatus,
           version: doc.version + 1,
+          ...(isFinalAccountantStep
+            ? {
+                dataJson: {
+                  ...(doc.dataJson as Record<string, unknown>),
+                  settlement: {
+                    status: 'paid',
+                    source: 'manual_proof',
+                    method: dto?.paymentMethod || 'vietqr',
+                    reference: dto?.paymentReference?.trim(),
+                    paidAt: dto?.paymentPaidAt,
+                    verifiedById: user.id,
+                    verifiedAt: new Date().toISOString(),
+                    proofAttachmentCount: paymentProofCount,
+                  },
+                },
+              }
+            : undefined),
         },
         include: {
           steps: { orderBy: { stepOrder: 'asc' } },
@@ -1341,6 +1364,14 @@ export class DocumentsService {
           actedOnBehalfOf: approvalDelegator?.id || null,
           actedOnBehalfOfName: approvalDelegator?.name || null,
           skippedStepOrders: activation.skippedStepOrders,
+          ...(isFinalAccountantStep
+            ? {
+                paymentReference: dto?.paymentReference?.trim(),
+                paymentPaidAt: dto?.paymentPaidAt,
+                paymentMethod: dto?.paymentMethod || 'vietqr',
+                paymentProofCount,
+              }
+            : undefined),
         },
         ip,
       });

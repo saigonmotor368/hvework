@@ -47,6 +47,16 @@ export interface DocumentItem {
     bankName?: string;
     bankAccount?: string;
     deadline?: string;
+    settlement?: {
+      status: "paid";
+      source: "manual_proof" | "webhook";
+      method: "vietqr" | "bank_transfer" | "cash";
+      reference: string;
+      paidAt: string;
+      verifiedById?: number;
+      verifiedAt?: string;
+      proofAttachmentCount?: number;
+    };
 
     // proposal & general content
     content?: string;

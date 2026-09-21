@@ -1,4 +1,4 @@
-import { IsOptional, IsString, Matches } from 'class-validator';
+import { IsISO8601, IsIn, IsOptional, IsString, Matches } from 'class-validator';
 
 export class ActionStepDto {
   @IsOptional()
@@ -11,6 +11,20 @@ export class ActionStepDto {
   @IsOptional()
   @Matches(/^\d{6}$/, { message: 'Mã PIN phải gồm đúng 6 chữ số' })
   pin?: string;
+
+  @IsOptional()
+  @IsString({ message: 'Mã giao dịch phải là chuỗi' })
+  paymentReference?: string;
+
+  @IsOptional()
+  @IsISO8601({}, { message: 'Thời gian thanh toán không hợp lệ' })
+  paymentPaidAt?: string;
+
+  @IsOptional()
+  @IsIn(['vietqr', 'bank_transfer', 'cash'], {
+    message: 'Hình thức thanh toán không hợp lệ',
+  })
+  paymentMethod?: 'vietqr' | 'bank_transfer' | 'cash';
 }
 
 export class RejectOrReturnStepDto {

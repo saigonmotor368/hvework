@@ -36,6 +36,7 @@ export const PaymentRequestPrintSheet: React.FC<
     (step) => step.roleRequired !== "accountant",
   );
   const amount = Number(paymentDocument.dataJson?.amount || 0);
+  const settlement = paymentDocument.dataJson?.settlement;
   const paymentMethod =
     paymentDocument.dataJson?.bankAccount || paymentDocument.dataJson?.bankName
       ? "Chuyển khoản"
@@ -57,7 +58,7 @@ export const PaymentRequestPrintSheet: React.FC<
         <div className="payment-print-code">
           <span>Mã hồ sơ</span>
           <strong>{paymentDocument.code}</strong>
-          <em>ĐÃ HOÀN TẤT</em>
+          <em>{settlement?.status === "paid" ? "ĐÃ THANH TOÁN" : "ĐÃ HOÀN TẤT"}</em>
         </div>
       </header>
 
@@ -65,7 +66,7 @@ export const PaymentRequestPrintSheet: React.FC<
         <h1>PHIẾU ĐỀ NGHỊ THANH TOÁN KIÊM PHIẾU CHI</h1>
         <p>
           Ngày lập {formatDate(paymentDocument.createdAt)} · Ngày hoàn tất{" "}
-          {formatDate(accountingStep?.actedAt)}
+          {formatDate(settlement?.paidAt || accountingStep?.actedAt)}
         </p>
       </section>
 
@@ -154,11 +155,23 @@ export const PaymentRequestPrintSheet: React.FC<
             <strong>{accountingStep?.actedBy?.name || "—"}</strong>
           </p>
           <p>
-            <span>Thời gian chi</span>
-            <strong>{formatDateTime(accountingStep?.actedAt)}</strong>
+            <span>Thời gian giao dịch</span>
+            <strong>{formatDateTime(settlement?.paidAt || accountingStep?.actedAt)}</strong>
           </p>
           <p className="payment-print-wide">
-            <span>Ý kiến / mã giao dịch</span>
+            <span>Mã giao dịch / mã tham chiếu</span>
+            <strong>{settlement?.reference || "—"}</strong>
+          </p>
+          <p>
+            <span>Hình thức xác nhận</span>
+            <strong>
+              {settlement?.source === "webhook"
+                ? "Đối soát tự động"
+                : "Kế toán đối chiếu chứng từ"}
+            </strong>
+          </p>
+          <p>
+            <span>Ý kiến kế toán</span>
             <strong>{accountingStep?.comment?.trim() || "Đã xác nhận chi tiền"}</strong>
           </p>
           <p className="payment-print-wide">

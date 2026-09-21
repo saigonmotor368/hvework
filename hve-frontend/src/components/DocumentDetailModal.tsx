@@ -9,6 +9,7 @@ import {
 import { authenticatedFileUrl } from "../api/client";
 import { UserNameButton } from "./UserNameButton";
 import { PaymentRequestAuditView } from "./PaymentRequestAuditView";
+import type { PaymentSettlementInput } from "./PaymentRequestAuditView";
 
 interface DocumentDetailModalProps {
   selectedDoc: DocumentItem;
@@ -24,6 +25,7 @@ interface DocumentDetailModalProps {
     doc: DocumentItem,
     step: ApprovalStep,
     comment?: string,
+    settlement?: PaymentSettlementInput,
   ) => void;
   onApproveDirect: (doc: DocumentItem) => void;
   onOpenModalAction: (

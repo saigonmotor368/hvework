@@ -4,6 +4,13 @@ import { ROLE_LABELS } from "../types";
 import { authenticatedFileUrl, uploadAttachment } from "../api/client";
 import { UserNameButton } from "./UserNameButton";
 import { PaymentRequestPrintSheet } from "./PaymentRequestPrintSheet";
+import { VietQrPaymentCard } from "./VietQrPaymentCard";
+
+export interface PaymentSettlementInput {
+  paymentReference: string;
+  paymentPaidAt: string;
+  paymentMethod: "vietqr" | "bank_transfer" | "cash";
+}
 
 interface PaymentRequestAuditViewProps {
   document: DocumentItem;
@@ -14,6 +21,7 @@ interface PaymentRequestAuditViewProps {
     document: DocumentItem,
     step: ApprovalStep,
     comment?: string,
+    settlement?: PaymentSettlementInput,
   ) => void;
   onOpenModalAction: (
     type: "return" | "reject",
@@ -114,6 +122,13 @@ export const PaymentRequestAuditView: React.FC<PaymentRequestAuditViewProps> = (
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [uploadingProof, setUploadingProof] = useState(false);
   const [approvalComment, setApprovalComment] = useState("");
+  const [paymentReference, setPaymentReference] = useState("");
+  const [paymentPaidAt, setPaymentPaidAt] = useState(() => {
+    const now = new Date();
+    return new Date(now.getTime() - now.getTimezoneOffset() * 60_000)
+      .toISOString()
+      .slice(0, 16);
+  });
   const [renderedAt] = useState(() => Date.now());
   const steps = document.steps || [];
   const accountingStep = steps.find((step) => step.roleRequired === "accountant");
@@ -205,7 +220,10 @@ export const PaymentRequestAuditView: React.FC<PaymentRequestAuditViewProps> = (
   };
 
   const renderStepSummary = (step: ApprovalStep, accounting = false) => {
-    const status = stepStatus(step);
+    const status =
+      accounting && step.status === "approved"
+        ? { label: "Đã thanh toán", icon: "✓", tone: "emerald" }
+        : stepStatus(step);
     const canAct = canActOnStep(step);
     const delegated = delegationForRole(step.roleRequired);
     return (
@@ -263,27 +281,53 @@ export const PaymentRequestAuditView: React.FC<PaymentRequestAuditViewProps> = (
               </p>
             )}
             {accounting && (
-              <div className="mb-3 rounded-xl border border-emerald-200 bg-white p-3">
-                <p className="text-xs font-bold text-emerald-800">
-                  Chứng từ chi tiền bắt buộc
-                </p>
-                <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-                  <input
-                    type="file"
-                    accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.webp"
-                    onChange={(event) => setProofFile(event.target.files?.[0] || null)}
-                    className="min-w-0 flex-1 text-xs text-slate-600"
-                  />
-                  <button
-                    type="button"
-                    onClick={uploadPaymentProof}
-                    disabled={!proofFile || uploadingProof}
-                    className="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white disabled:opacity-50"
-                  >
-                    {uploadingProof ? "Đang tải..." : "Tải chứng từ"}
-                  </button>
+              <>
+                <VietQrPaymentCard document={document} />
+                <div className="mb-3 rounded-xl border border-emerald-200 bg-white p-3">
+                  <p className="text-xs font-bold text-emerald-800">
+                    Xác nhận giao dịch và chứng từ bắt buộc
+                  </p>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    <label>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Mã giao dịch / mã tham chiếu</span>
+                      <input
+                        value={paymentReference}
+                        onChange={(event) => setPaymentReference(event.target.value)}
+                        placeholder="Ví dụ: FT26345123456"
+                        className="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-xs font-semibold text-slate-700"
+                      />
+                    </label>
+                    <label>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Thời gian thanh toán</span>
+                      <input
+                        type="datetime-local"
+                        value={paymentPaidAt}
+                        onChange={(event) => setPaymentPaidAt(event.target.value)}
+                        className="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-xs font-semibold text-slate-700"
+                      />
+                    </label>
+                  </div>
+                  <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                    <input
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png,.webp"
+                      onChange={(event) => setProofFile(event.target.files?.[0] || null)}
+                      className="min-w-0 flex-1 text-xs text-slate-600"
+                    />
+                    <button
+                      type="button"
+                      onClick={uploadPaymentProof}
+                      disabled={!proofFile || uploadingProof}
+                      className="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white disabled:opacity-50"
+                    >
+                      {uploadingProof ? "Đang tải..." : "Tải ảnh/PDF chuyển khoản"}
+                    </button>
+                  </div>
+                  <p className="mt-2 text-[11px] font-semibold text-slate-500">
+                    Đã ghi nhận {accountingFiles.length} chứng từ của Kế toán trong hồ sơ.
+                  </p>
                 </div>
-              </div>
+              </>
             )}
             <textarea
               value={approvalComment}
@@ -300,9 +344,26 @@ export const PaymentRequestAuditView: React.FC<PaymentRequestAuditViewProps> = (
               <button
                 type="button"
                 onClick={() =>
-                  onApproveStep(document, step, approvalComment.trim() || undefined)
+                  onApproveStep(
+                    document,
+                    step,
+                    approvalComment.trim() || undefined,
+                    accounting
+                      ? {
+                          paymentReference: paymentReference.trim(),
+                          paymentPaidAt: new Date(paymentPaidAt).toISOString(),
+                          paymentMethod: "vietqr",
+                        }
+                      : undefined,
+                  )
                 }
-                disabled={isProcessing}
+                disabled={
+                  isProcessing ||
+                  (accounting &&
+                    (accountingFiles.length === 0 ||
+                      !paymentReference.trim() ||
+                      !paymentPaidAt))
+                }
                 className="rounded-xl bg-emerald-700 px-4 py-2.5 text-xs font-bold text-white shadow-sm disabled:opacity-50"
               >
                 {isProcessing
@@ -346,7 +407,7 @@ export const PaymentRequestAuditView: React.FC<PaymentRequestAuditViewProps> = (
         <section className="flex flex-col gap-3 rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-50 via-white to-emerald-50 p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <div>
             <p className="text-sm font-black text-slate-900">
-              Phiếu đề nghị thanh toán kiêm phiếu chi đã sẵn sàng
+              Đã thanh toán — phiếu DNTT kiêm phiếu chi đã sẵn sàng
             </p>
             <p className="mt-0.5 text-xs text-slate-500">
               Bao gồm nội dung chi, chứng từ kế toán và đầy đủ lịch sử phê duyệt.

@@ -1517,6 +1517,12 @@ describe('DocumentsService', () => {
       status: 'Chờ duyệt',
       createdById: 10,
       createdBy: { id: 10, departmentId: 1 },
+      dataJson: {
+        amount: 1500000,
+        receiver: 'Nhà cung cấp Alpha',
+        bankName: 'Vietcombank',
+        bankAccount: '0071001234567',
+      },
       version: 3,
       steps: [
         { id: 901, stepOrder: 1, roleRequired: 'ceo', status: 'approved' },
@@ -1544,6 +1550,21 @@ describe('DocumentsService', () => {
       ).rejects.toThrow('Bắt buộc đính kèm chứng từ giao dịch');
     });
 
+    it('rejects completion when transaction information is missing', async () => {
+      prisma.document.findUnique.mockResolvedValue(finalAccountantDocument);
+      prisma.attachment.count.mockResolvedValue(1);
+
+      await expect(
+        service.approveStep(
+          91,
+          902,
+          { id: 25, roles: [{ name: 'accountant' }] },
+          { comment: 'Đã chuyển khoản' },
+          3,
+        ),
+      ).rejects.toThrow('Bắt buộc nhập mã giao dịch và thời gian thanh toán');
+    });
+
     it('finishes as Đã duyệt after proof-backed accountant approval', async () => {
       prisma.document.findUnique.mockResolvedValue(finalAccountantDocument);
       prisma.attachment.count.mockResolvedValue(1);
@@ -1556,7 +1577,12 @@ describe('DocumentsService', () => {
         91,
         902,
         { id: 25, roles: [{ name: 'accountant' }] },
-        { comment: 'Đã chuyển khoản UNC 88291' },
+        {
+          comment: 'Đã chuyển khoản',
+          paymentReference: 'UNC-88291',
+          paymentPaidAt: '2026-09-21T04:30:00.000Z',
+          paymentMethod: 'vietqr',
+        },
         3,
       );
 
@@ -1565,7 +1591,17 @@ describe('DocumentsService', () => {
       });
       expect(prisma.document.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ status: 'Đã duyệt' }),
+          data: expect.objectContaining({
+            status: 'Đã duyệt',
+            dataJson: expect.objectContaining({
+              settlement: expect.objectContaining({
+                status: 'paid',
+                source: 'manual_proof',
+                reference: 'UNC-88291',
+                proofAttachmentCount: 1,
+              }),
+            }),
+          }),
         }),
       );
     });

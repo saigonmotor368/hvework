@@ -12,6 +12,7 @@ import { LoginPage } from "./components/LoginPage";
 import { Sidebar } from "./components/Sidebar";
 import { DocumentList } from "./components/DocumentList";
 import { DocumentDetailModal } from "./components/DocumentDetailModal";
+import type { PaymentSettlementInput } from "./components/PaymentRequestAuditView";
 import {
   CreateDocumentForm,
   type CreateFormData,
@@ -1157,6 +1158,7 @@ export default function App() {
     step: ApprovalStep,
     pin?: string,
     comment?: string,
+    settlement?: PaymentSettlementInput,
   ) => {
     setIsProcessing(true);
     const token = localStorage.getItem("access_token");
@@ -1172,6 +1174,7 @@ export default function App() {
           body: JSON.stringify({
             comment: comment || "Đồng ý phê duyệt",
             ...(pin ? { pin } : {}),
+            ...(settlement || {}),
           }),
         },
       );
@@ -1218,6 +1221,7 @@ export default function App() {
     doc: DocumentItem,
     step: ApprovalStep,
     comment?: string,
+    settlement?: PaymentSettlementInput,
   ) => {
     if (isFinalCeoStep(doc, step) && pinStatus?.enabled) {
       setPinModal({
@@ -1229,7 +1233,7 @@ export default function App() {
       });
       return;
     }
-    handleApproveStep(doc, step, undefined, comment);
+    handleApproveStep(doc, step, undefined, comment, settlement);
   };
 
   const handleConfirmPinModal = (pin: string) => {
