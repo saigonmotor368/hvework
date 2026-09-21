@@ -23,6 +23,12 @@ describe('AuthService', () => {
         findUnique: vi.fn(),
         update: vi.fn(),
       },
+      authSession: {
+        create: vi.fn().mockResolvedValue({}),
+        findUnique: vi.fn(),
+        update: vi.fn().mockResolvedValue({}),
+        updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+      },
       trustedDevice: {
         findUnique: vi.fn(),
         update: vi.fn(),
@@ -462,6 +468,44 @@ describe('AuthService', () => {
       const result = await service.refreshToken(rawRefreshToken);
       expect(result).toHaveProperty('access_token');
       expect(result).toHaveProperty('refresh_token');
+      expect(prisma.authSession.create).toHaveBeenCalledOnce();
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: { refreshTokenHash: null },
+      });
+    });
+
+    it('refreshes one device session without rotating or invalidating another device', async () => {
+      const rawRefreshToken = 'device_a_refresh_token';
+      const tokenHash = bcrypt.hashSync(rawRefreshToken, 10);
+      jwtService.verify.mockReturnValue({
+        sub: 1,
+        email: 'user@huyvoeducation.vn',
+        sid: 'session-device-a',
+        purpose: 'refresh',
+      });
+      prisma.user.findUnique.mockResolvedValue({
+        id: 1,
+        email: 'user@huyvoeducation.vn',
+        status: 'active',
+        roles: [{ name: 'employee' }],
+      });
+      prisma.authSession.findUnique.mockResolvedValue({
+        id: 'session-device-a',
+        userId: 1,
+        refreshTokenHash: tokenHash,
+        expiresAt: new Date(Date.now() + 60_000),
+        revokedAt: null,
+      });
+
+      const result = await service.refreshToken(rawRefreshToken);
+
+      expect(result.refresh_token).toBe(rawRefreshToken);
+      expect(prisma.authSession.update).toHaveBeenCalledWith({
+        where: { id: 'session-device-a' },
+        data: { lastUsedAt: expect.any(Date) },
+      });
+      expect(prisma.user.update).not.toHaveBeenCalled();
     });
 
     it('should throw UnauthorizedException if refresh token is expired or corrupted', async () => {

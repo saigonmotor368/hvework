@@ -76,6 +76,7 @@ model User {
   assignedTasks          Task[]                @relation("AssignedTasks")
   createdTasks           Task[]                @relation("CreatedTasks")
   pushSubscriptions      PushSubscription[]
+  authSessions           AuthSession[]
   trustedDevices         TrustedDevice[]
   loginChallenges        LoginChallenge[]
   ledProjects            Project[]             @relation("ProjectLead")
@@ -90,6 +91,22 @@ model User {
   updatedAt DateTime @updatedAt
 
   @@index([delegateToUserId, delegateUntil])
+}
+
+// Mỗi lần đăng nhập tạo một phiên độc lập. Nhờ vậy điện thoại, máy tính và
+// PWA của cùng một người không ghi đè refresh token của nhau.
+model AuthSession {
+  id               String    @id @default(uuid())
+  userId           Int
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshTokenHash String
+  expiresAt        DateTime
+  lastUsedAt       DateTime  @default(now())
+  revokedAt        DateTime?
+  createdAt        DateTime  @default(now())
+
+  @@index([userId, revokedAt])
+  @@index([expiresAt])
 }
 
 // Avatar được lưu riêng để các truy vấn User thông thường không phải kéo theo

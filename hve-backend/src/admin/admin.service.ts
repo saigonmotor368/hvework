@@ -333,6 +333,10 @@ export class AdminService {
     }
 
     if (updateData.emailVerifiedAt === null) {
+      await this.prisma.authSession.updateMany({
+        where: { userId: targetUserId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
       await this.prisma.trustedDevice.deleteMany({
         where: { userId: targetUserId },
       });
@@ -500,6 +504,11 @@ export class AdminService {
         refreshTokenHash: null,
         emailVerifiedAt: null,
       },
+    });
+
+    await this.prisma.authSession.updateMany({
+      where: { userId: targetUserId, revokedAt: null },
+      data: { revokedAt: new Date() },
     });
 
     await this.prisma.trustedDevice.deleteMany({

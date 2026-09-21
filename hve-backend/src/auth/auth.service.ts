@@ -39,12 +39,32 @@ export class AuthService {
     return `${local.slice(0, 2)}***@${domain}`;
   }
 
-  private tokenPair(user: { id: number; email: string }) {
-    const payload = { email: user.email, sub: user.id };
+  private tokenPair(
+    user: { id: number; email: string },
+    sessionId: string,
+  ) {
+    const payload = { email: user.email, sub: user.id, sid: sessionId };
     return {
       accessToken: this.jwtService.sign(payload, { expiresIn: '15m' }),
-      refreshToken: this.jwtService.sign(payload, { expiresIn: '7d' }),
+      refreshToken: this.jwtService.sign(
+        { ...payload, purpose: 'refresh' },
+        { expiresIn: '30d' },
+      ),
     };
+  }
+
+  private async issueSession(user: { id: number; email: string }) {
+    const sessionId = randomUUID();
+    const { accessToken, refreshToken } = this.tokenPair(user, sessionId);
+    await this.prisma.authSession.create({
+      data: {
+        id: sessionId,
+        userId: user.id,
+        refreshTokenHash: await bcrypt.hash(refreshToken, 10),
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      },
+    });
+    return { accessToken, refreshToken };
   }
 
   private initialPasswordChangeResponse(user: {
@@ -247,7 +267,6 @@ export class AuthService {
           data: {
             failedLoginAttempts: 0,
             lockedUntil: null,
-            refreshTokenHash: null,
           },
         });
         await this.auditService.logEvent({
@@ -286,7 +305,6 @@ export class AuthService {
         data: {
           failedLoginAttempts: 0,
           lockedUntil: null,
-          refreshTokenHash: null,
         },
       });
       await this.auditService.logEvent({
@@ -300,15 +318,13 @@ export class AuthService {
       return this.initialPasswordChangeResponse(user);
     }
 
-    const { accessToken, refreshToken } = this.tokenPair(user);
-    const refreshTokenHash = await bcrypt.hash(refreshToken, 10);
+    const { accessToken, refreshToken } = await this.issueSession(user);
 
     await this.prisma.user.update({
       where: { id: user.id },
       data: {
         failedLoginAttempts: 0,
         lockedUntil: null,
-        refreshTokenHash,
       },
     });
 
@@ -434,7 +450,6 @@ export class AuthService {
           where: { id: user.id },
           data: {
             emailVerifiedAt: user.emailVerifiedAt || verifiedAt,
-            refreshTokenHash: null,
             failedLoginAttempts: 0,
             lockedUntil: null,
           },
@@ -451,8 +466,7 @@ export class AuthService {
       return this.initialPasswordChangeResponse(user);
     }
 
-    const { accessToken, refreshToken } = this.tokenPair(user);
-    const refreshTokenHash = await bcrypt.hash(refreshToken, 10);
+    const { accessToken, refreshToken } = await this.issueSession(user);
 
     await this.prisma.$transaction([
       this.prisma.loginChallenge.update({
@@ -484,7 +498,6 @@ export class AuthService {
         where: { id: user.id },
         data: {
           emailVerifiedAt: user.emailVerifiedAt || verifiedAt,
-          refreshTokenHash,
           failedLoginAttempts: 0,
           lockedUntil: null,
         },
@@ -665,15 +678,13 @@ export class AuthService {
     }
 
     const passwordHash = await bcrypt.hash(dto.newPassword, 10);
-    const { accessToken, refreshToken } = this.tokenPair(user);
-    const refreshTokenHash = await bcrypt.hash(refreshToken, 10);
+    const { accessToken, refreshToken } = await this.issueSession(user);
     await this.prisma.user.update({
       where: { id: user.id },
       data: {
         passwordHash,
         mustChangePassword: false,
         passwordChangedAt: new Date(),
-        refreshTokenHash,
         failedLoginAttempts: 0,
         lockedUntil: null,
       },
@@ -715,35 +726,57 @@ export class AuthService {
       },
     });
 
-    if (!user || user.status !== 'active' || !user.refreshTokenHash) {
+    if (!user || user.status !== 'active') {
       throw new UnauthorizedException('Refresh token không hợp lệ');
     }
 
-    const isTokenMatch = await bcrypt.compare(
-      refreshToken,
-      user.refreshTokenHash,
-    );
-    if (!isTokenMatch) {
+    if (payload.purpose === 'refresh' && typeof payload.sid === 'string') {
+      const session = await this.prisma.authSession.findUnique({
+        where: { id: payload.sid },
+      });
+      if (
+        !session ||
+        session.userId !== user.id ||
+        session.revokedAt ||
+        session.expiresAt <= new Date() ||
+        !(await bcrypt.compare(refreshToken, session.refreshTokenHash))
+      ) {
+        throw new UnauthorizedException('Phiên đăng nhập đã bị thu hồi');
+      }
+
+      await this.prisma.authSession.update({
+        where: { id: session.id },
+        data: { lastUsedAt: new Date() },
+      });
+      return {
+        access_token: this.jwtService.sign(
+          { email: user.email, sub: user.id, sid: session.id },
+          { expiresIn: '15m' },
+        ),
+        // Refresh token giữ nguyên trong vòng đời của riêng phiên này. Việc
+        // refresh đồng thời ở nhiều tab vì vậy không còn tự đá phiên của nhau.
+        refresh_token: refreshToken,
+      };
+    }
+
+    // Chuyển tiếp êm cho người đang đăng nhập bằng phiên của bản cũ. Chỉ token
+    // legacy đang còn hợp lệ mới được đổi sang một AuthSession độc lập.
+    if (
+      !user.refreshTokenHash ||
+      !(await bcrypt.compare(refreshToken, user.refreshTokenHash))
+    ) {
       throw new UnauthorizedException('Refresh token đã bị thu hồi');
     }
 
-    const newPayload = { email: user.email, sub: user.id };
-    const newAccessToken = this.jwtService.sign(newPayload, {
-      expiresIn: '15m',
-    });
-    const newRefreshToken = this.jwtService.sign(newPayload, {
-      expiresIn: '7d',
-    });
-    const newRefreshTokenHash = await bcrypt.hash(newRefreshToken, 10);
-
+    const migrated = await this.issueSession(user);
     await this.prisma.user.update({
       where: { id: user.id },
-      data: { refreshTokenHash: newRefreshTokenHash },
+      data: { refreshTokenHash: null },
     });
 
     return {
-      access_token: newAccessToken,
-      refresh_token: newRefreshToken,
+      access_token: migrated.accessToken,
+      refresh_token: migrated.refreshToken,
     };
   }
 
@@ -814,7 +847,12 @@ export class AuthService {
         passwordResetExpires: null,
         failedLoginAttempts: 0,
         lockedUntil: null,
+        refreshTokenHash: null,
       },
+    });
+    await this.prisma.authSession.updateMany({
+      where: { userId: user.id, revokedAt: null },
+      data: { revokedAt: new Date() },
     });
 
     await this.auditService.logEvent({

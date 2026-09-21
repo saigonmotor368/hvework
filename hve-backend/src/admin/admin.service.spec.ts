@@ -32,6 +32,11 @@ describe('AdminService', () => {
         deleteMany: vi.fn(),
         createMany: vi.fn(),
       },
+      authSession: {
+        updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+      },
+      trustedDevice: { deleteMany: vi.fn() },
+      loginChallenge: { deleteMany: vi.fn() },
       $transaction: vi.fn(),
     };
 
