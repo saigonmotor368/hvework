@@ -205,11 +205,18 @@ describe('API contracts', () => {
   });
 
   it('uploads an avatar and updates the current user profile without creating an attachment record', async () => {
+    vi.stubGlobal('localStorage', memoryStorage());
+    vi.stubGlobal('sessionStorage', memoryStorage());
+    vi.stubGlobal('window', {
+      dispatchEvent: vi.fn(),
+      location: { assign: vi.fn(), origin: 'https://work.example.com' },
+    });
+    localStorage.setItem('access_token', 'jwt');
     const fetcher = vi
       .fn<Fetcher>()
       .mockResolvedValueOnce(jsonResponse({ id: 7, avatarUrl: '/users/7/avatar?v=1' }));
-    const file = new File(['test'], 'avatar.png', { type: 'image/png' });
-    const optimized = new File(['webp'], 'avatar.webp', { type: 'image/webp' });
+    const file = new File(['test'], 'avatar.heic', { type: 'image/heic' });
+    const optimized = new File(['jpeg'], 'avatar.jpg', { type: 'image/jpeg' });
 
     const result = await uploadUserAvatar(
       'https://api.example.com',
@@ -224,6 +231,38 @@ describe('API contracts', () => {
     expect(fetcher.mock.calls[0][0]).toBe('https://api.example.com/users/me/avatar');
     expect(fetcher.mock.calls[0][1]?.method).toBe('PUT');
     expect(fetcher.mock.calls[0][1]?.body).toBeInstanceOf(FormData);
+  });
+
+  it('refreshes an expired mobile session and retries the avatar upload', async () => {
+    vi.stubGlobal('localStorage', memoryStorage());
+    vi.stubGlobal('sessionStorage', memoryStorage());
+    vi.stubGlobal('window', {
+      dispatchEvent: vi.fn(),
+      location: { assign: vi.fn(), origin: 'https://work.example.com' },
+    });
+    localStorage.setItem('access_token', 'expired-jwt');
+    localStorage.setItem('refresh_token', 'mobile-refresh');
+    const fetcher = vi
+      .fn<Fetcher>()
+      .mockResolvedValueOnce(jsonResponse({}, 401))
+      .mockResolvedValueOnce(
+        jsonResponse({ access_token: 'fresh-jwt', refresh_token: 'mobile-refresh' }),
+      )
+      .mockResolvedValueOnce(jsonResponse({ avatarUrl: '/users/7/avatar?v=2' }));
+
+    const result = await uploadUserAvatar(
+      'https://api.example.com',
+      'expired-jwt',
+      new File(['photo'], 'photo.jpg', { type: 'image/jpeg' }),
+      fetcher,
+      async () => new File(['jpeg'], 'avatar.jpg', { type: 'image/jpeg' }),
+    );
+
+    expect(result.avatarUrl).toContain('v=2');
+    expect(fetcher.mock.calls[1][0]).toBe('https://api.example.com/auth/refresh');
+    expect((fetcher.mock.calls[2][1]?.headers as Headers).get('Authorization')).toBe(
+      'Bearer fresh-jwt',
+    );
   });
 
   it('builds an authenticated download URL and preserves a 404-safe backend route', () => {

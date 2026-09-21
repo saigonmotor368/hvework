@@ -195,7 +195,7 @@ export const UserProfileModal: React.FC<{
                     {isUploadingAvatar ? "…" : "📷"}
                     <input
                       type="file"
-                      accept="image/jpeg,image/png,image/webp"
+                      accept="image/*,.heic,.heif"
                       disabled={isUploadingAvatar}
                       onChange={(event) => {
                         void handleAvatarUpload(event.target.files?.[0]);

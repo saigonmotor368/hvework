@@ -184,8 +184,9 @@ export async function uploadUserAvatar(
   optimizer: (file: File) => Promise<File> = optimizeUserAvatar,
 ): Promise<{ avatarUrl: string }> {
   const allowedTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
-  if (!allowedTypes.has(file.type)) {
-    throw new Error('Ảnh đại diện chỉ hỗ trợ JPG, PNG hoặc WEBP');
+  const mobilePhoto = /\.(?:jpe?g|png|webp|hei[cf])$/i.test(file.name);
+  if (!allowedTypes.has(file.type) && !file.type.startsWith('image/') && !mobilePhoto) {
+    throw new Error('Tệp đã chọn không phải là ảnh hợp lệ');
   }
   if (file.size > 12 * 1024 * 1024) {
     throw new Error('Ảnh gốc phải nhỏ hơn hoặc bằng 12MB');
@@ -194,11 +195,15 @@ export async function uploadUserAvatar(
   const optimized = await optimizer(file);
   const body = new FormData();
   body.append('file', optimized, optimized.name);
-  const updateResponse = await fetcher(apiUrl(apiBaseUrl, '/users/me/avatar'), {
-    method: 'PUT',
-    headers: { Authorization: `Bearer ${token}` },
-    body,
-  });
+  const updateResponse = await fetchWithSession(
+    apiUrl(apiBaseUrl, '/users/me/avatar'),
+    {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${token}` },
+      body,
+    },
+    fetcher,
+  );
   if (!updateResponse.ok) {
     throw new Error(await responseMessage(updateResponse, 'Không cập nhật được ảnh đại diện'));
   }
@@ -213,7 +218,7 @@ const canvasBlob = (
     canvas.toBlob(
       (blob) =>
         blob ? resolve(blob) : reject(new Error('Không thể nén ảnh đại diện')),
-      'image/webp',
+      'image/jpeg',
       quality,
     );
   });
@@ -224,7 +229,12 @@ export async function optimizeUserAvatar(file: File): Promise<File> {
     const image = await new Promise<HTMLImageElement>((resolve, reject) => {
       const element = new Image();
       element.onload = () => resolve(element);
-      element.onerror = () => reject(new Error('Không đọc được ảnh đã chọn'));
+      element.onerror = () =>
+        reject(
+          new Error(
+            'Điện thoại không đọc được định dạng ảnh này. Vui lòng chọn ảnh JPG/PNG hoặc chụp ảnh màn hình rồi thử lại.',
+          ),
+        );
       element.src = objectUrl;
     });
     const sourceSize = Math.min(image.naturalWidth, image.naturalHeight);
@@ -235,6 +245,10 @@ export async function optimizeUserAvatar(file: File): Promise<File> {
     canvas.height = 384;
     const context = canvas.getContext('2d');
     if (!context) throw new Error('Thiết bị không hỗ trợ xử lý ảnh');
+    // JPEG được mọi Safari/Chrome mobile hỗ trợ ổn định hơn WEBP encoder.
+    // Nền trắng cũng tránh vùng trong suốt bị chuyển thành màu đen.
+    context.fillStyle = '#ffffff';
+    context.fillRect(0, 0, canvas.width, canvas.height);
     const sourceX = (image.naturalWidth - sourceSize) / 2;
     const sourceY = (image.naturalHeight - sourceSize) / 2;
     context.drawImage(
@@ -257,8 +271,8 @@ export async function optimizeUserAvatar(file: File): Promise<File> {
     if (blob.size > 256 * 1024) {
       throw new Error('Không thể nén ảnh xuống dưới 256KB; vui lòng chọn ảnh khác');
     }
-    return new File([blob], `avatar-${Date.now()}.webp`, {
-      type: blob.type || 'image/webp',
+    return new File([blob], `avatar-${Date.now()}.jpg`, {
+      type: blob.type || 'image/jpeg',
       lastModified: Date.now(),
     });
   } finally {
