@@ -551,8 +551,8 @@ button {
 
   .payment-print-signatures {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8mm;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4mm;
     margin-top: 5mm;
     break-inside: avoid;
     text-align: center;

@@ -31,6 +31,7 @@ export const PaymentRequestPrintSheet: React.FC<
   const accountingStep = steps.find(
     (step) => step.roleRequired === "accountant",
   );
+  const ceoStep = steps.find((step) => step.roleRequired === "ceo");
   const approvalSteps = steps.filter(
     (step) => step.roleRequired !== "accountant",
   );
@@ -209,6 +210,11 @@ export const PaymentRequestPrintSheet: React.FC<
           <strong>Kế toán</strong>
           <span>Ký và ghi rõ họ tên</span>
           <b>{accountingStep?.actedBy?.name || ""}</b>
+        </div>
+        <div>
+          <strong>CEO</strong>
+          <span>Ký và ghi rõ họ tên</span>
+          <b>{ceoStep?.actedBy?.name || ""}</b>
         </div>
         <div>
           <strong>Người nhận tiền đối chiếu</strong>
