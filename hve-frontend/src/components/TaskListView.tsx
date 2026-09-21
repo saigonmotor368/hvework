@@ -39,6 +39,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
 }) => {
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [acceptingTaskId, setAcceptingTaskId] = useState<number | null>(null);
 
   // Tab và bộ lọc
   const [activeTab, setActiveTab] = useState<
@@ -126,6 +127,28 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
   useEffect(() => {
     fetchTasks();
   }, [activeTab, statusFilter, priorityFilter, isOverdueOnly, projectFilter]);
+
+  const handleAcceptSubTask = async (subTaskId: number) => {
+    const token = localStorage.getItem("access_token");
+    if (!token) return;
+    try {
+      setAcceptingTaskId(subTaskId);
+      const response = await fetchWithSession(
+        `${apiBaseUrl}/tasks/${subTaskId}/accept`,
+        { method: "POST", headers: { Authorization: `Bearer ${token}` } },
+      );
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.message || "Không thể nhận việc con");
+      }
+      showToast("Đã nhận việc con. Bạn có thể cập nhật tiến độ!");
+      await fetchTasks();
+    } catch (error: any) {
+      showToast(error.message || "Lỗi khi nhận việc con", "error");
+    } finally {
+      setAcceptingTaskId(null);
+    }
+  };
 
   useEffect(() => {
     if (
@@ -687,6 +710,21 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
                                 {st.progressPercent}%
                               </strong>
                             </span>
+                            {st.assigneeId === currentUser?.id &&
+                              st.status === "Chưa làm" && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    void handleAcceptSubTask(st.id)
+                                  }
+                                  disabled={acceptingTaskId === st.id}
+                                  className="mt-2 w-full rounded-lg bg-[#0A66C2] px-3 py-2 text-xs font-black text-white hover:bg-blue-700 disabled:opacity-50"
+                                >
+                                  {acceptingTaskId === st.id
+                                    ? "Đang nhận việc…"
+                                    : "✓ Nhận việc"}
+                                </button>
+                              )}
                           </div>
                         ))}
                       </div>
@@ -904,6 +942,21 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
                                       >
                                         {st.status}
                                       </span>
+                                      {st.assigneeId === currentUser?.id &&
+                                        st.status === "Chưa làm" && (
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              void handleAcceptSubTask(st.id)
+                                            }
+                                            disabled={acceptingTaskId === st.id}
+                                            className="rounded-lg bg-[#0A66C2] px-2.5 py-1.5 text-[10px] font-black text-white hover:bg-blue-700 disabled:opacity-50"
+                                          >
+                                            {acceptingTaskId === st.id
+                                              ? "Đang nhận…"
+                                              : "✓ Nhận việc"}
+                                          </button>
+                                        )}
                                     </div>
                                   </div>
                                 ))}

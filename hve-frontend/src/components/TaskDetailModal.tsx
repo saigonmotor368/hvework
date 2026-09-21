@@ -166,6 +166,29 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     }
   };
 
+  const handleAcceptSubTask = async (subTaskId: number) => {
+    const token = localStorage.getItem("access_token");
+    if (!token) return;
+    try {
+      setIsAccepting(true);
+      const res = await fetchWithSession(
+        `${apiBaseUrl}/tasks/${subTaskId}/accept`,
+        { method: "POST", headers: { Authorization: `Bearer ${token}` } },
+      );
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || "Không thể nhận việc con");
+      }
+      showToast("Đã nhận việc con. Bạn có thể bắt đầu cập nhật tiến độ!");
+      await fetchTaskDetail();
+      onRefreshList();
+    } catch (err: any) {
+      showToast(err.message || "Lỗi khi nhận việc con", "error");
+    } finally {
+      setIsAccepting(false);
+    }
+  };
+
   const handleConfirmCompletion = async () => {
     if (!task) return;
     const token = localStorage.getItem("access_token");
@@ -256,8 +279,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   const canConfirm = task?.status === "Chờ duyệt" && (isCreator || isCeo);
   const isPrimaryAssignee = task?.assigneeId === currentUser?.id;
   const canAccept = isPrimaryAssignee && task?.status === "Chưa làm";
-  const canUpdateProgress =
-    isPrimaryAssignee && task?.status !== "Chưa làm";
+  const canUpdateProgress = isPrimaryAssignee && task?.status !== "Chưa làm";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 overflow-y-auto">
@@ -332,8 +354,8 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                     Công việc mới đang chờ bạn nhận
                   </h4>
                   <p className="mt-1 text-xs leading-relaxed text-blue-700">
-                    Bấm “Nhận việc” để xác nhận bắt đầu xử lý. Sau đó bạn có
-                    thể cập nhật phần trăm tiến độ và ghi chú thực hiện.
+                    Bấm “Nhận việc” để xác nhận bắt đầu xử lý. Sau đó bạn có thể
+                    cập nhật phần trăm tiến độ và ghi chú thực hiện.
                   </p>
                 </div>
                 <button
@@ -476,55 +498,55 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
               {!hasSubTasks &&
                 task.status !== "Hoàn thành" &&
                 canUpdateProgress && (
-                <div className="pt-2 border-t border-blue-100/60 space-y-2">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:space-x-4">
-                    <input
-                      type="range"
-                      min="0"
-                      max="100"
-                      step="5"
-                      value={progress}
-                      onChange={(e) => setProgress(Number(e.target.value))}
-                      className="flex-1 accent-[#0A66C2] cursor-pointer"
-                    />
-                    <div className="flex space-x-1">
-                      {[25, 50, 75, 100].map((val) => (
-                        <button
-                          key={val}
-                          type="button"
-                          onClick={() => setProgress(val)}
-                          className="px-2 py-0.5 text-xs font-semibold bg-white border border-blue-200 text-blue-700 rounded hover:bg-blue-50 transition-colors"
-                        >
-                          {val}%
-                        </button>
-                      ))}
+                  <div className="pt-2 border-t border-blue-100/60 space-y-2">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:space-x-4">
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        step="5"
+                        value={progress}
+                        onChange={(e) => setProgress(Number(e.target.value))}
+                        className="flex-1 accent-[#0A66C2] cursor-pointer"
+                      />
+                      <div className="flex space-x-1">
+                        {[25, 50, 75, 100].map((val) => (
+                          <button
+                            key={val}
+                            type="button"
+                            onClick={() => setProgress(val)}
+                            className="px-2 py-0.5 text-xs font-semibold bg-white border border-blue-200 text-blue-700 rounded hover:bg-blue-50 transition-colors"
+                          >
+                            {val}%
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:space-x-2">
-                    <input
-                      type="text"
-                      value={progressNote}
-                      onChange={(e) => setProgressNote(e.target.value)}
-                      placeholder="Ghi chú tiến độ (VD: đã xong bản thảo lần 1)..."
-                      className="flex-1 px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0A66C2]"
-                    />
-                    <button
-                      onClick={handleUpdateProgress}
-                      disabled={isUpdatingProgress}
-                      className="px-3.5 py-1.5 bg-[#0A66C2] text-white text-xs font-bold rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
-                    >
-                      {isUpdatingProgress ? "Lưu..." : "Cập nhật"}
-                    </button>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:space-x-2">
+                      <input
+                        type="text"
+                        value={progressNote}
+                        onChange={(e) => setProgressNote(e.target.value)}
+                        placeholder="Ghi chú tiến độ (VD: đã xong bản thảo lần 1)..."
+                        className="flex-1 px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0A66C2]"
+                      />
+                      <button
+                        onClick={handleUpdateProgress}
+                        disabled={isUpdatingProgress}
+                        className="px-3.5 py-1.5 bg-[#0A66C2] text-white text-xs font-bold rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                      >
+                        {isUpdatingProgress ? "Lưu..." : "Cập nhật"}
+                      </button>
+                    </div>
+                    {progress === 100 && (
+                      <p className="text-[11px] text-amber-700 font-medium">
+                        ⚠️ Khi cập nhật 100%, trạng thái việc sẽ chuyển sang
+                        "Chờ duyệt" để người giao việc xác nhận.
+                      </p>
+                    )}
                   </div>
-                  {progress === 100 && (
-                    <p className="text-[11px] text-amber-700 font-medium">
-                      ⚠️ Khi cập nhật 100%, trạng thái việc sẽ chuyển sang "Chờ
-                      duyệt" để người giao việc xác nhận.
-                    </p>
-                  )}
-                </div>
-              )}
+                )}
             </div>
 
             {/* Danh sách Việc con (Subtasks) */}
@@ -587,6 +609,17 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                             {st.status}
                           </span>
                         </div>
+                        {st.assigneeId === currentUser?.id &&
+                          st.status === "Chưa làm" && (
+                            <button
+                              type="button"
+                              onClick={() => void handleAcceptSubTask(st.id)}
+                              disabled={isAccepting}
+                              className="rounded-lg bg-[#0A66C2] px-2.5 py-1.5 text-[10px] font-black text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
+                            >
+                              {isAccepting ? "Đang nhận…" : "✓ Nhận việc"}
+                            </button>
+                          )}
                       </div>
                     </div>
                   ))}
