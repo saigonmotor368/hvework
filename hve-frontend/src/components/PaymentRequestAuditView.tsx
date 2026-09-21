@@ -3,6 +3,7 @@ import type { ApprovalStep, DocumentItem, ProjectItem } from "../types";
 import { ROLE_LABELS } from "../types";
 import { authenticatedFileUrl, uploadAttachment } from "../api/client";
 import { UserNameButton } from "./UserNameButton";
+import { PaymentRequestPrintSheet } from "./PaymentRequestPrintSheet";
 
 interface PaymentRequestAuditViewProps {
   document: DocumentItem;
@@ -131,6 +132,10 @@ export const PaymentRequestAuditView: React.FC<PaymentRequestAuditViewProps> = (
       !requesterFiles.some((file) => file.id === attachment.id) &&
       !accountingFiles.some((file) => file.id === attachment.id),
   );
+  const canPrintPaymentVoucher =
+    document.status === "Đã duyệt" &&
+    accountingStep?.status === "approved" &&
+    accountingFiles.length > 0;
 
   const activeDelegations = (user?.delegatedFrom || []).filter(
     (delegator: any) =>
@@ -333,6 +338,29 @@ export const PaymentRequestAuditView: React.FC<PaymentRequestAuditViewProps> = (
 
   return (
     <div className="space-y-4 md:space-y-5">
+      <PaymentRequestPrintSheet
+        document={document}
+        accountingFiles={accountingFiles}
+      />
+      {canPrintPaymentVoucher && (
+        <section className="flex flex-col gap-3 rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-50 via-white to-emerald-50 p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <div>
+            <p className="text-sm font-black text-slate-900">
+              Phiếu đề nghị thanh toán kiêm phiếu chi đã sẵn sàng
+            </p>
+            <p className="mt-0.5 text-xs text-slate-500">
+              Bao gồm nội dung chi, chứng từ kế toán và đầy đủ lịch sử phê duyệt.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="shrink-0 rounded-xl bg-[#0A66C2] px-4 py-2.5 text-xs font-black text-white shadow-sm transition hover:bg-blue-700"
+          >
+            🖨️ In DNTT kiêm phiếu chi
+          </button>
+        </section>
+      )}
       <section className="overflow-hidden rounded-2xl border border-blue-200 bg-white shadow-sm">
         <div className="flex items-start gap-3 border-b border-blue-100 bg-gradient-to-r from-blue-50 to-white px-4 py-4 sm:px-6">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#0A66C2] text-sm font-black text-white">
