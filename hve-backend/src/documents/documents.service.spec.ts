@@ -1531,6 +1531,7 @@ describe('DocumentsService', () => {
           stepOrder: 2,
           roleRequired: 'accountant',
           status: 'pending',
+          updatedAt: new Date('2026-09-21T04:00:00.000Z'),
         },
       ],
     };
@@ -1587,7 +1588,12 @@ describe('DocumentsService', () => {
       );
 
       expect(prisma.attachment.count).toHaveBeenCalledWith({
-        where: { entityType: 'document', entityId: 91, uploadedById: 25 },
+        where: {
+          entityType: 'document',
+          entityId: 91,
+          uploadedById: 25,
+          uploadedAt: { gt: new Date('2026-09-21T04:00:00.000Z') },
+        },
       });
       expect(prisma.document.update).toHaveBeenCalledWith(
         expect.objectContaining({

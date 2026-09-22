@@ -1257,11 +1257,17 @@ export class DocumentsService {
       step.stepOrder === maxStepOrder;
     let paymentProofCount = 0;
     if (isFinalAccountantStep) {
+      const accountingStepActivatedAt =
+        (step as { updatedAt?: Date; createdAt?: Date }).updatedAt ||
+        (step as { createdAt?: Date }).createdAt;
       paymentProofCount = await this.prisma.attachment.count({
         where: {
           entityType: 'document',
           entityId: documentId,
           uploadedById: user.id,
+          ...(accountingStepActivatedAt
+            ? { uploadedAt: { gt: accountingStepActivatedAt } }
+            : undefined),
         },
       });
       if (paymentProofCount === 0) {

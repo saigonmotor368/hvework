@@ -134,9 +134,15 @@ export const PaymentRequestAuditView: React.FC<PaymentRequestAuditViewProps> = (
   const accountingStep = steps.find((step) => step.roleRequired === "accountant");
   const approvalSteps = steps.filter((step) => step.roleRequired !== "accountant");
   const attachments = document.attachments || [];
-  const accountingFiles = attachments.filter((attachment) =>
-    attachment.uploadedBy?.roles?.some((role) => role.name === "accountant"),
-  );
+  // A requester may also have the accountant role. Do not classify files by
+  // role alone: payment proof belongs to the accountant who actually acted
+  // on the final accounting step, and only after that step is approved.
+  const accountingFiles =
+    accountingStep?.status === "approved" && accountingStep.actedById
+      ? attachments.filter(
+          (attachment) => attachment.uploadedById === accountingStep.actedById,
+        )
+      : [];
   const requesterFiles = attachments.filter(
     (attachment) =>
       attachment.uploadedById === document.createdById &&
