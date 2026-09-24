@@ -26,6 +26,10 @@ describe('TasksService', () => {
         updateMany: vi.fn(),
         groupBy: vi.fn(),
       },
+      taskView: {
+        upsert: vi.fn().mockResolvedValue({}),
+        findMany: vi.fn().mockResolvedValue([]),
+      },
       attachment: {
         count: vi.fn(),
         updateMany: vi.fn(),
@@ -223,6 +227,26 @@ describe('TasksService', () => {
           entityType: 'task',
           action: 'create_task',
           actorId: 3,
+        }),
+      );
+    });
+
+    it('allows a task manager to publish a company-visible task list', async () => {
+      prisma.task.findFirst.mockResolvedValue(null);
+      prisma.task.create.mockImplementation(async ({ data }: any) => ({
+        id: 13,
+        code: 'CV-2026-013',
+        ...data,
+      }));
+
+      await service.createTask(
+        { id: 3, name: 'Kế toán', roles: ['accountant'], departmentId: 2 },
+        { title: 'Kiểm kê toàn công ty', isCompanyVisible: true },
+      );
+
+      expect(prisma.task.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ visibility: 'company' }),
         }),
       );
     });
@@ -610,10 +634,7 @@ describe('TasksService', () => {
       const call = prisma.task.findMany.mock.calls[0][0];
       expect(JSON.stringify(call.where)).toContain(
         JSON.stringify({
-          OR: [
-            { assigneeId: 5 },
-            { collaboratorIds: { array_contains: [5] } },
-          ],
+          OR: [{ assigneeId: 5 }, { collaboratorIds: { array_contains: [5] } }],
         }),
       );
     });
@@ -683,6 +704,48 @@ describe('TasksService', () => {
       expect(tasks[0].isOverdue).toBe(true);
       expect(tasks[1].isOverdue).toBe(false);
       expect(tasks[2].isOverdue).toBe(false);
+    });
+  });
+
+  describe('findById read receipts', () => {
+    it('records the viewer and returns the people who opened the task', async () => {
+      prisma.task.findFirst.mockResolvedValue({
+        id: 21,
+        code: 'CV-2026-021',
+        status: 'Đang làm',
+        dueDate: null,
+        subTasks: [],
+      });
+      prisma.attachment.findMany.mockResolvedValue([]);
+      prisma.comment.findMany.mockResolvedValue([]);
+      prisma.user.findMany.mockResolvedValue([]);
+      prisma.taskView.findMany.mockResolvedValue([
+        {
+          firstViewedAt: new Date('2026-09-24T08:00:00Z'),
+          lastViewedAt: new Date('2026-09-24T08:05:00Z'),
+          viewCount: 2,
+          user: {
+            id: 7,
+            name: 'Người đã xem',
+            email: 'viewer@hve.vn',
+            avatarUrl: null,
+          },
+        },
+      ]);
+
+      const result = await service.findById(
+        { id: 7, roles: ['employee'], departmentId: 2 },
+        21,
+      );
+
+      expect(prisma.taskView.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { taskId_userId: { taskId: 21, userId: 7 } },
+          update: expect.objectContaining({ viewCount: { increment: 1 } }),
+        }),
+      );
+      expect(result.viewers).toHaveLength(1);
+      expect(result.viewers[0].user.name).toBe('Người đã xem');
     });
   });
 

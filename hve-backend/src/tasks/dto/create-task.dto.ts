@@ -1,5 +1,6 @@
 import {
   IsArray,
+  IsBoolean,
   IsIn,
   IsNotEmpty,
   IsNumber,
@@ -58,4 +59,8 @@ export class CreateTaskDto extends ProjectFieldsDto {
   @IsOptional()
   @IsArray()
   attachmentIds?: number[];
+
+  @IsOptional()
+  @IsBoolean({ message: 'Tuỳ chọn công khai công việc phải là đúng hoặc sai' })
+  isCompanyVisible?: boolean;
 }

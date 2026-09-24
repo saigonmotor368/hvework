@@ -21,6 +21,7 @@ interface TaskDetailModalProps {
   showToast: (msg: string, type?: "success" | "error") => void;
   onRefreshList: () => void;
   onOpenCreateSubtask: (parent: TaskItem) => void;
+  onSelectTask: (taskId: number) => void;
   projects: ProjectItem[];
 }
 
@@ -34,6 +35,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   showToast,
   onRefreshList,
   onOpenCreateSubtask,
+  onSelectTask,
   projects,
 }) => {
   const [task, setTask] = useState<TaskItem | null>(null);
@@ -281,10 +283,53 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   const isPrimaryAssignee = task?.assigneeId === currentUser?.id;
   const canAccept = isPrimaryAssignee && task?.status === "Chưa làm";
   const canUpdateProgress = isPrimaryAssignee && task?.status !== "Chưa làm";
+  const completedSubTasks =
+    task?.subTasks?.filter((subTask) => subTask.status === "Hoàn thành")
+      .length || 0;
+  const userById = new Map(users.map((candidate) => [candidate.id, candidate]));
+  const collaboratorUsers = (task?.collaboratorIds || [])
+    .map((id) => userById.get(id))
+    .filter(Boolean) as Array<{ id: number; name: string; email: string }>;
+  const initials = (name?: string | null) =>
+    (name || "?")
+      .trim()
+      .split(/\s+/)
+      .slice(-2)
+      .map((part) => part[0])
+      .join("")
+      .toUpperCase();
+  const avatar = (
+    person?: { id?: number; name?: string; avatarUrl?: string | null } | null,
+    title?: string,
+  ) => {
+    const imageUrl = person?.avatarUrl
+      ? authenticatedFileUrl(
+          apiBaseUrl,
+          person.avatarUrl,
+          localStorage.getItem("access_token") || "",
+        )
+      : null;
+    return (
+      <span
+        title={title || person?.name || "Người dùng"}
+        className="inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-white bg-gradient-to-br from-blue-500 to-violet-500 text-[10px] font-black text-white shadow-sm"
+      >
+        {imageUrl ? (
+          <img
+            src={imageUrl}
+            alt={person?.name || "Ảnh đại diện"}
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          initials(person?.name)
+        )}
+      </span>
+    );
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[94vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
         <div className="px-4 sm:px-6 py-4 border-b border-slate-100 flex items-start justify-between gap-3 bg-slate-50/50">
           <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
@@ -302,6 +347,11 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
             {task?.project && (
               <span className="rounded-md bg-blue-50 px-2 py-0.5 text-[11px] font-bold text-[#0A66C2]">
                 🏗️ {task.project.code} — {task.project.name}
+              </span>
+            )}
+            {task?.visibility === "company" && (
+              <span className="rounded-md bg-cyan-50 px-2 py-0.5 text-[11px] font-bold text-cyan-700 ring-1 ring-cyan-200">
+                👁️ Toàn công ty được xem
               </span>
             )}
             {projects
@@ -348,6 +398,18 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
           </div>
         ) : (
           <div className="mobile-scroll flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 sm:space-y-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
+            {task.parentTask && (
+              <button
+                type="button"
+                onClick={() => onSelectTask(task.parentTask!.id)}
+                className="flex max-w-full items-center gap-2 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-left text-xs font-bold text-[#0A66C2] hover:bg-blue-100"
+              >
+                <span>←</span>
+                <span className="truncate">
+                  Quay lại {task.parentTask.code} — {task.parentTask.title}
+                </span>
+              </button>
+            )}
             {canAccept && (
               <div className="flex flex-col gap-3 rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-50 to-cyan-50 p-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
@@ -392,6 +454,105 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                 </button>
               </div>
             )}
+
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(280px,.65fr)]">
+              <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <div>
+                    <h4 className="text-sm font-black text-slate-900">
+                      👥 Nhóm thực hiện
+                    </h4>
+                    <p className="mt-0.5 text-[11px] text-slate-500">
+                      Người phụ trách chính và những người cùng phối hợp.
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-bold text-[#0A66C2]">
+                    {(task.assignee ? 1 : 0) + collaboratorUsers.length} người
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {task.assignee && (
+                    <div className="flex min-w-0 items-center gap-2 rounded-xl border border-blue-100 bg-blue-50/70 px-3 py-2">
+                      {avatar(task.assignee)}
+                      <div className="min-w-0">
+                        <UserNameButton
+                          user={task.assignee}
+                          className="text-xs"
+                        />
+                        <p className="text-[10px] font-semibold text-blue-600">
+                          Phụ trách chính
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  {collaboratorUsers.map((person) => (
+                    <div
+                      key={person.id}
+                      className="flex min-w-0 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2"
+                    >
+                      {avatar(person)}
+                      <div className="min-w-0">
+                        <UserNameButton user={person} className="text-xs" />
+                        <p className="text-[10px] text-slate-500">Phối hợp</p>
+                      </div>
+                    </div>
+                  ))}
+                  {!task.assignee && collaboratorUsers.length === 0 && (
+                    <p className="text-xs italic text-slate-400">
+                      Chưa chỉ định người thực hiện.
+                    </p>
+                  )}
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-cyan-50 p-4 shadow-sm">
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <div>
+                    <h4 className="text-sm font-black text-emerald-950">
+                      👁️ Người đã xem
+                    </h4>
+                    <p className="mt-0.5 text-[11px] text-emerald-700">
+                      Cập nhật tự động khi mở chi tiết.
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-white px-2.5 py-1 text-xs font-black text-emerald-700 shadow-sm">
+                    {task.viewers?.length || 0}
+                  </span>
+                </div>
+                <div className="flex flex-wrap -space-x-2">
+                  {(task.viewers || []).slice(0, 10).map((viewer) => (
+                    <button
+                      key={viewer.user.id}
+                      type="button"
+                      onClick={() =>
+                        window.dispatchEvent(
+                          new CustomEvent("hve-open-user-profile", {
+                            detail: { id: viewer.user.id },
+                          }),
+                        )
+                      }
+                      className="rounded-full transition hover:z-10 hover:-translate-y-0.5"
+                      title={`${viewer.user.name} · xem gần nhất ${new Date(viewer.lastViewedAt).toLocaleString("vi-VN")}`}
+                    >
+                      {avatar(viewer.user)}
+                    </button>
+                  ))}
+                  {(task.viewers?.length || 0) > 10 && (
+                    <span className="inline-flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-emerald-700 text-[10px] font-black text-white">
+                      +{(task.viewers?.length || 0) - 10}
+                    </span>
+                  )}
+                </div>
+                {task.viewers?.[0] && (
+                  <p className="mt-3 truncate text-[11px] text-emerald-800">
+                    Gần nhất: <b>{task.viewers[0].user.name}</b> ·{" "}
+                    {new Date(task.viewers[0].lastViewedAt).toLocaleString(
+                      "vi-VN",
+                    )}
+                  </p>
+                )}
+              </section>
+            </div>
 
             {/* Quick Metadata Grid */}
             <div className="grid grid-cols-1 min-[380px]:grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-slate-50 rounded-xl border border-slate-100 text-xs">
@@ -550,57 +711,109 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                 )}
             </div>
 
-            {/* Danh sách Việc con (Subtasks) */}
-            <div>
-              <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider">
-                  Việc con trực thuộc ({task.subTasks?.length || 0})
-                </h4>
-                {/* Chỉ cho phép thêm việc con nếu task này chưa phải là việc con */}
-                {canCreateTask &&
-                  !task.parentTaskId &&
-                  task.status !== "Hoàn thành" &&
-                  !task.recurrenceRule && (
-                    <button
-                      onClick={() => onOpenCreateSubtask(task)}
-                      className="text-xs font-bold text-[#0A66C2] hover:underline flex items-center"
-                    >
-                      + Thêm việc con
-                    </button>
-                  )}
+            {/* Danh sách việc cần làm */}
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50 to-blue-50 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <h4 className="text-sm font-black text-slate-900">
+                      ☑️ Danh sách việc cần làm
+                    </h4>
+                    <p className="mt-0.5 text-[11px] text-slate-500">
+                      Phân công từng đầu việc cho đúng người và theo dõi chung
+                      trên một tiến độ.
+                    </p>
+                  </div>
+                  {/* Chỉ cho phép thêm việc con nếu task này chưa phải là việc con */}
+                  {canCreateTask &&
+                    !task.parentTaskId &&
+                    task.status !== "Hoàn thành" &&
+                    !task.recurrenceRule && (
+                      <button
+                        onClick={() => onOpenCreateSubtask(task)}
+                        className="text-xs font-bold text-[#0A66C2] hover:underline flex items-center"
+                      >
+                        + Thêm mục công việc
+                      </button>
+                    )}
+                </div>
+                <div className="mt-3 flex items-center gap-3">
+                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-200">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-[#0A66C2] to-emerald-500 transition-all"
+                      style={{
+                        width: `${task.subTasks?.length ? (completedSubTasks / task.subTasks.length) * 100 : 0}%`,
+                      }}
+                    />
+                  </div>
+                  <span className="text-xs font-black text-slate-700">
+                    {completedSubTasks}/{task.subTasks?.length || 0} hoàn thành
+                  </span>
+                </div>
               </div>
 
               {task.subTasks && task.subTasks.length > 0 ? (
-                <div className="space-y-2">
+                <div className="divide-y divide-slate-100">
                   {task.subTasks.map((st) => (
                     <div
                       key={st.id}
-                      className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex flex-col gap-2 text-xs sm:flex-row sm:items-center sm:justify-between"
+                      className="group flex flex-col gap-3 p-4 text-xs transition hover:bg-blue-50/40 sm:flex-row sm:items-center sm:justify-between"
                     >
-                      <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
-                        <span className="font-mono font-bold text-slate-700">
-                          {st.code}
+                      <div className="flex min-w-0 items-start gap-3">
+                        <span
+                          className={`mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border-2 text-xs font-black ${
+                            st.status === "Hoàn thành"
+                              ? "border-emerald-500 bg-emerald-500 text-white"
+                              : "border-slate-300 bg-white text-transparent"
+                          }`}
+                        >
+                          ✓
                         </span>
-                        <span className="font-semibold text-gray-900">
-                          {st.title}
-                        </span>
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-mono text-[10px] font-bold text-slate-400">
+                              {st.code}
+                            </span>
+                            <span
+                              className={`font-semibold text-gray-900 ${st.status === "Hoàn thành" ? "line-through opacity-60" : ""}`}
+                            >
+                              {st.title}
+                            </span>
+                          </div>
+                          <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] text-slate-500">
+                            <span>{st.progressPercent}% tiến độ</span>
+                            {st.dueDate && (
+                              <span>
+                                · Hạn{" "}
+                                {new Date(st.dueDate).toLocaleDateString(
+                                  "vi-VN",
+                                )}
+                              </span>
+                            )}
+                          </div>
+                        </div>
                         {st.isOverdue && (
                           <span className="bg-red-500 text-white font-bold text-[10px] px-1.5 py-0.2 rounded">
                             Quá hạn
                           </span>
                         )}
                       </div>
-                      <div className="flex flex-wrap items-center gap-2 sm:gap-4">
-                        <span className="text-gray-500">
-                          <UserNameButton
-                            user={st.assignee}
-                            fallback="Chưa gán"
-                          />
-                        </span>
+                      <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                        <div className="flex items-center -space-x-2">
+                          {st.assignee ? (
+                            avatar(st.assignee)
+                          ) : (
+                            <span className="inline-flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-slate-200 text-[10px] font-bold text-slate-500">
+                              ?
+                            </span>
+                          )}
+                          {(st.collaboratorIds?.length || 0) > 0 && (
+                            <span className="inline-flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-violet-600 text-[10px] font-black text-white">
+                              +{st.collaboratorIds!.length}
+                            </span>
+                          )}
+                        </div>
                         <div className="flex items-center space-x-1">
-                          <span className="font-bold text-blue-700">
-                            {st.progressPercent}%
-                          </span>
                           <span
                             className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
                               TASK_STATUS_LABELS[st.status]?.color ||
@@ -610,6 +823,13 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                             {st.status}
                           </span>
                         </div>
+                        <button
+                          type="button"
+                          onClick={() => onSelectTask(st.id)}
+                          className="rounded-lg border border-blue-200 bg-white px-2.5 py-1.5 text-[10px] font-black text-[#0A66C2] hover:bg-blue-50"
+                        >
+                          Mở chi tiết
+                        </button>
                         {st.assigneeId === currentUser?.id &&
                           st.status === "Chưa làm" && (
                             <button
@@ -626,7 +846,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                   ))}
                 </div>
               ) : (
-                <p className="text-xs text-gray-400 italic">
+                <p className="p-5 text-center text-xs italic text-gray-400">
                   Chưa có việc con nào.{" "}
                   {!task.parentTaskId &&
                     !task.recurrenceRule &&
@@ -637,11 +857,11 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
             {/* File đính kèm */}
             {task.attachments && task.attachments.length > 0 && (
-              <div>
-                <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
-                  Tệp đính kèm ({task.attachments.length})
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <h4 className="mb-3 text-sm font-black text-slate-900">
+                  📎 Tệp đính kèm ({task.attachments.length})
                 </h4>
-                <div className="flex flex-wrap gap-2">
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                   {task.attachments.map((file) => (
                     <a
                       key={file.id}
@@ -652,11 +872,22 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                       )}
                       target="_blank"
                       rel="noreferrer"
-                      className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-blue-700 hover:bg-blue-50 flex items-center space-x-2 transition-colors"
+                      className="flex min-w-0 items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-xs font-semibold text-blue-700 transition hover:border-blue-300 hover:bg-blue-50"
                     >
-                      <span>📎</span>
-                      <span className="max-w-[min(200px,55vw)] truncate">
-                        {file.fileName}
+                      <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-xl shadow-sm">
+                        {file.mimeType.includes("pdf")
+                          ? "📕"
+                          : file.mimeType.includes("image")
+                            ? "🖼️"
+                            : "📄"}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block truncate">{file.fileName}</span>
+                        <span className="mt-0.5 block text-[10px] font-normal text-slate-400">
+                          {file.size >= 1024 * 1024
+                            ? `${(file.size / 1024 / 1024).toFixed(1)} MB`
+                            : `${Math.max(1, Math.round(file.size / 1024))} KB`}
+                        </span>
                       </span>
                     </a>
                   ))}

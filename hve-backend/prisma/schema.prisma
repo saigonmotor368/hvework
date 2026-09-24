@@ -85,6 +85,7 @@ model User {
   authoredProjectReports ProjectReport[]       @relation("ProjectReportAuthor")
   reviewedProjectReports ProjectReport[]       @relation("ProjectReportReviewer")
   projectReportViews     ProjectReportViewer[]
+  taskViews              TaskView[]
   avatar                 UserAvatar?
 
   createdAt DateTime @default(now())
@@ -249,8 +250,9 @@ model Task {
   createdBy   User @relation("CreatedTasks", fields: [createdById], references: [id])
 
   parentTaskId Int?
-  parentTask   Task?  @relation("TaskToSubtask", fields: [parentTaskId], references: [id])
-  subTasks     Task[] @relation("TaskToSubtask")
+  parentTask   Task?      @relation("TaskToSubtask", fields: [parentTaskId], references: [id])
+  subTasks     Task[]     @relation("TaskToSubtask")
+  views        TaskView[]
 
   recurrenceRule String? // null if no recurrence
 
@@ -260,7 +262,7 @@ model Task {
   project          Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
   linkedProjectIds Json? // array of project ids allowed to collaborate/view
   // scoped: phạm vi dự án/phòng ban; targeted: người giao/người nhận;
-  // company: mọi tài khoản đăng nhập. Chỉ nội dung BGĐ tạo mới tự đặt giá trị này.
+  // company: mọi tài khoản đăng nhập; người có quyền giao việc có thể chủ động chọn.
   visibility       String   @default("scoped")
 
   createdAt DateTime @default(now())
@@ -272,6 +274,20 @@ model Task {
   @@index([status, dueDate])
   @@index([parentTaskId])
   @@index([visibility, assigneeId])
+}
+
+model TaskView {
+  taskId        Int
+  task          Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId        Int
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstViewedAt DateTime @default(now())
+  lastViewedAt  DateTime @default(now())
+  viewCount     Int      @default(1)
+
+  @@id([taskId, userId])
+  @@index([taskId, lastViewedAt])
+  @@index([userId, lastViewedAt])
 }
 
 model Project {

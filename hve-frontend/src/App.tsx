@@ -164,7 +164,9 @@ export default function App() {
       .then(async (response) => {
         const profile = await response.json().catch(() => ({}));
         if (!response.ok) {
-          throw new Error(profile.message || "Không thể xác minh phiên đăng nhập");
+          throw new Error(
+            profile.message || "Không thể xác minh phiên đăng nhập",
+          );
         }
         if (profile.mustChangePassword) {
           throw new Error(
@@ -333,8 +335,9 @@ export default function App() {
 
   const [createForm, setCreateForm] =
     useState<CreateFormData>(initialFormState);
-  const [editingDocument, setEditingDocument] =
-    useState<DocumentItem | null>(null);
+  const [editingDocument, setEditingDocument] = useState<DocumentItem | null>(
+    null,
+  );
   const [retainedAttachments, setRetainedAttachments] = useState<
     NonNullable<DocumentItem["attachments"]>
   >([]);
@@ -1850,6 +1853,7 @@ export default function App() {
             setParentTaskForCreate(parent);
             setIsCreateTaskOpen(true);
           }}
+          onSelectTask={(taskId) => setSelectedTaskId(taskId)}
           projects={projects}
         />
       )}

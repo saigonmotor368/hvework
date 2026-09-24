@@ -411,11 +411,15 @@ export class TasksService {
         collaboratorIds: (dto.collaboratorIds as any) ?? undefined,
         projectId: effectiveProjectId || null,
         linkedProjectIds: effectiveLinkedProjectIds,
-        visibility: this.hasRole(user, 'bgd')
-          ? dto.assigneeId
-            ? 'targeted'
-            : 'company'
-          : 'scoped',
+        visibility:
+          parentTask?.visibility ||
+          (dto.isCompanyVisible
+            ? 'company'
+            : this.hasRole(user, 'bgd')
+              ? dto.assigneeId
+                ? 'targeted'
+                : 'company'
+              : 'scoped'),
       },
       include: {
         assignee: { select: { id: true, name: true, email: true } },
@@ -525,6 +529,7 @@ export class TasksService {
       const isCeo = this.hasRole(user, 'ceo');
       const isBoard = this.hasRole(user, 'bgd');
       const isDepartmentHead = this.hasRole(user, 'department_head');
+      const isAccountant = this.hasRole(user, 'accountant');
       const taskLinkedProjectIds = Array.isArray(task.linkedProjectIds)
         ? (task.linkedProjectIds as number[])
         : [];
@@ -538,9 +543,15 @@ export class TasksService {
             !!task.createdBy?.departmentId &&
             user.departmentId === task.createdBy.departmentId);
 
-      if (hasAssigneeChange && !isCeo && !isBoard && !isDepartmentHead) {
+      if (
+        hasAssigneeChange &&
+        !isCeo &&
+        !isBoard &&
+        !isDepartmentHead &&
+        !isAccountant
+      ) {
         throw new ForbiddenException(
-          'Chỉ Trưởng Ban / Trưởng dự án, Ban Giám Đốc hoặc CEO mới có quyền thay đổi người thực hiện',
+          'Chỉ Kế toán, Trưởng Ban / Trưởng dự án, Ban Giám Đốc hoặc CEO mới có quyền thay đổi người thực hiện',
         );
       }
 
@@ -1013,14 +1024,20 @@ export class TasksService {
       where,
       include: {
         assignee: {
-          select: { id: true, name: true, email: true, departmentId: true },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            departmentId: true,
+            avatarUrl: true,
+          },
         },
         createdBy: {
           select: { id: true, name: true, email: true, departmentId: true },
         },
         subTasks: {
           include: {
-            assignee: { select: { id: true, name: true } },
+            assignee: { select: { id: true, name: true, avatarUrl: true } },
           },
         },
         project: true,
@@ -1064,7 +1081,13 @@ export class TasksService {
       where: { AND: [{ id: taskId }, buildTaskAccessWhere(user)] },
       include: {
         assignee: {
-          select: { id: true, name: true, email: true, departmentId: true },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            departmentId: true,
+            avatarUrl: true,
+          },
         },
         createdBy: {
           select: { id: true, name: true, email: true, departmentId: true },
@@ -1074,7 +1097,9 @@ export class TasksService {
         },
         subTasks: {
           include: {
-            assignee: { select: { id: true, name: true } },
+            assignee: {
+              select: { id: true, name: true, avatarUrl: true },
+            },
           },
           orderBy: { createdAt: 'asc' },
         },
@@ -1085,6 +1110,34 @@ export class TasksService {
     if (!task) {
       throw new NotFoundException('Không tìm thấy công việc');
     }
+
+    const viewedAt = new Date();
+    await this.prisma.taskView.upsert({
+      where: { taskId_userId: { taskId, userId: user.id } },
+      create: {
+        taskId,
+        userId: user.id,
+        firstViewedAt: viewedAt,
+        lastViewedAt: viewedAt,
+      },
+      update: {
+        lastViewedAt: viewedAt,
+        viewCount: { increment: 1 },
+      },
+    });
+
+    const viewers = await this.prisma.taskView.findMany({
+      where: { taskId },
+      orderBy: { lastViewedAt: 'desc' },
+      select: {
+        firstViewedAt: true,
+        lastViewedAt: true,
+        viewCount: true,
+        user: {
+          select: { id: true, name: true, email: true, avatarUrl: true },
+        },
+      },
+    });
 
     // Lấy attachments
     const attachments = await this.prisma.attachment.findMany({
@@ -1136,6 +1189,7 @@ export class TasksService {
       subTasks: subTasksWithOverdue,
       attachments,
       comments: commentsWithUser,
+      viewers,
     };
   }
 

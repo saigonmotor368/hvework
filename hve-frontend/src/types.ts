@@ -282,7 +282,8 @@ export interface SubTaskItem {
   startDate?: string | null;
   dueDate?: string | null;
   assigneeId?: number | null;
-  assignee?: { id: number; name: string };
+  assignee?: { id: number; name: string; avatarUrl?: string | null };
+  collaboratorIds?: number[] | null;
   isOverdue?: boolean;
 }
 
@@ -312,6 +313,7 @@ export interface TaskItem {
     name: string;
     email: string;
     departmentId?: number | null;
+    avatarUrl?: string | null;
   };
   createdById: number;
   createdBy?: {
@@ -346,6 +348,17 @@ export interface TaskItem {
     fileUrl: string;
   }>;
   comments?: TaskComment[];
+  viewers?: Array<{
+    firstViewedAt: string;
+    lastViewedAt: string;
+    viewCount: number;
+    user: {
+      id: number;
+      name: string;
+      email: string;
+      avatarUrl?: string | null;
+    };
+  }>;
 }
 
 export const TASK_PRIORITY_LABELS: Record<

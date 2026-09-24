@@ -54,6 +54,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
   const [tags, setTags] = useState("");
   const [recurrenceRule, setRecurrenceRule] = useState<string>("");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [isCompanyVisible, setIsCompanyVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [projectId, setProjectId] = useState<string>(
     parentTask?.projectId ? String(parentTask.projectId) : "",
@@ -151,6 +152,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
         projectId: projectId ? Number(projectId) : undefined,
         linkedProjectIds:
           linkedProjectIds.length > 0 ? linkedProjectIds : undefined,
+        isCompanyVisible: !parentTask && isCompanyVisible,
       };
 
       if (parentTask) {
@@ -396,6 +398,27 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
               })}
             </div>
           </div>
+
+          {!parentTask && (
+            <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-cyan-200 bg-gradient-to-r from-cyan-50 to-blue-50 p-4 transition hover:border-cyan-300">
+              <input
+                type="checkbox"
+                checked={isCompanyVisible}
+                onChange={(event) => setIsCompanyVisible(event.target.checked)}
+                className="mt-0.5 h-5 w-5 rounded border-cyan-300 accent-[#0A66C2]"
+              />
+              <span className="min-w-0">
+                <span className="block text-sm font-black text-slate-900">
+                  👁️ Toàn công ty được xem công việc
+                </span>
+                <span className="mt-1 block text-xs leading-relaxed text-slate-600">
+                  Mọi tài khoản có thể theo dõi nội dung và danh sách việc cần
+                  làm. Chỉ người được phân công hoặc có quyền quản lý mới được
+                  cập nhật.
+                </span>
+              </span>
+            </label>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
