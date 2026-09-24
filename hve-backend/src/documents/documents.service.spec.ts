@@ -48,6 +48,9 @@ describe('DocumentsService', () => {
         findFirst: vi.fn(),
         count: vi.fn(),
       },
+      project: {
+        findMany: vi.fn(),
+      },
       $transaction: vi.fn(async (cb: any) => cb(prisma)),
     };
 
@@ -684,6 +687,54 @@ describe('DocumentsService', () => {
         expect.objectContaining({
           where: { id: 102 },
           data: expect.objectContaining({ status: 'pending' }),
+        }),
+      );
+    });
+
+    it('allows a project head to approve a document linked only as a collaborating project', async () => {
+      const linkedOnlyDocument = {
+        id: 16,
+        code: 'DNTT-2026-005',
+        title: 'Thanh toán chi phí quảng cáo',
+        type: 'payment_request',
+        status: 'Chờ duyệt',
+        createdById: 10,
+        createdBy: { id: 10, departmentId: 1 },
+        projectId: null,
+        linkedProjectIds: [200],
+        version: 1,
+        dataJson: {},
+        steps: [
+          {
+            id: 101,
+            stepOrder: 1,
+            roleRequired: 'department_head',
+            status: 'pending',
+          },
+        ],
+      };
+      prisma.document.findUnique.mockResolvedValue(linkedOnlyDocument);
+      prisma.document.update.mockResolvedValue({
+        ...linkedOnlyDocument,
+        status: 'Đã duyệt',
+        version: 2,
+      });
+
+      await service.approveStep(
+        16,
+        101,
+        {
+          id: 20,
+          roles: [{ name: 'department_head' }],
+          ledProjects: [{ id: 200, isActive: true }],
+        },
+        { comment: 'Đồng ý' },
+      );
+
+      expect(prisma.documentApprovalStep.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 101 },
+          data: expect.objectContaining({ status: 'approved', actedById: 20 }),
         }),
       );
     });
@@ -1393,6 +1444,35 @@ describe('DocumentsService', () => {
   });
 
   describe('Real-time Notifications for Document Transitions (Phase 4 scope)', () => {
+    it('notifies the lead of a linked-only project about a pending approval', async () => {
+      prisma.project.findMany.mockResolvedValue([{ leadUserId: 15 }]);
+      prisma.user.findMany.mockResolvedValue([]);
+
+      await service.notifyStepApprovers(
+        {
+          id: 16,
+          code: 'DNTT-2026-005',
+          title: 'Thanh toán chi phí quảng cáo',
+          projectId: null,
+          linkedProjectIds: [2],
+          createdBy: { name: 'Phạm Xuân Định', departmentId: 1 },
+        },
+        1,
+        'department_head',
+      );
+
+      expect(prisma.project.findMany).toHaveBeenCalledWith({
+        where: { id: { in: [2] }, isActive: true },
+        select: { leadUserId: true },
+      });
+      expect(notificationsService.dispatchNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 15,
+          eventType: 'document_pending_approval',
+        }),
+      );
+    });
+
     it('submitForApproval should trigger immediate notification to step 1 approver', async () => {
       prisma.document.findUnique.mockResolvedValue({
         id: 1,

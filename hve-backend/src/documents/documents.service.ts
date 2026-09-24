@@ -99,14 +99,16 @@ export class DocumentsService {
     const linkedProjectIds = Array.isArray(doc.linkedProjectIds)
       ? (doc.linkedProjectIds as number[])
       : [];
-    const canHandleProject = doc.projectId
-      ? userProjectIds.includes(doc.projectId) ||
-        linkedProjectIds.some((id) => userProjectIds.includes(id))
-      : false;
+    const documentProjectIds = [doc.projectId, ...linkedProjectIds].filter(
+      (id): id is number => typeof id === 'number',
+    );
+    const canHandleProject = documentProjectIds.some((id) =>
+      userProjectIds.includes(id),
+    );
     const creatorDeptId = doc.createdBy?.departmentId;
     const userDeptId = user.departmentId || user.department?.id;
     const canHandleLegacy =
-      !doc.projectId &&
+      documentProjectIds.length === 0 &&
       Boolean(creatorDeptId && userDeptId && creatorDeptId === userDeptId);
 
     if (!canHandleProject && !canHandleLegacy) {
@@ -288,6 +290,7 @@ export class DocumentsService {
       code: string;
       title: string;
       projectId?: number | null;
+      linkedProjectIds?: unknown;
       createdBy?: { name?: string; departmentId?: number | null };
     },
     stepOrder: number,
@@ -297,12 +300,20 @@ export class DocumentsService {
       let approverIds: number[] = [];
 
       if (roleRequired === 'department_head') {
-        if (doc.projectId) {
-          const project = await this.prisma.project.findUnique({
-            where: { id: doc.projectId },
+        const linkedProjectIds = Array.isArray(doc.linkedProjectIds)
+          ? (doc.linkedProjectIds as number[])
+          : [];
+        const projectIds = [doc.projectId, ...linkedProjectIds].filter(
+          (id): id is number => typeof id === 'number',
+        );
+        if (projectIds.length > 0) {
+          const projects = await this.prisma.project.findMany({
+            where: { id: { in: projectIds }, isActive: true },
             select: { leadUserId: true },
           });
-          approverIds = project?.leadUserId ? [project.leadUserId] : [];
+          approverIds = projects
+            .map((project) => project.leadUserId)
+            .filter((id): id is number => typeof id === 'number');
         } else {
           const deptId = doc.createdBy?.departmentId;
           if (deptId) {

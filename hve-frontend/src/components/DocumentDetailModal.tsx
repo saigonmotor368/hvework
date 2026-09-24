@@ -72,14 +72,15 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
       const delegatedProjectIds = (delegator.projects || []).map(
         (project: ProjectItem) => project.id,
       );
-      const projectMatch = selectedDoc.projectId
-        ? delegatedProjectIds.includes(selectedDoc.projectId) ||
-          selectedDoc.linkedProjectIds?.some((id) =>
-            delegatedProjectIds.includes(id),
-          )
-        : false;
+      const documentProjectIds = [
+        selectedDoc.projectId,
+        ...(selectedDoc.linkedProjectIds || []),
+      ].filter((id): id is number => typeof id === "number");
+      const projectMatch = documentProjectIds.some((id) =>
+        delegatedProjectIds.includes(id),
+      );
       const creatorDeptId = selectedDoc.createdBy?.department?.id;
-      return selectedDoc.projectId
+      return documentProjectIds.length > 0
         ? Boolean(projectMatch)
         : Boolean(creatorDeptId && delegator.departmentId === creatorDeptId);
     });
@@ -454,15 +455,16 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
                   const userProjectIds = (user?.projects || []).map(
                     (project: ProjectItem) => project.id,
                   );
-                  const projectMatch = selectedDoc.projectId
-                    ? userProjectIds.includes(selectedDoc.projectId) ||
-                      selectedDoc.linkedProjectIds?.some((id) =>
-                        userProjectIds.includes(id),
-                      )
-                    : false;
+                  const documentProjectIds = [
+                    selectedDoc.projectId,
+                    ...(selectedDoc.linkedProjectIds || []),
+                  ].filter((id): id is number => typeof id === "number");
+                  const projectMatch = documentProjectIds.some((id) =>
+                    userProjectIds.includes(id),
+                  );
                   const creatorDeptId = selectedDoc.createdBy?.department?.id;
                   const userDeptId = user?.departmentId || user?.department?.id;
-                  const directDepartmentMatch = selectedDoc.projectId
+                  const directDepartmentMatch = documentProjectIds.length > 0
                     ? Boolean(projectMatch)
                     : Boolean(
                         creatorDeptId &&
