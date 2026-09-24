@@ -179,13 +179,13 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
       );
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.message || "Không thể nhận việc con");
+        throw new Error(data.message || "Không thể tiếp nhận nhiệm vụ");
       }
-      showToast("Đã nhận việc con. Bạn có thể bắt đầu cập nhật tiến độ!");
+      showToast("Đã tiếp nhận nhiệm vụ. Bạn có thể cập nhật tiến độ.");
       await fetchTaskDetail();
       onRefreshList();
     } catch (err: any) {
-      showToast(err.message || "Lỗi khi nhận việc con", "error");
+      showToast(err.message || "Không thể tiếp nhận nhiệm vụ", "error");
     } finally {
       setIsAccepting(false);
     }
@@ -414,11 +414,11 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
               <div className="flex flex-col gap-3 rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-50 to-cyan-50 p-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h4 className="text-sm font-black text-blue-950">
-                    Công việc mới đang chờ bạn nhận
+                    Công việc mới chờ tiếp nhận
                   </h4>
                   <p className="mt-1 text-xs leading-relaxed text-blue-700">
-                    Bấm “Nhận việc” để xác nhận bắt đầu xử lý. Sau đó bạn có thể
-                    cập nhật phần trăm tiến độ và ghi chú thực hiện.
+                    Chọn “Tiếp nhận công việc” để xác nhận bắt đầu xử lý. Sau đó
+                    bạn có thể cập nhật phần trăm tiến độ và ghi chú thực hiện.
                   </p>
                 </div>
                 <button
@@ -427,7 +427,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                   disabled={isAccepting}
                   className="min-h-11 shrink-0 rounded-xl bg-[#0A66C2] px-5 py-2.5 text-sm font-black text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-50"
                 >
-                  {isAccepting ? "Đang nhận việc..." : "✓ Nhận việc"}
+                  {isAccepting ? "Đang tiếp nhận..." : "✓ Tiếp nhận công việc"}
                 </button>
               </div>
             )}
@@ -635,9 +635,9 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                   </h4>
                   <span className="text-xs text-gray-500">
                     {hasSubTasks
-                      ? "Tiến độ được tự động tính trung bình cộng từ các việc con"
+                      ? "Tiến độ được tự động tổng hợp từ các nhiệm vụ thành phần"
                       : canAccept
-                        ? "Nhận việc trước khi cập nhật tiến độ thực hiện"
+                        ? "Tiếp nhận công việc trước khi cập nhật tiến độ"
                         : canUpdateProgress
                           ? "Kéo thanh trượt để cập nhật tiến độ thực hiện"
                           : "Chỉ người thực hiện chính được cập nhật tiến độ"}
@@ -711,20 +711,20 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                 )}
             </div>
 
-            {/* Danh sách việc cần làm */}
+            {/* Danh sách nhiệm vụ */}
             <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
               <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50 to-blue-50 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <h4 className="text-sm font-black text-slate-900">
-                      ☑️ Danh sách việc cần làm
+                      ☑️ Danh sách nhiệm vụ
                     </h4>
                     <p className="mt-0.5 text-[11px] text-slate-500">
-                      Phân công từng đầu việc cho đúng người và theo dõi chung
-                      trên một tiến độ.
+                      Phân công nhiệm vụ cho các bộ phận phụ trách và theo dõi
+                      tiến độ chung.
                     </p>
                   </div>
-                  {/* Chỉ cho phép thêm việc con nếu task này chưa phải là việc con */}
+                  {/* Chỉ cho phép thêm nhiệm vụ nếu đây là công việc chính */}
                   {canCreateTask &&
                     !task.parentTaskId &&
                     task.status !== "Hoàn thành" &&
@@ -733,7 +733,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                         onClick={() => onOpenCreateSubtask(task)}
                         className="text-xs font-bold text-[#0A66C2] hover:underline flex items-center"
                       >
-                        + Thêm mục công việc
+                        + Thêm nhiệm vụ
                       </button>
                     )}
                 </div>
@@ -838,7 +838,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                               disabled={isAccepting}
                               className="rounded-lg bg-[#0A66C2] px-2.5 py-1.5 text-[10px] font-black text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
                             >
-                              {isAccepting ? "Đang nhận…" : "✓ Nhận việc"}
+                              {isAccepting ? "Đang tiếp nhận…" : "✓ Tiếp nhận"}
                             </button>
                           )}
                       </div>
@@ -847,10 +847,10 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                 </div>
               ) : (
                 <p className="p-5 text-center text-xs italic text-gray-400">
-                  Chưa có việc con nào.{" "}
+                  Chưa có nhiệm vụ thành phần.{" "}
                   {!task.parentTaskId &&
                     !task.recurrenceRule &&
-                    "Bạn có thể chia nhỏ đầu việc để theo dõi."}
+                    "Bạn có thể phân chia công việc thành các nhiệm vụ để thuận tiện theo dõi."}
                 </p>
               )}
             </div>

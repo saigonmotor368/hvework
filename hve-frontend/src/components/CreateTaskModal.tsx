@@ -176,7 +176,9 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
       }
 
       showToast(
-        parentTask ? "Thêm việc con thành công!" : "Tạo công việc thành công!",
+        parentTask
+          ? "Thêm nhiệm vụ thành phần thành công!"
+          : "Tạo công việc thành công!",
       );
       onSuccess();
       onClose();
@@ -195,7 +197,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
           <div className="min-w-0">
             <h3 className="text-base sm:text-lg font-bold text-gray-900 break-words">
               {parentTask
-                ? `Thêm việc con cho [${parentTask.code}]`
+                ? `Thêm nhiệm vụ cho [${parentTask.code}]`
                 : "Giao việc mới"}
             </h3>
             <p className="text-xs text-gray-500 mt-0.5">
@@ -488,7 +490,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                   Đang lưu...
                 </>
               ) : parentTask ? (
-                "Thêm việc con"
+                "Thêm nhiệm vụ"
               ) : (
                 "Giao việc"
               )}
