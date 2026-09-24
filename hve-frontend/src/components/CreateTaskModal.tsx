@@ -78,6 +78,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
     parentTask?.linkedProjectIds || [],
   );
   const [workload, setWorkload] = useState<WorkloadSummaryItem[]>([]);
+  const [useTaskList, setUseTaskList] = useState(false);
   const [draftTasks, setDraftTasks] = useState<DraftTaskItem[]>([]);
 
   useEffect(() => {
@@ -95,6 +96,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
     setIsCompanyVisible(false);
     setProjectId(parentTask?.projectId ? String(parentTask.projectId) : "");
     setLinkedProjectIds(parentTask?.linkedProjectIds || []);
+    setUseTaskList(false);
     setDraftTasks([]);
   }, [isOpen, parentTask?.id]);
 
@@ -171,6 +173,12 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
     setDraftTasks((items) => [...items, createDraftTaskItem()]);
   };
 
+  const handleTaskListModeChange = (enabled: boolean) => {
+    setUseTaskList(enabled);
+    setRecurrenceRule("");
+    setDraftTasks(enabled ? [createDraftTaskItem()] : []);
+  };
+
   const moveDraftTask = (index: number, direction: -1 | 1) => {
     setDraftTasks((items) => {
       const targetIndex = index + direction;
@@ -187,8 +195,12 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
       showToast("Vui lòng nhập tiêu đề công việc", "error");
       return;
     }
-    if (draftTasks.some((item) => !item.title.trim())) {
+    if (useTaskList && draftTasks.some((item) => !item.title.trim())) {
       showToast("Vui lòng nhập đầy đủ tên các nhiệm vụ", "error");
+      return;
+    }
+    if (useTaskList && draftTasks.some((item) => !item.assigneeId)) {
+      showToast("Vui lòng chọn người phụ trách cho từng nhiệm vụ", "error");
       return;
     }
 
@@ -250,7 +262,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
       const createdTask: TaskItem = await res.json();
       createdParentId = !parentTask ? createdTask.id : null;
 
-      if (!parentTask && draftTasks.length > 0) {
+      if (!parentTask && useTaskList && draftTasks.length > 0) {
         for (const item of draftTasks) {
           const childResponse = await fetchWithSession(`${apiBaseUrl}/tasks`, {
             method: "POST",
@@ -284,7 +296,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
       showToast(
         parentTask
           ? "Thêm nhiệm vụ thành phần thành công!"
-          : draftTasks.length > 0
+          : useTaskList && draftTasks.length > 0
             ? `Đã tạo công việc cùng ${draftTasks.length} nhiệm vụ.`
             : "Tạo công việc thành công!",
       );
@@ -418,7 +430,9 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
-                Người thực hiện chính
+                {useTaskList
+                  ? "Người điều phối chung (không bắt buộc)"
+                  : "Người thực hiện chính"}
               </label>
               <select
                 value={assigneeId}
@@ -493,42 +507,49 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
 
           {!parentTask && (
             <section className="overflow-hidden rounded-2xl border border-blue-200 bg-white shadow-sm">
-              <div className="flex flex-col gap-3 border-b border-blue-100 bg-gradient-to-r from-blue-50 to-cyan-50 p-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <h4 className="text-sm font-black text-slate-900">
-                    ☑️ Danh sách nhiệm vụ
-                  </h4>
-                  <p className="mt-1 text-xs leading-relaxed text-slate-600">
-                    Phân công nhiệm vụ cho các bộ phận phụ trách và theo dõi
-                    tiến độ chung.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={addDraftTask}
-                  disabled={draftTasks.length >= MAX_DRAFT_TASKS}
-                  className="min-h-10 shrink-0 rounded-xl bg-[#0A66C2] px-4 py-2 text-xs font-black text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  + Thêm nhiệm vụ ({draftTasks.length}/{MAX_DRAFT_TASKS})
-                </button>
-              </div>
+              <label className="flex cursor-pointer items-start gap-3 bg-gradient-to-r from-blue-50 to-cyan-50 p-4 transition hover:from-blue-100/70 hover:to-cyan-100/70">
+                <input
+                  type="checkbox"
+                  checked={useTaskList}
+                  onChange={(event) =>
+                    handleTaskListModeChange(event.target.checked)
+                  }
+                  className="mt-0.5 h-5 w-5 shrink-0 rounded border-blue-300 accent-[#0A66C2]"
+                />
+                <span className="min-w-0">
+                  <span className="block text-sm font-black text-slate-900">
+                    Phân công theo danh sách nhiệm vụ
+                  </span>
+                  <span className="mt-1 block text-xs leading-relaxed text-slate-600">
+                    Bật khi một công việc gồm nhiều nhiệm vụ cần phân công cho
+                    các thành viên hoặc bộ phận khác nhau.
+                  </span>
+                </span>
+              </label>
 
-              {draftTasks.length === 0 ? (
-                <button
-                  type="button"
-                  onClick={addDraftTask}
-                  className="m-4 flex min-h-24 w-[calc(100%-2rem)] flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 px-4 text-center transition hover:border-blue-300 hover:bg-blue-50"
-                >
-                  <span className="text-2xl">📋</span>
-                  <span className="mt-1 text-xs font-bold text-slate-700">
-                    Chưa có nhiệm vụ thành phần
-                  </span>
-                  <span className="mt-0.5 text-[11px] text-slate-500">
-                    Chọn để lập danh sách và phân công người phụ trách.
-                  </span>
-                </button>
-              ) : (
-                <div className="divide-y divide-slate-100">
+              {useTaskList && (
+                <>
+                  <div className="flex flex-col gap-3 border-y border-blue-100 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h4 className="text-sm font-black text-slate-900">
+                        ☑️ Danh sách nhiệm vụ
+                      </h4>
+                      <p className="mt-1 text-xs leading-relaxed text-slate-600">
+                        Phân công nhiệm vụ cho các bộ phận phụ trách và theo dõi
+                        tiến độ chung.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={addDraftTask}
+                      disabled={draftTasks.length >= MAX_DRAFT_TASKS}
+                      className="min-h-10 shrink-0 rounded-xl bg-[#0A66C2] px-4 py-2 text-xs font-black text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      + Thêm nhiệm vụ ({draftTasks.length}/{MAX_DRAFT_TASKS})
+                    </button>
+                  </div>
+
+                  <div className="divide-y divide-slate-100">
                   {draftTasks.map((item, index) => {
                     const selectedCollaborators = users.filter((user) =>
                       item.collaboratorIds.includes(user.id),
@@ -582,8 +603,8 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
 
                         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
                           <div>
-                            <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                              Người phụ trách
+                          <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                              Người phụ trách <span className="text-red-500">*</span>
                             </label>
                             <select
                               value={item.assigneeId}
@@ -598,7 +619,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                               }}
                               className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#0A66C2]"
                             >
-                              <option value="">Chưa chỉ định</option>
+                              <option value="">Chọn người phụ trách</option>
                               {users.map((user) => (
                                 <option key={user.id} value={user.id}>
                                   {user.name}
@@ -663,6 +684,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                           </button>
                           <button
                             type="button"
+                            disabled={draftTasks.length === 1}
                             onClick={() =>
                               setDraftTasks((items) =>
                                 items.filter(
@@ -671,8 +693,12 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                                 ),
                               )
                             }
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-red-200 text-red-500 hover:bg-red-50"
-                            title="Xóa nhiệm vụ"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-red-200 text-red-500 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-30"
+                            title={
+                              draftTasks.length === 1
+                                ? "Tắt chế độ danh sách nếu không cần phân công nhiều nhiệm vụ"
+                                : "Xóa nhiệm vụ"
+                            }
                           >
                             ✕
                           </button>
@@ -681,6 +707,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                     );
                   })}
                 </div>
+                </>
               )}
             </section>
           )}
@@ -688,7 +715,8 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
           {/* Người phối hợp */}
           <div>
             <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
-              Người phối hợp ({collaboratorIds.length} đã chọn)
+              {useTaskList ? "Người phối hợp chung" : "Người phối hợp"} (
+              {collaboratorIds.length} đã chọn)
             </label>
             <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto p-2 bg-slate-50 border border-slate-200 rounded-xl">
               {users.map((u) => {
@@ -756,7 +784,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                 <select
                   value={recurrenceRule}
                   onChange={(e) => setRecurrenceRule(e.target.value)}
-                  disabled={draftTasks.length > 0}
+                  disabled={useTaskList}
                   className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0A66C2] focus:bg-white transition-all disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <option value="">Không lặp lại</option>
@@ -764,7 +792,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                   <option value="weekly">Hàng tuần</option>
                   <option value="monthly">Hàng tháng</option>
                 </select>
-                {draftTasks.length > 0 && (
+                {useTaskList && (
                   <p className="mt-1 text-[10px] text-slate-500">
                     Công việc có danh sách nhiệm vụ không áp dụng chu kỳ lặp
                     lại.
