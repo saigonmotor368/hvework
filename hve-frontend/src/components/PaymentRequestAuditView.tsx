@@ -1,10 +1,11 @@
 import React, { useState } from "react";
-import type { ApprovalStep, DocumentItem, ProjectItem } from "../types";
+import type { ApprovalStep, DocumentItem } from "../types";
 import { ROLE_LABELS } from "../types";
 import { authenticatedFileUrl, uploadAttachment } from "../api/client";
 import { UserNameButton } from "./UserNameButton";
 import { PaymentRequestPrintSheet } from "./PaymentRequestPrintSheet";
 import { VietQrPaymentCard } from "./VietQrPaymentCard";
+import { matchesDepartmentHeadScope } from "../utils/documentApproval";
 
 export interface PaymentSettlementInput {
   paymentReference: string;
@@ -167,19 +168,7 @@ export const PaymentRequestAuditView: React.FC<PaymentRequestAuditViewProps> = (
     activeDelegations.find((delegator: any) => {
       if (!(delegator.roles || []).includes(roleRequired)) return false;
       if (roleRequired !== "department_head") return true;
-      const delegatedProjectIds = (delegator.projects || []).map(
-        (project: ProjectItem) => project.id,
-      );
-      if (document.projectId) {
-        return (
-          delegatedProjectIds.includes(document.projectId) ||
-          document.linkedProjectIds?.some((id) => delegatedProjectIds.includes(id))
-        );
-      }
-      const creatorDepartmentId = document.createdBy?.department?.id;
-      return Boolean(
-        creatorDepartmentId && delegator.departmentId === creatorDepartmentId,
-      );
+      return matchesDepartmentHeadScope(delegator, document);
     });
 
   const canActOnStep = (step: ApprovalStep) => {
@@ -188,22 +177,7 @@ export const PaymentRequestAuditView: React.FC<PaymentRequestAuditViewProps> = (
     const hasRole = user?.roles?.includes(step.roleRequired) || Boolean(delegated);
     if (!hasRole) return false;
     if (step.roleRequired !== "department_head" || delegated) return true;
-    const userProjectIds = (user?.projects || []).map(
-      (project: ProjectItem) => project.id,
-    );
-    if (document.projectId) {
-      return (
-        userProjectIds.includes(document.projectId) ||
-        Boolean(
-          document.linkedProjectIds?.some((id) => userProjectIds.includes(id)),
-        )
-      );
-    }
-    const creatorDepartmentId = document.createdBy?.department?.id;
-    const userDepartmentId = user?.departmentId || user?.department?.id;
-    return Boolean(
-      creatorDepartmentId && userDepartmentId === creatorDepartmentId,
-    );
+    return matchesDepartmentHeadScope(user || {}, document);
   };
 
   const uploadPaymentProof = async () => {

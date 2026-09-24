@@ -10,6 +10,7 @@ import { authenticatedFileUrl } from "../api/client";
 import { UserNameButton } from "./UserNameButton";
 import { PaymentRequestAuditView } from "./PaymentRequestAuditView";
 import type { PaymentSettlementInput } from "./PaymentRequestAuditView";
+import { matchesDepartmentHeadScope } from "../utils/documentApproval";
 
 interface DocumentDetailModalProps {
   selectedDoc: DocumentItem;
@@ -69,20 +70,7 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
     activeDelegations.find((delegator: any) => {
       if (!(delegator.roles || []).includes(roleRequired)) return false;
       if (roleRequired !== "department_head") return true;
-      const delegatedProjectIds = (delegator.projects || []).map(
-        (project: ProjectItem) => project.id,
-      );
-      const documentProjectIds = [
-        selectedDoc.projectId,
-        ...(selectedDoc.linkedProjectIds || []),
-      ].filter((id): id is number => typeof id === "number");
-      const projectMatch = documentProjectIds.some((id) =>
-        delegatedProjectIds.includes(id),
-      );
-      const creatorDeptId = selectedDoc.createdBy?.department?.id;
-      return documentProjectIds.length > 0
-        ? Boolean(projectMatch)
-        : Boolean(creatorDeptId && delegator.departmentId === creatorDeptId);
+      return matchesDepartmentHeadScope(delegator, selectedDoc);
     });
   const delegatedCeo = delegationForRole("ceo");
   return (
@@ -452,25 +440,10 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
                 // Department scoping check for UI
                 let departmentMatch = true;
                 if (step.roleRequired === "department_head") {
-                  const userProjectIds = (user?.projects || []).map(
-                    (project: ProjectItem) => project.id,
+                  const directDepartmentMatch = matchesDepartmentHeadScope(
+                    user || {},
+                    selectedDoc,
                   );
-                  const documentProjectIds = [
-                    selectedDoc.projectId,
-                    ...(selectedDoc.linkedProjectIds || []),
-                  ].filter((id): id is number => typeof id === "number");
-                  const projectMatch = documentProjectIds.some((id) =>
-                    userProjectIds.includes(id),
-                  );
-                  const creatorDeptId = selectedDoc.createdBy?.department?.id;
-                  const userDeptId = user?.departmentId || user?.department?.id;
-                  const directDepartmentMatch = documentProjectIds.length > 0
-                    ? Boolean(projectMatch)
-                    : Boolean(
-                        creatorDeptId &&
-                        userDeptId &&
-                        creatorDeptId === userDeptId,
-                      );
                   departmentMatch =
                     directDepartmentMatch || Boolean(approvalDelegator);
                 }
