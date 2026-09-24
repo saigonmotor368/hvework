@@ -320,7 +320,11 @@ export function buildTaskAccessWhere(user: UserWithBusinessScope): any {
   if (canViewScopedCompany) return {};
 
   const departmentId = getDepartmentId(user);
-  const conditions: any[] = [{ assigneeId: user.id }, { createdById: user.id }];
+  const conditions: any[] = [
+    { assigneeId: user.id },
+    { createdById: user.id },
+    { collaboratorIds: { array_contains: [user.id] } },
+  ];
   if (roles.includes('department_head')) {
     const projectIds = getUserProjectIds(user);
     if (projectIds.length > 0) {

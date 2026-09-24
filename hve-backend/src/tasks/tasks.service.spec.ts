@@ -191,6 +191,42 @@ describe('TasksService', () => {
       expect(auditService.logEvent).toHaveBeenCalled();
     });
 
+    it('notifies every collaborator assigned to a task list item', async () => {
+      prisma.task.findFirst.mockResolvedValue(null);
+      prisma.task.create.mockResolvedValue({
+        id: 14,
+        code: 'CV-2026-014',
+        title: 'Rà soát hồ sơ pháp lý',
+        assigneeId: 2,
+        createdById: 1,
+      });
+
+      await service.createTask(
+        { id: 1, name: 'CEO', roles: ['ceo'] },
+        {
+          title: 'Rà soát hồ sơ pháp lý',
+          assigneeId: 2,
+          collaboratorIds: [3, 4, 3],
+        },
+      );
+
+      expect(notificationsService.dispatchNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 3,
+          eventType: 'task_collaborator_assigned',
+        }),
+      );
+      expect(notificationsService.dispatchNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 4,
+          eventType: 'task_collaborator_assigned',
+        }),
+      );
+      expect(notificationsService.dispatchNotification).toHaveBeenCalledTimes(
+        3,
+      );
+    });
+
     it('should reject task creation by a regular employee', async () => {
       await expect(
         service.createTask(

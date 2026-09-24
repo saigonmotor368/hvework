@@ -34,6 +34,7 @@ describe('business access scopes', () => {
     expect(scopedTaskConditions(buildTaskAccessWhere(user))).toEqual([
       { assigneeId: 3 },
       { createdById: 3 },
+      { collaboratorIds: { array_contains: [3] } },
       {
         AND: [
           { projectId: null },
@@ -118,6 +119,7 @@ describe('business access scopes', () => {
     expect(scopedTaskConditions(scope)).toEqual([
       { assigneeId: 5 },
       { createdById: 5 },
+      { collaboratorIds: { array_contains: [5] } },
     ]);
     expect(scope.OR[1]).toEqual({
       AND: [
@@ -203,6 +205,7 @@ describe('business access scopes', () => {
     expect(scopedTaskConditions(buildTaskAccessWhere(user))).toEqual([
       { assigneeId: 20 },
       { createdById: 20 },
+      { collaboratorIds: { array_contains: [20] } },
     ]);
     expect(describeBusinessScope(user).capabilities.canManageSystem).toBe(
       false,

@@ -338,36 +338,42 @@ export class TasksService {
     );
     await this.validateNewAttachments(user.id, dto.attachmentIds);
 
-    if (
-      dto.assigneeId &&
-      !this.hasRole(user, 'ceo') &&
-      !this.hasRole(user, 'bgd')
-    ) {
-      const assignee = await this.prisma.user.findFirst({
-        where: { id: dto.assigneeId, status: 'active' },
-        select: {
-          departmentId: true,
-          ledProjects: { select: { id: true } },
-          projectMemberships: { select: { projectId: true } },
-        },
-      });
-      const assigneeProjectIds = [
-        ...(assignee?.ledProjects || []).map((project) => project.id),
-        ...(assignee?.projectMemberships || []).map(
-          (membership) => membership.projectId,
+    if (!this.hasRole(user, 'ceo') && !this.hasRole(user, 'bgd')) {
+      const participantIds = [
+        ...new Set(
+          [dto.assigneeId, ...(dto.collaboratorIds || [])].filter(
+            (participantId): participantId is number =>
+              typeof participantId === 'number',
+          ),
         ),
       ];
-      const allowed = effectiveProjectId
-        ? assigneeProjectIds.includes(effectiveProjectId)
-        : !!assignee &&
-          !!user.departmentId &&
-          assignee.departmentId === user.departmentId;
-      if (!allowed) {
-        throw new ForbiddenException(
-          effectiveProjectId
-            ? 'Chỉ được giao việc cho nhân sự thuộc dự án đã chọn'
-            : 'Kế toán và Trưởng Ban / Trưởng dự án chỉ được giao việc cho nhân sự trong phạm vi mình phụ trách',
-        );
+      for (const participantId of participantIds) {
+        const participant = await this.prisma.user.findFirst({
+          where: { id: participantId, status: 'active' },
+          select: {
+            departmentId: true,
+            ledProjects: { select: { id: true } },
+            projectMemberships: { select: { projectId: true } },
+          },
+        });
+        const participantProjectIds = [
+          ...(participant?.ledProjects || []).map((project) => project.id),
+          ...(participant?.projectMemberships || []).map(
+            (membership) => membership.projectId,
+          ),
+        ];
+        const allowed = effectiveProjectId
+          ? participantProjectIds.includes(effectiveProjectId)
+          : !!participant &&
+            !!user.departmentId &&
+            participant.departmentId === user.departmentId;
+        if (!allowed) {
+          throw new ForbiddenException(
+            effectiveProjectId
+              ? 'Chỉ được phân công nhân sự thuộc dự án đã chọn'
+              : 'Kế toán và Trưởng Ban / Trưởng dự án chỉ được phân công nhân sự trong phạm vi mình phụ trách',
+          );
+        }
       }
     }
 
@@ -471,6 +477,28 @@ export class TasksService {
         dedupeKey: `task_assign_${task.id}_${dto.assigneeId}_${Date.now()}`,
       });
     }
+
+    const collaboratorIds = [
+      ...new Set(
+        (dto.collaboratorIds || []).filter(
+          (collaboratorId) =>
+            collaboratorId !== user.id && collaboratorId !== dto.assigneeId,
+        ),
+      ),
+    ];
+    await Promise.all(
+      collaboratorIds.map((collaboratorId) =>
+        this.notificationsService.dispatchNotification({
+          userId: collaboratorId,
+          eventType: 'task_collaborator_assigned',
+          entityRef: `task:${task.id}`,
+          title: `Phối hợp công việc: ${task.code}`,
+          content: `Bạn được phân công phối hợp thực hiện “${task.title}” bởi ${user.name}.`,
+          link: `/tasks?id=${task.id}`,
+          dedupeKey: `task_collaborator_${task.id}_${collaboratorId}_${Date.now()}`,
+        }),
+      ),
+    );
 
     return task;
   }
