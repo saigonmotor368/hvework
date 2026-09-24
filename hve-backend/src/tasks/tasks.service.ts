@@ -102,7 +102,9 @@ export class TasksService {
     const roles = getRoleNames(user);
     if (
       projectId &&
-      !roles.some((role) => ['ceo', 'bgd', 'it_admin'].includes(role)) &&
+      !roles.some((role) =>
+        ['ceo', 'bgd', 'it_admin', 'accountant'].includes(role),
+      ) &&
       !getUserProjectIds(user).includes(projectId)
     ) {
       throw new ForbiddenException('Bạn không thuộc dự án đã chọn');
@@ -183,7 +185,9 @@ export class TasksService {
     return this.prisma.user.findMany({
       where: {
         status: 'active',
-        ...(!roles.includes('ceo') && !roles.includes('bgd')
+        ...(!roles.includes('ceo') &&
+        !roles.includes('bgd') &&
+        !roles.includes('accountant')
           ? projectIds.length > 0
             ? {
                 OR: [
@@ -338,7 +342,11 @@ export class TasksService {
     );
     await this.validateNewAttachments(user.id, dto.attachmentIds);
 
-    if (!this.hasRole(user, 'ceo') && !this.hasRole(user, 'bgd')) {
+    if (
+      !this.hasRole(user, 'ceo') &&
+      !this.hasRole(user, 'bgd') &&
+      !this.hasRole(user, 'accountant')
+    ) {
       const participantIds = [
         ...new Set(
           [dto.assigneeId, ...(dto.collaboratorIds || [])].filter(
@@ -371,7 +379,7 @@ export class TasksService {
           throw new ForbiddenException(
             effectiveProjectId
               ? 'Chỉ được phân công nhân sự thuộc dự án đã chọn'
-              : 'Kế toán và Trưởng Ban / Trưởng dự án chỉ được phân công nhân sự trong phạm vi mình phụ trách',
+              : 'Trưởng Ban / Trưởng dự án chỉ được phân công nhân sự trong phạm vi mình phụ trách',
           );
         }
       }

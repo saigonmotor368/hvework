@@ -155,6 +155,48 @@ describe('TasksService', () => {
     });
   });
 
+  describe('getAssignableUsers', () => {
+    it('lets an accountant assign active employees across the company', async () => {
+      prisma.user.findMany.mockResolvedValue([
+        {
+          id: 7,
+          name: 'Nhân sự dự án',
+          email: 'member@hve.vn',
+          departmentId: 20,
+        },
+      ]);
+
+      const result = await service.getAssignableUsers({
+        id: 3,
+        roles: ['accountant'],
+        departmentId: null,
+      });
+
+      expect(result).toHaveLength(1);
+      expect(prisma.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { status: 'active' },
+        }),
+      );
+    });
+
+    it('keeps department heads limited to their managed scope', async () => {
+      prisma.user.findMany.mockResolvedValue([]);
+
+      await service.getAssignableUsers({
+        id: 4,
+        roles: ['department_head'],
+        departmentId: 10,
+      });
+
+      expect(prisma.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ departmentId: 10 }),
+        }),
+      );
+    });
+  });
+
   describe('createTask', () => {
     it('should create independent task and send notification if assigned to another user', async () => {
       prisma.task.findFirst.mockResolvedValue(null);
@@ -264,6 +306,33 @@ describe('TasksService', () => {
           action: 'create_task',
           actorId: 3,
         }),
+      );
+    });
+
+    it('allows an accountant to assign a task to another department', async () => {
+      prisma.task.findFirst.mockResolvedValue(null);
+      prisma.task.create.mockResolvedValue({
+        id: 15,
+        code: 'CV-2026-015',
+        title: 'Kiểm kê tài sản dự án',
+        assigneeId: 9,
+        createdById: 3,
+      });
+
+      const result = await service.createTask(
+        {
+          id: 3,
+          name: 'Kế toán',
+          roles: ['accountant'],
+          departmentId: null,
+        },
+        { title: 'Kiểm kê tài sản dự án', assigneeId: 9 },
+      );
+
+      expect(result.id).toBe(15);
+      expect(prisma.user.findFirst).not.toHaveBeenCalled();
+      expect(notificationsService.dispatchNotification).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: 9, eventType: 'task_assigned' }),
       );
     });
 

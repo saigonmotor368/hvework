@@ -79,6 +79,33 @@ describe('ProjectsService', () => {
     expect(result[0]).not.toHaveProperty('lead');
   });
 
+  it('lets an accountant browse the active project catalog for task assignment', async () => {
+    prisma.project.findMany.mockResolvedValue([
+      {
+        id: 2,
+        code: 'SNA',
+        name: 'Dự án SNA',
+        location: 'Đồng Nai',
+        leadUserId: 9,
+        isActive: true,
+        members: [{ userId: 99 }],
+        lead: { id: 9, email: 'lead@example.com' },
+      },
+    ]);
+
+    const result = await service.findVisible({
+      id: 3,
+      roles: ['accountant'],
+    });
+
+    expect(prisma.project.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { isActive: true } }),
+    );
+    expect(result[0]).toMatchObject({ id: 2, code: 'SNA', name: 'Dự án SNA' });
+    expect(result[0]).not.toHaveProperty('members');
+    expect(result[0]).not.toHaveProperty('lead');
+  });
+
   it('automatically grants department_head when a project lead is selected', async () => {
     prisma.user.count.mockResolvedValue(2);
     prisma.project.findUnique.mockResolvedValue(null);

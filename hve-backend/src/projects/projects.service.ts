@@ -36,7 +36,10 @@ export class ProjectsService {
   async findVisible(user: any) {
     const roles = getRoleNames(user);
     const canManage = roles.includes('ceo') || roles.includes('it_admin');
-    const canBrowseAll = canManage || roles.includes('department_head');
+    // Kế toán thuộc khối văn phòng cần chọn dự án khi giao việc,
+    // nhưng chỉ nhận danh mục rút gọn; không được xem thông tin thành viên.
+    const canBrowseAll =
+      canManage || roles.includes('department_head') || roles.includes('accountant');
     const projects = await this.prisma.project.findMany({
       relationLoadStrategy: 'join',
       where: canManage
