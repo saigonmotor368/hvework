@@ -108,6 +108,7 @@ Mã tự sinh dạng `{PREFIX}-{YYYY}-{seq:03d}`, sequence reset theo năm.
   - Không cho `acted_by == document.created_by` tại bất kỳ step nào (chặn tự duyệt hồ sơ mình tạo).
   - Mọi transition trạng thái đều ghi `AuditLog` trong cùng transaction DB (không tách riêng, tránh mất log khi lỗi).
 - CEO: scope `all` trên mọi resource đọc + quyền duyệt cuối + giao việc.
+- Kế toán: được tạo/giao công việc kiểm kê trong phạm vi phòng ban hoặc dự án mình phụ trách; không kế thừa phạm vi giao việc toàn công ty của CEO/BGĐ.
 - IT admin: full quyền trên `User, Role, Department, WorkflowTemplate, ReminderRule, Category`; **không có quyền ghi trên bản ghi nghiệp vụ đã duyệt** (chỉ đọc, đúng "không tự ý sửa nội dung nghiệp vụ đã duyệt").
 
 ---

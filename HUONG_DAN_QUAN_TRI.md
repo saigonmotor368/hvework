@@ -36,7 +36,7 @@ Tài khoản Quản trị IT (`it_admin`) sở hữu toàn quyền quản trị 
   - Hệ thống hỗ trợ 6 vai trò chuẩn:
     1. `ceo`: Ban Giám đốc — phê duyệt cấp cao nhất, giao việc, xem toàn bộ báo cáo và nhật ký.
     2. `department_head`: Trưởng bộ phận — duyệt hồ sơ nội bộ phòng mình, giao việc cho nhân viên phòng.
-    3. `accountant`: Kế toán — thẩm định chứng từ thanh toán, quản lý hợp đồng chi trả.
+    3. `accountant`: Kế toán — thẩm định chứng từ thanh toán, quản lý hợp đồng chi trả và tạo/giao việc kiểm kê trong phạm vi phụ trách.
     4. `legal`: Pháp chế — thẩm định tính pháp lý của hợp đồng kinh tế.
     5. `employee`: Nhân viên — lập hồ sơ đề xuất/thanh toán, thực hiện công việc được giao.
     6. `it_admin`: Quản trị hệ thống — cấu hình người dùng, luồng duyệt, backup.

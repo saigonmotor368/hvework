@@ -273,6 +273,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   const isCeo = currentUser?.roles?.includes("ceo");
   const canCreateTask =
     currentUser?.roles?.includes("department_head") ||
+    currentUser?.roles?.includes("accountant") ||
     currentUser?.roles?.includes("ceo") ||
     currentUser?.roles?.includes("bgd");
   const hasSubTasks = task?.subTasks && task.subTasks.length > 0;

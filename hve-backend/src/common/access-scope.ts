@@ -408,7 +408,8 @@ export function describeBusinessScope(user: UserWithBusinessScope) {
       canAssignTasks:
         isCeoStrict ||
         roles.includes('bgd') ||
-        roles.includes('department_head'),
+        roles.includes('department_head') ||
+        roles.includes('accountant'),
       canViewFinancials: isCeo || roles.includes('accountant'),
       canViewLegal: isCeo || roles.includes('legal'),
       canManageSystem: roles.includes('it_admin'),

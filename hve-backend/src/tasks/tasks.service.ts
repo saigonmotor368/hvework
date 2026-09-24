@@ -174,7 +174,8 @@ export class TasksService {
     if (
       !roles.includes('ceo') &&
       !roles.includes('bgd') &&
-      !roles.includes('department_head')
+      !roles.includes('department_head') &&
+      !roles.includes('accountant')
     )
       return [];
 
@@ -252,7 +253,7 @@ export class TasksService {
 
     const roles = getRoleNames(user);
     const assignableUsers = roles.some((role) =>
-      ['ceo', 'bgd', 'department_head'].includes(role),
+      ['ceo', 'bgd', 'department_head', 'accountant'].includes(role),
     )
       ? await this.getAssignableUsers(user)
       : await this.prisma.user.findMany({
@@ -307,11 +308,12 @@ export class TasksService {
   ) {
     if (
       !this.hasRole(user, 'department_head') &&
+      !this.hasRole(user, 'accountant') &&
       !this.hasRole(user, 'ceo') &&
       !this.hasRole(user, 'bgd')
     ) {
       throw new ForbiddenException(
-        'Chỉ Trưởng Ban / Trưởng dự án, Ban Giám Đốc hoặc CEO mới có quyền giao việc',
+        'Chỉ Trưởng Ban / Trưởng dự án, Kế toán, Ban Giám Đốc hoặc CEO mới có quyền giao việc',
       );
     }
 
@@ -364,7 +366,7 @@ export class TasksService {
         throw new ForbiddenException(
           effectiveProjectId
             ? 'Chỉ được giao việc cho nhân sự thuộc dự án đã chọn'
-            : 'Trưởng Ban / Trưởng dự án chỉ được giao việc cho nhân sự trong phạm vi mình phụ trách',
+            : 'Kế toán và Trưởng Ban / Trưởng dự án chỉ được giao việc cho nhân sự trong phạm vi mình phụ trách',
         );
       }
     }

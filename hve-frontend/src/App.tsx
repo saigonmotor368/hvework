@@ -468,7 +468,8 @@ export default function App() {
     if (
       !roles.includes("ceo") &&
       !roles.includes("bgd") &&
-      !roles.includes("department_head")
+      !roles.includes("department_head") &&
+      !roles.includes("accountant")
     ) {
       setAssignableUsers([]);
       return;

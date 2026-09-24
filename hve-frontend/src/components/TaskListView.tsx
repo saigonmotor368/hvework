@@ -47,7 +47,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
   >(
     navigationFilter?.tab ||
       (currentUser?.roles?.some((role: string) =>
-        ["ceo", "bgd", "department_head"].includes(role),
+        ["ceo", "bgd", "department_head", "accountant"].includes(role),
       )
         ? "all"
         : "assigned_to_me"),
@@ -153,7 +153,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
   useEffect(() => {
     if (
       !currentUser?.roles?.some((role: string) =>
-        ["ceo", "bgd", "department_head"].includes(role),
+        ["ceo", "bgd", "department_head", "accountant"].includes(role),
       )
     ) {
       return;
@@ -189,11 +189,13 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
   const pendingCount = tasks.filter((t) => t.status === "Chờ duyệt").length;
   const canCreateTask =
     currentUser?.roles?.includes("department_head") ||
+    currentUser?.roles?.includes("accountant") ||
     currentUser?.roles?.includes("ceo") ||
     currentUser?.roles?.includes("bgd");
   const isCeo =
     currentUser?.roles?.includes("ceo") || currentUser?.roles?.includes("bgd");
   const isDepartmentHead = currentUser?.roles?.includes("department_head");
+  const isAccountant = currentUser?.roles?.includes("accountant");
   const availableTabs: Array<{
     id: "all" | "assigned_to_me" | "assigned_by_me" | "department";
     label: string;
@@ -203,9 +205,9 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
         { id: "assigned_to_me", label: "Việc tôi làm" },
         { id: "assigned_by_me", label: "Việc tôi giao" },
       ]
-    : isDepartmentHead
+    : isDepartmentHead || isAccountant
       ? [
-          { id: "all", label: "Toàn bộ trong phòng" },
+          { id: "all", label: isAccountant ? "Việc trong phạm vi" : "Toàn bộ trong phòng" },
           { id: "assigned_to_me", label: "Việc tôi làm" },
           { id: "assigned_by_me", label: "Việc tôi giao" },
         ]
@@ -260,6 +262,8 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
               ? "Theo dõi công việc toàn công ty"
               : isDepartmentHead
                 ? "Theo dõi công việc thuộc các dự án bạn phụ trách"
+                : isAccountant
+                  ? "Theo dõi và giao việc kiểm kê trong phạm vi phụ trách"
                 : "Chỉ hiển thị công việc được giao hoặc liên quan trực tiếp đến bạn"}
           </p>
         </div>

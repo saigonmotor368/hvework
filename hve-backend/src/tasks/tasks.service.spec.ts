@@ -196,6 +196,37 @@ describe('TasksService', () => {
       ).rejects.toThrow(ForbiddenException);
     });
 
+    it('allows an accountant to create an inventory task', async () => {
+      prisma.task.findFirst.mockResolvedValue(null);
+      prisma.task.create.mockResolvedValue({
+        id: 12,
+        code: 'CV-2026-012',
+        title: 'Kiểm kê tài sản',
+        assigneeId: null,
+        createdById: 3,
+      });
+
+      const result = await service.createTask(
+        {
+          id: 3,
+          name: 'Kế toán',
+          roles: ['accountant'],
+          departmentId: 2,
+        },
+        { title: 'Kiểm kê tài sản' },
+      );
+
+      expect(result.id).toBe(12);
+      expect(prisma.task.create).toHaveBeenCalled();
+      expect(auditService.logEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          entityType: 'task',
+          action: 'create_task',
+          actorId: 3,
+        }),
+      );
+    });
+
     it('lets BGĐ target one user or publish company-wide without changing legacy scope', async () => {
       prisma.task.findFirst.mockResolvedValue(null);
       prisma.task.create

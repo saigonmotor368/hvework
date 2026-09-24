@@ -28,7 +28,7 @@ export class TasksController {
   constructor(private readonly tasksService: TasksService) {}
 
   @Post()
-  @Roles('department_head', 'ceo', 'bgd')
+  @Roles('department_head', 'accountant', 'ceo', 'bgd')
   @HttpCode(HttpStatus.CREATED)
   async createTask(@Body() dto: CreateTaskDto, @Req() req: any) {
     return this.tasksService.createTask(req.user, dto, req.ip);
@@ -40,7 +40,7 @@ export class TasksController {
   }
 
   @Get('users')
-  @Roles('department_head', 'ceo', 'bgd')
+  @Roles('department_head', 'accountant', 'ceo', 'bgd')
   async getAssignableUsers(@Req() req: any) {
     return this.tasksService.getAssignableUsers(req.user);
   }
