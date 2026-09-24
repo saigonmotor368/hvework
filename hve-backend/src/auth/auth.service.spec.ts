@@ -99,7 +99,12 @@ describe('AuthService', () => {
       expect(result).toHaveProperty('access_token');
       expect(result).toHaveProperty('refresh_token');
       expect(result.user!.email).toBe('ceo@huyvoeducation.vn');
-      expect(result.user!.roles).toContain('ceo');
+      // Lần đăng nhập đầu có thể trả về user tối giản để yêu cầu đổi mật khẩu;
+      // chỉ user đầy đủ mới có trường roles.
+      if (!result.user || !('roles' in result.user)) {
+        throw new Error('Đăng nhập thành công nhưng thiếu danh sách vai trò');
+      }
+      expect(result.user.roles).toContain('ceo');
       // Should reset failedLoginAttempts to 0
       expect(prisma.user.update).toHaveBeenCalledWith(
         expect.objectContaining({
