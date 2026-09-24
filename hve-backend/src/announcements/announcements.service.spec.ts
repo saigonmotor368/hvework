@@ -61,7 +61,7 @@ describe('AnnouncementsService', () => {
       { projectId: null },
       { projectId: { in: [11] } },
     ]);
-    expect(JSON.stringify(where)).not.toContain('99');
+    expect(where.AND[1].OR[1].projectId.in).not.toContain(99);
   });
 
   it('filters scheduled and expired announcements at read time', async () => {
