@@ -17,6 +17,8 @@ const ALLOWED_MIME_TYPES = [
   'image/jpeg',
   'image/png',
   'image/webp',
+  'application/msword', // .doc
+  'application/vnd.ms-excel', // .xls
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
 ];
@@ -27,6 +29,8 @@ const ALLOWED_EXTENSIONS = [
   '.jpeg',
   '.png',
   '.webp',
+  '.doc',
+  '.xls',
   '.docx',
   '.xlsx',
 ];
@@ -37,6 +41,8 @@ const MIME_BY_EXTENSION: Record<string, string> = {
   '.jpeg': 'image/jpeg',
   '.png': 'image/png',
   '.webp': 'image/webp',
+  '.doc': 'application/msword',
+  '.xls': 'application/vnd.ms-excel',
   '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
 };
@@ -78,7 +84,7 @@ export class AttachmentsService {
   ) {
     if (!ALLOWED_MIME_TYPES.includes(data.mimeType)) {
       throw new BadRequestException(
-        'Định dạng tệp không được hỗ trợ. Chỉ chấp nhận: PDF, DOCX, XLSX, JPG, PNG, WEBP.',
+        'Định dạng tệp không được hỗ trợ. Chỉ chấp nhận: PDF, DOC, DOCX, XLS, XLSX, JPG, PNG, WEBP.',
       );
     }
 
@@ -91,7 +97,7 @@ export class AttachmentsService {
     const ext = path.extname(data.fileName).toLowerCase();
     if (!ALLOWED_EXTENSIONS.includes(ext)) {
       throw new BadRequestException(
-        'Phần mở rộng của tệp không được hỗ trợ. Chỉ chấp nhận: .pdf, .docx, .xlsx, .jpg, .png, .webp.',
+        'Phần mở rộng của tệp không được hỗ trợ. Chỉ chấp nhận: .pdf, .doc, .docx, .xls, .xlsx, .jpg, .png, .webp.',
       );
     }
 
@@ -185,7 +191,7 @@ export class AttachmentsService {
     const uploadedById = typeof actor === 'number' ? actor : actor.id;
     if (!ALLOWED_MIME_TYPES.includes(data.mimeType)) {
       throw new BadRequestException(
-        'Định dạng tệp không được hỗ trợ. Chỉ chấp nhận: PDF, DOCX, XLSX, JPG, PNG, WEBP.',
+        'Định dạng tệp không được hỗ trợ. Chỉ chấp nhận: PDF, DOC, DOCX, XLS, XLSX, JPG, PNG, WEBP.',
       );
     }
 

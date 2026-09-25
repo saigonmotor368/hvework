@@ -154,6 +154,66 @@ describe('API contracts', () => {
     });
   });
 
+  it('refreshes the session when an attachment upload starts with an expired token', async () => {
+    vi.stubGlobal('localStorage', memoryStorage());
+    vi.stubGlobal('sessionStorage', memoryStorage());
+    vi.stubGlobal('window', {
+      dispatchEvent: vi.fn(),
+      location: { assign: vi.fn(), origin: 'https://work.example.com' },
+    });
+    localStorage.setItem('access_token', 'expired-jwt');
+    localStorage.setItem('refresh_token', 'valid-refresh');
+
+    const fetcher = vi
+      .fn<Fetcher>()
+      .mockResolvedValueOnce(jsonResponse({}, 401))
+      .mockResolvedValueOnce(
+        jsonResponse({ access_token: 'new-jwt', refresh_token: 'new-refresh' }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({ uploadUrl: '/attachments/upload-storage/temp.pdf?token=signed' }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({ fileUrl: '/attachments/file/drive-pdf', size: 4 }),
+      )
+      .mockResolvedValueOnce(jsonResponse({ id: 52 }));
+    vi.stubGlobal('fetch', fetcher);
+
+    const file = new File(['test'], 'bao-cao.pdf', { type: 'application/pdf' });
+    await expect(
+      uploadAttachment('https://api.example.com', 'expired-jwt', file),
+    ).resolves.toBe(52);
+
+    expect(fetcher.mock.calls[1][0]).toBe('https://api.example.com/auth/refresh');
+    expect(localStorage.getItem('access_token')).toBe('new-jwt');
+    const refreshedHeaders = fetcher.mock.calls[2][1]?.headers;
+    expect(refreshedHeaders).toBeInstanceOf(Headers);
+    expect((refreshedHeaders as Headers).get('Authorization')).toBe('Bearer new-jwt');
+  });
+
+  it('infers legacy Word MIME from the extension when mobile omits the MIME type', async () => {
+    const fetcher = vi
+      .fn<Fetcher>()
+      .mockResolvedValueOnce(
+        jsonResponse({ uploadUrl: '/attachments/upload-storage/temp.doc?token=signed' }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({ fileUrl: '/attachments/file/drive-doc', size: 4 }),
+      )
+      .mockResolvedValueOnce(jsonResponse({ id: 51 }));
+    const file = new File(['test'], 'bien-ban.doc');
+
+    await uploadAttachment('https://api.example.com', 'jwt', file, fetcher);
+
+    expect(JSON.parse(String(fetcher.mock.calls[0][1]?.body))).toMatchObject({
+      fileName: 'bien-ban.doc',
+      mimeType: 'application/msword',
+    });
+    expect(JSON.parse(String(fetcher.mock.calls[2][1]?.body))).toMatchObject({
+      mimeType: 'application/msword',
+    });
+  });
+
   it('binds accountant proof directly to the current document without attachment reassignment', async () => {
     const fetcher = vi
       .fn<Fetcher>()

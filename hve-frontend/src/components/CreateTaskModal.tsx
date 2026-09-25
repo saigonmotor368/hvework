@@ -71,6 +71,10 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isCompanyVisible, setIsCompanyVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{
+    current: number;
+    total: number;
+  } | null>(null);
   const [projectId, setProjectId] = useState<string>(
     parentTask?.projectId ? String(parentTask.projectId) : "",
   );
@@ -98,6 +102,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
     setLinkedProjectIds(parentTask?.linkedProjectIds || []);
     setUseTaskList(false);
     setDraftTasks([]);
+    setUploadProgress(null);
   }, [isOpen, parentTask?.id]);
 
   useEffect(() => {
@@ -216,10 +221,12 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
       let attachmentIds: number[] = [];
 
       // 1. Tải file đính kèm nếu có
-      for (const file of selectedFiles) {
+      for (const [index, file] of selectedFiles.entries()) {
+        setUploadProgress({ current: index + 1, total: selectedFiles.length });
         const attachmentId = await uploadAttachment(apiBaseUrl, token, file);
         attachmentIds.push(attachmentId);
       }
+      setUploadProgress(null);
 
       // 2. Tạo công việc
       const payload: any = {
@@ -314,6 +321,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
         onClose();
       }
     } finally {
+      setUploadProgress(null);
       setIsSubmitting(false);
     }
   };
@@ -833,7 +841,9 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
               {isSubmitting ? (
                 <>
                   <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin mr-2" />
-                  Đang lưu...
+                  {uploadProgress
+                    ? `Đang tải tệp ${uploadProgress.current}/${uploadProgress.total}...`
+                    : "Đang lưu..."}
                 </>
               ) : parentTask ? (
                 "Thêm nhiệm vụ"

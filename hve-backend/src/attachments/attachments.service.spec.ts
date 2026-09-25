@@ -79,6 +79,19 @@ describe('AttachmentsService', () => {
       ).toThrow(BadRequestException);
     });
 
+    it.each([
+      ['bien-ban.doc', 'application/msword'],
+      ['kiem-ke.xls', 'application/vnd.ms-excel'],
+    ])('accepts legacy Office attachment %s', (fileName, mimeType) => {
+      const result = service.generatePresignedUrl(10, {
+        fileName,
+        mimeType,
+        size: 1024,
+      });
+
+      expect(result.fileKey).toMatch(new RegExp(`\\.${fileName.split('.').pop()}$`));
+    });
+
     it('should throw BadRequestException if file exceeds 10MB limit', () => {
       expect(() =>
         service.generatePresignedUrl(10, {

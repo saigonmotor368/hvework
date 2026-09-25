@@ -110,19 +110,40 @@ function apiUrl(apiBaseUrl: string, path: string): string {
 
 async function responseMessage(response: Response, fallback: string): Promise<string> {
   const body = await response.json().catch(() => ({}));
-  return typeof body?.message === 'string' ? body.message : fallback;
+  if (typeof body?.message === 'string') return body.message;
+  if (Array.isArray(body?.message)) return body.message.join('. ');
+  return fallback;
+}
+
+const ATTACHMENT_MIME_BY_EXTENSION: Record<string, string> = {
+  pdf: 'application/pdf',
+  doc: 'application/msword',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  xls: 'application/vnd.ms-excel',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  webp: 'image/webp',
+};
+
+function attachmentMimeType(file: File): string {
+  const extension = file.name.split('.').pop()?.toLowerCase() || '';
+  return ATTACHMENT_MIME_BY_EXTENSION[extension] || file.type || 'application/octet-stream';
 }
 
 export async function uploadAttachment(
   apiBaseUrl: string,
   token: string,
   file: File,
-  targetOrFetcher: Fetcher | { entityType: 'document' | 'task'; entityId: number } = fetch,
-  customFetcher: Fetcher = fetch,
+  targetOrFetcher: Fetcher | { entityType: 'document' | 'task'; entityId: number } = fetchWithSession,
+  customFetcher: Fetcher = fetchWithSession,
 ): Promise<number> {
   const target = typeof targetOrFetcher === 'function' ? undefined : targetOrFetcher;
   const fetcher = typeof targetOrFetcher === 'function' ? targetOrFetcher : customFetcher;
-  const mimeType = file.type || 'application/pdf';
+  // Một số trình duyệt mobile không cung cấp MIME, hoặc cung cấp MIME chung.
+  // Ưu tiên phần mở rộng để frontend và backend thống nhất định dạng thực tế.
+  const mimeType = attachmentMimeType(file);
   const presignResponse = await fetcher(apiUrl(apiBaseUrl, '/attachments/presigned-url'), {
     method: 'POST',
     headers: {
