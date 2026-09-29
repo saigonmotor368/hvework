@@ -14,6 +14,12 @@ export const normalizeBankName = (value = "") =>
     .replace(/\b(ngan hang|thuong mai|co phan|tmcp|viet nam|bank)\b/g, " ")
     .replace(/[^a-z0-9]/g, "");
 
+export const getPaymentReference = (documentCode = "") => {
+  const normalizedCode = documentCode.trim();
+  const trailingNumber = normalizedCode.match(/(\d+)$/)?.[1];
+  return trailingNumber || normalizedCode;
+};
+
 export const findMatchingVietQrBank = (
   bankName: string,
   banks: VietQrBank[],

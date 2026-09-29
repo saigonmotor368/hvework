@@ -3,6 +3,7 @@ import type { DocumentItem } from "../types";
 import {
   buildVietQrImageUrl,
   findMatchingVietQrBank,
+  getPaymentReference,
   type VietQrBank,
 } from "../utils/vietQr";
 
@@ -39,6 +40,10 @@ export const VietQrPaymentCard: React.FC<VietQrPaymentCardProps> = ({ document }
   }, [document.dataJson?.bankName]);
 
   const selectedBank = banks.find((bank) => bank.bin === selectedBin);
+  const paymentReference = useMemo(
+    () => getPaymentReference(document.code),
+    [document.code],
+  );
   const qrUrl = useMemo(
     () =>
       selectedBank
@@ -47,10 +52,10 @@ export const VietQrPaymentCard: React.FC<VietQrPaymentCardProps> = ({ document }
             accountNo: document.dataJson?.bankAccount || "",
             accountName: document.dataJson?.receiver || "",
             amount: Number(document.dataJson?.amount || 0),
-            description: document.code,
+            description: paymentReference,
           })
         : "",
-    [document, selectedBank],
+    [document, paymentReference, selectedBank],
   );
 
   return (
@@ -58,7 +63,7 @@ export const VietQrPaymentCard: React.FC<VietQrPaymentCardProps> = ({ document }
       <div className="border-b border-blue-100 px-4 py-3">
         <p className="text-xs font-black text-slate-900">Quét VietQR để thanh toán</p>
         <p className="mt-0.5 text-[11px] text-slate-500">
-          Số tiền và nội dung <b>{document.code}</b> đã được điền sẵn.
+          Số tiền và nội dung <b>{paymentReference}</b> đã được điền sẵn.
         </p>
       </div>
       <div className="grid gap-4 p-4 md:grid-cols-[220px_minmax(0,1fr)] md:items-center">
@@ -99,7 +104,7 @@ export const VietQrPaymentCard: React.FC<VietQrPaymentCardProps> = ({ document }
               {Number(document.dataJson?.amount || 0).toLocaleString("vi-VN")} ₫
             </dd>
             <dt className="text-slate-500">Nội dung</dt>
-            <dd className="font-black text-emerald-700">{document.code}</dd>
+            <dd className="font-black text-emerald-700">{paymentReference}</dd>
           </dl>
           {qrUrl && (
             <a href={qrUrl} target="_blank" rel="noreferrer" className="inline-flex rounded-lg bg-blue-100 px-3 py-2 text-xs font-bold text-[#0A66C2] hover:bg-blue-200">

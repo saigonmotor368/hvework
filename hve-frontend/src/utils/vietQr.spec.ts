@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildVietQrImageUrl,
   findMatchingVietQrBank,
+  getPaymentReference,
   normalizeBankName,
   type VietQrBank,
 } from "./vietQr";
@@ -12,6 +13,15 @@ const banks: VietQrBank[] = [
 ];
 
 describe("VietQR helpers", () => {
+  it("keeps only the final numeric part of a payment request code", () => {
+    expect(getPaymentReference("DNTT-2026-011")).toBe("011");
+    expect(getPaymentReference("011")).toBe("011");
+  });
+
+  it("falls back to the original code when it has no numeric suffix", () => {
+    expect(getPaymentReference("DNTT-DRAFT")).toBe("DNTT-DRAFT");
+  });
+
   it("normalizes Vietnamese bank names", () => {
     expect(normalizeBankName("Ngân hàng TMCP Ngoại thương Việt Nam (Vietcombank)"))
       .toContain("vietcom");
@@ -22,16 +32,16 @@ describe("VietQR helpers", () => {
       .toBe("970422");
   });
 
-  it("builds a QR URL with amount and document code", () => {
+  it("builds a QR URL with amount and the short payment reference", () => {
     const url = buildVietQrImageUrl({
       bankBin: "970436",
       accountNo: "0071001234567",
       accountName: "CONG TY HVE",
       amount: 1_500_000,
-      description: "DNTT-2026-001",
+      description: getPaymentReference("DNTT-2026-001"),
     });
     expect(url).toContain("970436-0071001234567-compact2.png");
     expect(url).toContain("amount=1500000");
-    expect(url).toContain("addInfo=DNTT-2026-001");
+    expect(url).toContain("addInfo=001");
   });
 });
