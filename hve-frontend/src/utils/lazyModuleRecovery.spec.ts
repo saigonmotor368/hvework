@@ -12,6 +12,7 @@ const createRuntime = () => {
     setRetryFlag: (key, value) => flags.set(key, value),
     clearRetryFlag: (key) => flags.delete(key),
     prepareReloadUrl: vi.fn(),
+    clearAppCaches: vi.fn().mockResolvedValue(undefined),
     reload: vi.fn(),
   };
   return { flags, runtime };
@@ -54,6 +55,7 @@ describe("lazy module recovery", () => {
     );
 
     await vi.waitFor(() => expect(runtime.reload).toHaveBeenCalledOnce());
+    expect(runtime.clearAppCaches).toHaveBeenCalledOnce();
     expect(runtime.prepareReloadUrl).toHaveBeenCalledWith("admin_users");
     expect(flags.get("hve:lazy-reload:admin_users")).toBe("1");
   });

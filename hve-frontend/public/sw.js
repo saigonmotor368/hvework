@@ -1,9 +1,9 @@
 // ==============================================================================
-// HVE Work - Progressive Web App Service Worker (v9.0.0)
+// HVE Work - Progressive Web App Service Worker (v10.0.0)
 // Hỗ trợ: Offline App Shell Caching, Web Push Notifications, Navigation Fallback
 // ==============================================================================
 
-const CACHE_NAME = 'hve-work-cache-v9';
+const CACHE_NAME = 'hve-work-cache-v10';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -52,7 +52,7 @@ self.addEventListener('fetch', (event) => {
   // Handle SPA navigation requests
   if (request.mode === 'navigate') {
     event.respondWith(
-      fetch(request).catch(() => {
+      fetch(new Request(request, { cache: 'no-store' })).catch(() => {
         return caches.match('/index.html');
       })
     );

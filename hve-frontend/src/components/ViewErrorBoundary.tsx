@@ -1,5 +1,10 @@
 import React from 'react';
-import { isLazyChunkLoadError } from '../utils/lazyModuleRecovery';
+import {
+  clearHveAppCaches,
+  isLazyChunkLoadError,
+  reloadLatestAppVersion,
+  VIEW_ERROR_RECOVERY_KEY,
+} from '../utils/lazyModuleRecovery';
 
 interface Props {
   children: React.ReactNode;
@@ -9,8 +14,6 @@ interface State {
   hasError: boolean;
   isRecovering: boolean;
 }
-
-const RECOVERY_KEY = 'hve:view-error-recovery';
 
 export class ViewErrorBoundary extends React.Component<Props, State> {
   state: State = { hasError: false, isRecovering: false };
@@ -26,15 +29,23 @@ export class ViewErrorBoundary extends React.Component<Props, State> {
     // session flag prevents an infinite reload loop when the error is real.
     if (
       isLazyChunkLoadError(error) &&
-      !window.sessionStorage.getItem(RECOVERY_KEY)
+      !window.sessionStorage.getItem(VIEW_ERROR_RECOVERY_KEY)
     ) {
-      window.sessionStorage.setItem(RECOVERY_KEY, '1');
+      window.sessionStorage.setItem(VIEW_ERROR_RECOVERY_KEY, '1');
       this.setState({ isRecovering: true });
-      window.setTimeout(() => window.location.reload(), 50);
+      void clearHveAppCaches().finally(() => {
+        const url = new URL(window.location.href);
+        url.searchParams.set('_hve_update', Date.now().toString());
+        window.location.replace(url);
+      });
       return;
     }
-    window.sessionStorage.removeItem(RECOVERY_KEY);
   }
+
+  private handleReload = () => {
+    this.setState({ isRecovering: true });
+    void reloadLatestAppVersion();
+  };
 
   render() {
     if (this.state.hasError) {
@@ -56,7 +67,7 @@ export class ViewErrorBoundary extends React.Component<Props, State> {
           </p>
           <button
             type="button"
-            onClick={() => window.location.reload()}
+            onClick={this.handleReload}
             className="mt-4 rounded-xl bg-red-700 px-4 py-2 text-sm font-bold text-white transition hover:bg-red-800"
           >
             Tải lại màn hình
