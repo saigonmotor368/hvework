@@ -388,10 +388,7 @@ export const PaymentRequestAuditView: React.FC<PaymentRequestAuditViewProps> = (
 
   return (
     <div className="space-y-4 md:space-y-5">
-      <PaymentRequestPrintSheet
-        document={document}
-        accountingFiles={accountingFiles}
-      />
+      <PaymentRequestPrintSheet document={document} />
       {canPrintPaymentVoucher && (
         <section className="flex flex-col gap-3 rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-50 via-white to-emerald-50 p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <div>

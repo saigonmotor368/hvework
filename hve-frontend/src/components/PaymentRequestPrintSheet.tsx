@@ -4,11 +4,8 @@ import type { ApprovalStep, DocumentItem } from "../types";
 import { ROLE_LABELS } from "../types";
 import { amountToVietnameseWords } from "../utils/paymentPrint";
 
-type Attachment = NonNullable<DocumentItem["attachments"]>[number];
-
 interface PaymentRequestPrintSheetProps {
   document: DocumentItem;
-  accountingFiles: Attachment[];
 }
 
 const formatDate = (value?: string) =>
@@ -22,7 +19,7 @@ const approvalLabel = (step: ApprovalStep) =>
 
 export const PaymentRequestPrintSheet: React.FC<
   PaymentRequestPrintSheetProps
-> = ({ document: paymentDocument, accountingFiles }) => {
+> = ({ document: paymentDocument }) => {
   if (typeof document === "undefined") return null;
 
   const steps = (paymentDocument.steps || []).filter(
@@ -158,29 +155,9 @@ export const PaymentRequestPrintSheet: React.FC<
             <span>Thời gian giao dịch</span>
             <strong>{formatDateTime(settlement?.paidAt || accountingStep?.actedAt)}</strong>
           </p>
-          <p className="payment-print-wide">
+          <p>
             <span>Mã giao dịch / mã tham chiếu</span>
             <strong>{settlement?.reference || "—"}</strong>
-          </p>
-          <p>
-            <span>Hình thức xác nhận</span>
-            <strong>
-              {settlement?.source === "webhook"
-                ? "Đối soát tự động"
-                : "Kế toán đối chiếu chứng từ"}
-            </strong>
-          </p>
-          <p>
-            <span>Ý kiến kế toán</span>
-            <strong>{accountingStep?.comment?.trim() || "Đã xác nhận chi tiền"}</strong>
-          </p>
-          <p className="payment-print-wide">
-            <span>Chứng từ thanh toán</span>
-            <strong>
-              {accountingFiles.length > 0
-                ? accountingFiles.map((file) => file.fileName).join(" · ")
-                : "—"}
-            </strong>
           </p>
         </div>
       </section>
