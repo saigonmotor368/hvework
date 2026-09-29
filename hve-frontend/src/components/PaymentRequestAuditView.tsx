@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import type { ApprovalStep, DocumentItem } from "../types";
 import { ROLE_LABELS } from "../types";
 import { authenticatedFileUrl, uploadAttachment } from "../api/client";
@@ -6,6 +6,7 @@ import { UserNameButton } from "./UserNameButton";
 import { PaymentRequestPrintSheet } from "./PaymentRequestPrintSheet";
 import { VietQrPaymentCard } from "./VietQrPaymentCard";
 import { matchesDepartmentHeadScope } from "../utils/documentApproval";
+import { selectAccountingProofFiles } from "../utils/paymentRequest";
 
 export interface PaymentSettlementInput {
   paymentReference: string;
@@ -29,7 +30,7 @@ interface PaymentRequestAuditViewProps {
     stepId: number,
     documentId: number,
   ) => void;
-  onAttachmentUploaded: () => void;
+  onAttachmentUploaded: () => Promise<void> | void;
   showToast: (message: string, type?: "success" | "error") => void;
 }
 
@@ -121,6 +122,7 @@ export const PaymentRequestAuditView: React.FC<PaymentRequestAuditViewProps> = (
   showToast,
 }) => {
   const [proofFile, setProofFile] = useState<File | null>(null);
+  const proofInputRef = useRef<HTMLInputElement>(null);
   const [uploadingProof, setUploadingProof] = useState(false);
   const [approvalComment, setApprovalComment] = useState("");
   const [paymentReference, setPaymentReference] = useState("");
@@ -135,30 +137,6 @@ export const PaymentRequestAuditView: React.FC<PaymentRequestAuditViewProps> = (
   const accountingStep = steps.find((step) => step.roleRequired === "accountant");
   const approvalSteps = steps.filter((step) => step.roleRequired !== "accountant");
   const attachments = document.attachments || [];
-  // A requester may also have the accountant role. Do not classify files by
-  // role alone: payment proof belongs to the accountant who actually acted
-  // on the final accounting step, and only after that step is approved.
-  const accountingFiles =
-    accountingStep?.status === "approved" && accountingStep.actedById
-      ? attachments.filter(
-          (attachment) => attachment.uploadedById === accountingStep.actedById,
-        )
-      : [];
-  const requesterFiles = attachments.filter(
-    (attachment) =>
-      attachment.uploadedById === document.createdById &&
-      !accountingFiles.some((file) => file.id === attachment.id),
-  );
-  const supportingFiles = attachments.filter(
-    (attachment) =>
-      !requesterFiles.some((file) => file.id === attachment.id) &&
-      !accountingFiles.some((file) => file.id === attachment.id),
-  );
-  const canPrintPaymentVoucher =
-    document.status === "Đã duyệt" &&
-    accountingStep?.status === "approved" &&
-    accountingFiles.length > 0;
-
   const activeDelegations = (user?.delegatedFrom || []).filter(
     (delegator: any) =>
       delegator.delegateUntil &&
@@ -180,6 +158,35 @@ export const PaymentRequestAuditView: React.FC<PaymentRequestAuditViewProps> = (
     return matchesDepartmentHeadScope(user || {}, document);
   };
 
+  // Khi bước Kế toán còn chờ, chứng từ vừa tải phải được nhận diện theo đúng
+  // người đang có quyền xử lý. Sau khi hoàn tất, dùng người đã thực hiện bước
+  // để lịch sử hồ sơ luôn ổn định.
+  const accountingActorId =
+    accountingStep?.status === "approved"
+      ? accountingStep.actedById
+      : accountingStep && canActOnStep(accountingStep)
+        ? user?.id
+        : undefined;
+  const accountingFiles = selectAccountingProofFiles(
+    attachments,
+    accountingStep,
+    accountingActorId,
+  );
+  const requesterFiles = attachments.filter(
+    (attachment) =>
+      attachment.uploadedById === document.createdById &&
+      !accountingFiles.some((file) => file.id === attachment.id),
+  );
+  const supportingFiles = attachments.filter(
+    (attachment) =>
+      !requesterFiles.some((file) => file.id === attachment.id) &&
+      !accountingFiles.some((file) => file.id === attachment.id),
+  );
+  const canPrintPaymentVoucher =
+    document.status === "Đã duyệt" &&
+    accountingStep?.status === "approved" &&
+    accountingFiles.length > 0;
+
   const uploadPaymentProof = async () => {
     const token = localStorage.getItem("access_token");
     if (!token || !proofFile) return;
@@ -190,8 +197,9 @@ export const PaymentRequestAuditView: React.FC<PaymentRequestAuditViewProps> = (
         entityId: document.id,
       });
       setProofFile(null);
+      if (proofInputRef.current) proofInputRef.current.value = "";
+      await onAttachmentUploaded();
       showToast("Đã đính kèm chứng từ chi tiền vào hồ sơ.");
-      onAttachmentUploaded();
     } catch (error: any) {
       showToast(error.message || "Không thể tải chứng từ chi tiền", "error");
     } finally {
@@ -289,6 +297,7 @@ export const PaymentRequestAuditView: React.FC<PaymentRequestAuditViewProps> = (
                   </div>
                   <div className="mt-3 flex flex-col gap-2 sm:flex-row">
                     <input
+                      ref={proofInputRef}
                       type="file"
                       accept=".pdf,.jpg,.jpeg,.png,.webp"
                       onChange={(event) => setProofFile(event.target.files?.[0] || null)}

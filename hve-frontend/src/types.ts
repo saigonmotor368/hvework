@@ -12,6 +12,8 @@ export interface ApprovalStep {
   } | null;
   actedAt?: string;
   comment?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface DocumentItem {

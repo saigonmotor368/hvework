@@ -1,6 +1,7 @@
 import React from "react";
 import type { DocumentItem } from "../types";
 import { UserNameButton } from "./UserNameButton";
+import { getDocumentWorkflowStatus } from "../utils/documentWorkflowStatus";
 
 interface DocumentListProps {
   filteredDocuments: DocumentItem[];
@@ -144,7 +145,9 @@ export const DocumentList: React.FC<DocumentListProps> = ({
             Chưa có hồ sơ phù hợp với bộ lọc hiện tại.
           </div>
         ) : (
-          filteredDocuments.map((doc) => (
+          filteredDocuments.map((doc) => {
+            const workflowStatus = getDocumentWorkflowStatus(doc);
+            return (
             <button
               type="button"
               key={doc.id}
@@ -159,6 +162,10 @@ export const DocumentList: React.FC<DocumentListProps> = ({
                   {getTypeBadge(doc.type)}
                   {getStatusBadge(doc.status)}
                 </div>
+              </div>
+              <div className="mt-2 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
+                <p className="text-xs font-bold text-slate-700">{workflowStatus.title}</p>
+                <p className="mt-0.5 text-[10px] font-medium text-slate-500">{workflowStatus.detail}</p>
               </div>
               <h3 className="mt-3 break-words text-sm font-bold leading-snug text-gray-900">
                 {doc.title}
@@ -208,7 +215,8 @@ export const DocumentList: React.FC<DocumentListProps> = ({
                 Xem chi tiết →
               </span>
             </button>
-          ))
+            );
+          })
         )}
       </div>
 
@@ -239,7 +247,9 @@ export const DocumentList: React.FC<DocumentListProps> = ({
                   </td>
                 </tr>
               ) : (
-                filteredDocuments.map((doc) => (
+                filteredDocuments.map((doc) => {
+                  const workflowStatus = getDocumentWorkflowStatus(doc);
+                  return (
                   <tr
                     key={doc.id}
                     onClick={() => onSelectDoc(doc)}
@@ -324,6 +334,12 @@ export const DocumentList: React.FC<DocumentListProps> = ({
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       {getStatusBadge(doc.status)}
+                      <span className="mt-1.5 block text-xs font-bold text-slate-700">
+                        {workflowStatus.title}
+                      </span>
+                      <span className="mt-0.5 block text-[11px] font-medium text-slate-400">
+                        {workflowStatus.detail}
+                      </span>
                     </td>
                     <td className="px-6 py-4 text-xs text-gray-600 whitespace-nowrap">
                       {doc.type === "payment_request" &&
@@ -351,7 +367,8 @@ export const DocumentList: React.FC<DocumentListProps> = ({
                       </button>
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>

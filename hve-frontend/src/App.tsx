@@ -1682,13 +1682,16 @@ export default function App() {
                       onApproveStep={handleApproveStepClick}
                       onApproveDirect={handleApproveDirectClick}
                       projects={projects}
-                      onAttachmentUploaded={() => {
-                        refreshDocumentDetail(selectedDoc.id).catch((error) =>
+                      onAttachmentUploaded={async () => {
+                        try {
+                          await refreshDocumentDetail(selectedDoc.id);
+                        } catch (error: any) {
                           showToast(
                             error.message || "Không thể tải lại chứng từ",
                             "error",
-                          ),
-                        );
+                          );
+                          throw error;
+                        }
                       }}
                       showToast={showToast}
                       onOpenModalAction={(type, stepId, docId) => {

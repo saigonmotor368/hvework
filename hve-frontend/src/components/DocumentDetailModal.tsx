@@ -35,7 +35,7 @@ interface DocumentDetailModalProps {
     docId: number,
   ) => void;
   projects: ProjectItem[];
-  onAttachmentUploaded: () => void;
+  onAttachmentUploaded: () => Promise<void> | void;
   showToast: (message: string, type?: "success" | "error") => void;
 }
 
