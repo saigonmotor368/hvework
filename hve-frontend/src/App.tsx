@@ -1167,7 +1167,7 @@ export default function App() {
     setIsProcessing(true);
     const token = localStorage.getItem("access_token");
     try {
-      const res = await fetch(
+      const res = await fetchWithSession(
         `${API_BASE_URL}/documents/${doc.id}/steps/${step.id}/approve?version=${doc.version}`,
         {
           method: "POST",
@@ -1186,9 +1186,12 @@ export default function App() {
       if (!res.ok) {
         throw new Error(data.message || "Phê duyệt thất bại");
       }
-      setSelectedDoc(data);
+      // Phản hồi thao tác duyệt chỉ chứa dữ liệu quy trình rút gọn, không có
+      // attachments. Tải danh sách trước rồi lấy lại chi tiết cuối cùng để
+      // chứng từ Kế toán và nút in phiếu chi không bị mất sau khi hoàn tất.
+      await fetchDocuments();
+      await refreshDocumentDetail(doc.id);
       showToast("Đã phê duyệt bước thành công!");
-      fetchDocuments();
       if (pinModal.isOpen) {
         setPinModal({
           isOpen: false,
