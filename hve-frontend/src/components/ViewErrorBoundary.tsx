@@ -1,4 +1,5 @@
 import React from 'react';
+import { isLazyChunkLoadError } from '../utils/lazyModuleRecovery';
 
 interface Props {
   children: React.ReactNode;
@@ -6,21 +7,47 @@ interface Props {
 
 interface State {
   hasError: boolean;
+  isRecovering: boolean;
 }
 
-export class ViewErrorBoundary extends React.Component<Props, State> {
-  state: State = { hasError: false };
+const RECOVERY_KEY = 'hve:view-error-recovery';
 
-  static getDerivedStateFromError(): State {
+export class ViewErrorBoundary extends React.Component<Props, State> {
+  state: State = { hasError: false, isRecovering: false };
+
+  static getDerivedStateFromError(): Partial<State> {
     return { hasError: true };
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
     console.error("HVE view rendering failed", error, info.componentStack);
+    // A deployment can replace a lazy chunk while a tab is still open. Retry
+    // once automatically so users do not get stuck on a stale bundle. The
+    // session flag prevents an infinite reload loop when the error is real.
+    if (
+      isLazyChunkLoadError(error) &&
+      !window.sessionStorage.getItem(RECOVERY_KEY)
+    ) {
+      window.sessionStorage.setItem(RECOVERY_KEY, '1');
+      this.setState({ isRecovering: true });
+      window.setTimeout(() => window.location.reload(), 50);
+      return;
+    }
+    window.sessionStorage.removeItem(RECOVERY_KEY);
   }
 
   render() {
     if (this.state.hasError) {
+      if (this.state.isRecovering) {
+        return (
+          <div className="rounded-2xl border border-blue-200 bg-blue-50 p-6 text-center">
+            <p className="font-bold text-blue-800">Đang cập nhật màn hình…</p>
+            <p className="mt-1 text-sm text-blue-600">
+              HVE Work đang tải phiên bản mới nhất, vui lòng chờ một chút.
+            </p>
+          </div>
+        );
+      }
       return (
         <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center">
           <p className="font-bold text-red-800">Không tải được màn hình này.</p>
