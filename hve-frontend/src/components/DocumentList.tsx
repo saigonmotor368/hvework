@@ -223,7 +223,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
       {/* Desktop table */}
       <div className="hidden bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden md:block">
         <div className="mobile-scroll overflow-x-auto">
-          <table className="min-w-[1100px] w-full text-left text-sm">
+          <table className="min-w-[980px] w-full text-left text-sm">
             <thead className="bg-slate-50/70 border-b border-slate-200 text-xs font-bold text-gray-500 uppercase tracking-wider">
               <tr>
                 <th className="px-6 py-3.5">Mã hồ sơ</th>
@@ -233,14 +233,13 @@ export const DocumentList: React.FC<DocumentListProps> = ({
                 <th className="px-6 py-3.5">Người tạo</th>
                 <th className="px-6 py-3.5">Trạng thái</th>
                 <th className="px-6 py-3.5">Hạn / Thời hạn</th>
-                <th className="px-6 py-3.5 text-right">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredDocuments.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={8}
+                    colSpan={7}
                     className="px-6 py-12 text-center text-sm text-gray-400"
                   >
                     Chưa có hồ sơ phù hợp với bộ lọc hiện tại.
@@ -354,17 +353,6 @@ export const DocumentList: React.FC<DocumentListProps> = ({
                           {new Date(doc.createdAt).toLocaleDateString("vi-VN")}
                         </span>
                       )}
-                    </td>
-                    <td className="px-6 py-4 text-right whitespace-nowrap">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onSelectDoc(doc);
-                        }}
-                        className="text-xs font-bold text-[#0A66C2] hover:underline"
-                      >
-                        Xem chi tiết →
-                      </button>
                     </td>
                   </tr>
                   );
