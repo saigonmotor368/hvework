@@ -1245,8 +1245,16 @@ export class DocumentsService {
       );
     }
 
-    // Anti self-approval rule
-    if (doc.createdById === user.id) {
+    const maxStepOrder = Math.max(...doc.steps.map((s) => s.stepOrder));
+    const isFinalAccountantStep =
+      doc.type === 'payment_request' &&
+      step.roleRequired === 'accountant' &&
+      step.stepOrder === maxStepOrder;
+
+    // Người tạo không được tự phê duyệt nội dung hồ sơ. Riêng bước Kế toán
+    // cuối của ĐNTT chỉ là ghi nhận nghiệp vụ chi tiền sau khi CEO đã duyệt,
+    // nên Kế toán tạo hồ sơ vẫn phải được phép tải chứng từ và hoàn tất chi.
+    if (doc.createdById === user.id && !isFinalAccountantStep) {
       throw new ForbiddenException(
         'Quy định kiểm soát nội bộ: Người tạo hồ sơ không được phép tự phê duyệt hồ sơ của chính mình',
       );
@@ -1261,11 +1269,6 @@ export class DocumentsService {
     // Bắt buộc mã PIN xác nhận duyệt cho bước phê duyệt CUỐI CÙNG do CEO thực
     // hiện — xác định động theo cấu hình luồng hiện tại (stepOrder lớn nhất),
     // không hardcode, để đúng ngay cả khi IT admin đổi lại số cấp duyệt sau này.
-    const maxStepOrder = Math.max(...doc.steps.map((s) => s.stepOrder));
-    const isFinalAccountantStep =
-      doc.type === 'payment_request' &&
-      step.roleRequired === 'accountant' &&
-      step.stepOrder === maxStepOrder;
     let paymentProofCount = 0;
     if (isFinalAccountantStep) {
       const accountingStepActivatedAt =

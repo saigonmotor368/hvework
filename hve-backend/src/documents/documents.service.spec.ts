@@ -1691,5 +1691,42 @@ describe('DocumentsService', () => {
         }),
       );
     });
+
+    it('lets the accountant creator execute the final payment settlement after CEO approval', async () => {
+      const accountantCreatedDocument = {
+        ...finalAccountantDocument,
+        createdById: 25,
+        createdBy: { id: 25, departmentId: 1 },
+      };
+      prisma.document.findUnique.mockResolvedValue(accountantCreatedDocument);
+      prisma.attachment.count.mockResolvedValue(1);
+      prisma.document.update.mockResolvedValue({
+        ...accountantCreatedDocument,
+        status: 'Đã duyệt',
+      });
+
+      await expect(
+        service.approveStep(
+          91,
+          902,
+          { id: 25, roles: [{ name: 'accountant' }] },
+          {
+            comment: 'Đã chuyển khoản',
+            paymentReference: 'FT-ACCOUNTANT-CREATOR',
+            paymentPaidAt: '2026-09-21T04:30:00.000Z',
+            paymentMethod: 'vietqr',
+          },
+          3,
+        ),
+      ).resolves.toEqual(
+        expect.objectContaining({ status: 'Đã duyệt' }),
+      );
+
+      expect(prisma.document.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: 'Đã duyệt' }),
+        }),
+      );
+    });
   });
 });

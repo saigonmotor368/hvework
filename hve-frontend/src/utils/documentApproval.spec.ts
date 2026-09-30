@@ -1,10 +1,29 @@
 import { describe, expect, it } from "vitest";
 import {
   getDocumentProjectIds,
+  isCreatorAccountingSettlement,
   matchesDepartmentHeadScope,
 } from "./documentApproval";
 
 describe("document approval scope", () => {
+  it("allows the creator to execute only the final accounting settlement", () => {
+    const document = {
+      type: "payment_request",
+      steps: [
+        { stepOrder: 1, roleRequired: "department_head" },
+        { stepOrder: 2, roleRequired: "ceo" },
+        { stepOrder: 3, roleRequired: "accountant" },
+      ],
+    };
+
+    expect(
+      isCreatorAccountingSettlement(document, document.steps[2]),
+    ).toBe(true);
+    expect(
+      isCreatorAccountingSettlement(document, document.steps[0]),
+    ).toBe(false);
+  });
+
   it("matches a project head when the document has only a linked project", () => {
     const document = {
       projectId: null,

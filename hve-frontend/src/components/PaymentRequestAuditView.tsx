@@ -5,7 +5,10 @@ import { authenticatedFileUrl, uploadAttachment } from "../api/client";
 import { UserNameButton } from "./UserNameButton";
 import { PaymentRequestPrintSheet } from "./PaymentRequestPrintSheet";
 import { VietQrPaymentCard } from "./VietQrPaymentCard";
-import { matchesDepartmentHeadScope } from "../utils/documentApproval";
+import {
+  isCreatorAccountingSettlement,
+  matchesDepartmentHeadScope,
+} from "../utils/documentApproval";
 import { selectAccountingProofFiles } from "../utils/paymentRequest";
 
 export interface PaymentSettlementInput {
@@ -150,7 +153,15 @@ export const PaymentRequestAuditView: React.FC<PaymentRequestAuditViewProps> = (
     });
 
   const canActOnStep = (step: ApprovalStep) => {
-    if (step.status !== "pending" || document.createdById === user?.id) return false;
+    const isOwnAccountingSettlement =
+      document.createdById === user?.id &&
+      isCreatorAccountingSettlement(document, step);
+    if (
+      step.status !== "pending" ||
+      (document.createdById === user?.id && !isOwnAccountingSettlement)
+    ) {
+      return false;
+    }
     const delegated = delegationForRole(step.roleRequired);
     const hasRole = user?.roles?.includes(step.roleRequired) || Boolean(delegated);
     if (!hasRole) return false;

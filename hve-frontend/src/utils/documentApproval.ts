@@ -13,6 +13,30 @@ type ProjectScopedDocument = {
   } | null;
 };
 
+type WorkflowStep = {
+  stepOrder: number;
+  roleRequired: string;
+};
+
+type WorkflowDocument = {
+  type?: string;
+  steps?: WorkflowStep[];
+};
+
+export const isCreatorAccountingSettlement = (
+  document: WorkflowDocument,
+  step: WorkflowStep,
+): boolean => {
+  const maxStepOrder = Math.max(
+    ...(document.steps || []).map((item) => item.stepOrder),
+  );
+  return (
+    document.type === "payment_request" &&
+    step.roleRequired === "accountant" &&
+    step.stepOrder === maxStepOrder
+  );
+};
+
 export const getDocumentProjectIds = (
   document: ProjectScopedDocument,
 ): number[] =>
