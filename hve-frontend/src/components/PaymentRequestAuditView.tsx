@@ -42,6 +42,12 @@ type Attachment = NonNullable<DocumentItem["attachments"]>[number];
 const formatDateTime = (value?: string) =>
   value ? new Date(value).toLocaleString("vi-VN") : "Chưa xử lý";
 
+const formatFileSize = (size: number) => {
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${Math.ceil(size / 1024)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+};
+
 const stepStatus = (step: ApprovalStep) => {
   if (step.status === "approved") {
     return { label: "Đã phê duyệt", icon: "✓", tone: "emerald" };
@@ -306,22 +312,61 @@ export const PaymentRequestAuditView: React.FC<PaymentRequestAuditViewProps> = (
                       />
                     </label>
                   </div>
-                  <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                  <div className="mt-3">
                     <input
                       ref={proofInputRef}
                       type="file"
                       accept=".pdf,.jpg,.jpeg,.png,.webp"
                       onChange={(event) => setProofFile(event.target.files?.[0] || null)}
-                      className="min-w-0 flex-1 text-xs text-slate-600"
+                      className="sr-only"
                     />
-                    <button
-                      type="button"
-                      onClick={uploadPaymentProof}
-                      disabled={!proofFile || uploadingProof}
-                      className="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white disabled:opacity-50"
-                    >
-                      {uploadingProof ? "Đang tải..." : "Tải ảnh/PDF chuyển khoản"}
-                    </button>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                      <button
+                        type="button"
+                        onClick={() => proofInputRef.current?.click()}
+                        disabled={uploadingProof}
+                        className="w-full rounded-lg border border-dashed border-emerald-400 bg-white px-3 py-2.5 text-xs font-bold text-emerald-800 transition hover:border-emerald-600 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+                      >
+                        📎 Chọn ảnh/PDF chứng từ
+                      </button>
+                      <button
+                        type="button"
+                        onClick={uploadPaymentProof}
+                        disabled={!proofFile || uploadingProof}
+                        className="w-full rounded-lg bg-emerald-700 px-3 py-2.5 text-xs font-bold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-slate-300 sm:w-auto"
+                      >
+                        {uploadingProof
+                          ? "Đang tải chứng từ..."
+                          : proofFile
+                            ? "Tải chứng từ lên hồ sơ"
+                            : "Chọn tệp trước khi tải"}
+                      </button>
+                    </div>
+                    {proofFile ? (
+                      <div className="mt-2 flex min-w-0 items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
+                        <span aria-hidden="true" className="shrink-0 text-base">📄</span>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-xs font-bold text-slate-700">{proofFile.name}</p>
+                          <p className="text-[10px] font-semibold text-slate-500">{formatFileSize(proofFile.size)}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setProofFile(null);
+                            if (proofInputRef.current) proofInputRef.current.value = "";
+                          }}
+                          disabled={uploadingProof}
+                          aria-label={`Bỏ tệp ${proofFile.name}`}
+                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-lg font-bold text-slate-500 hover:bg-white hover:text-red-600 disabled:opacity-50"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ) : (
+                      <p className="mt-2 text-[11px] font-medium text-slate-500">
+                        Chấp nhận ảnh JPG, PNG, WEBP hoặc PDF. Có thể tải thêm từng chứng từ sau khi tệp trước hoàn tất.
+                      </p>
+                    )}
                   </div>
                   <p className="mt-2 text-[11px] font-semibold text-slate-500">
                     Đã ghi nhận {accountingFiles.length} chứng từ của Kế toán trong hồ sơ.
