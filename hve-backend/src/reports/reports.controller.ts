@@ -30,15 +30,29 @@ export class ReportsController {
     });
   }
 
+  // `reportType` chọn khối báo cáo (documents/tasks/contracts/audit_logs).
+  // `query.type` (ReportFilterDto) chỉ lọc theo loại hồ sơ cụ thể (vd payment_request)
+  // trong khối "documents" — hai tham số tách riêng để không bao giờ trùng khoá
+  // query string (trước đây cả hai đều dùng chung tên `type`, khiến khi lọc
+  // theo loại hồ sơ, Express gộp thành mảng và Prisma ném lỗi validation,
+  // làm toàn bộ việc xuất báo cáo thất bại).
+  private fileLabel(reportType: string, query: ReportFilterDto): string {
+    if (reportType === 'documents' && typeof query.type === 'string' && query.type) {
+      return query.type;
+    }
+    return reportType;
+  }
+
   @Get('export')
   async exportCsv(
     @Request() req: any,
-    @Query('type') type: string,
+    @Query('reportType') reportType: string,
     @Query() query: ReportFilterDto,
     @Res() res: Response,
   ) {
-    const csvData = await this.reportsService.exportCsv(req.user, type || 'documents', query);
-    const filename = `HVE_Report_${type || 'documents'}_${Date.now()}.csv`;
+    const kind = reportType || 'documents';
+    const csvData = await this.reportsService.exportCsv(req.user, kind, query);
+    const filename = `HVE_Report_${this.fileLabel(kind, query)}_${Date.now()}.csv`;
 
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
@@ -48,12 +62,13 @@ export class ReportsController {
   @Get('export-xlsx')
   async exportXlsx(
     @Request() req: any,
-    @Query('type') type: string,
+    @Query('reportType') reportType: string,
     @Query() query: ReportFilterDto,
     @Res() res: Response,
   ) {
-    const buffer = await this.reportsService.exportXlsx(req.user, type || 'documents', query);
-    const filename = `HVE_BaoCao_${type || 'documents'}_${new Date().toISOString().split('T')[0]}.xlsx`;
+    const kind = reportType || 'documents';
+    const buffer = await this.reportsService.exportXlsx(req.user, kind, query);
+    const filename = `HVE_BaoCao_${this.fileLabel(kind, query)}_${new Date().toISOString().split('T')[0]}.xlsx`;
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);

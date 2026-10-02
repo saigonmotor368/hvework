@@ -4,6 +4,7 @@ import { ENABLE_MOCK_DATA } from "../config";
 import { BrandLoader } from "./BrandLoader";
 import type { ProjectItem } from "../types";
 import { UserNameButton } from "./UserNameButton";
+import { ReportPrintSheet } from "./ReportPrintSheet";
 
 interface ReportsViewProps {
   apiBaseUrl: string;
@@ -213,21 +214,26 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     projectId,
   ]);
 
-  // Export CSV Handler
+  // Export Excel Handler
   const handleExportCsv = () => {
     const token = localStorage.getItem("access_token");
     if (!token) return;
 
-    const exportType = activeTab === "financial" ? "contracts" : activeTab;
+    // `reportType` chọn khối báo cáo (documents/tasks/contracts/audit_logs);
+    // `type` (nếu có) chỉ lọc theo loại hồ sơ cụ thể trong tab "Tổng hợp hồ sơ"
+    // (ví dụ Đề nghị thanh toán) — tách riêng 2 tham số để tránh việc gửi
+    // trùng khoá "type" khiến backend nhận một mảng và báo lỗi xuất file.
+    const reportType = activeTab === "financial" ? "contracts" : activeTab;
     const params = new URLSearchParams();
-    params.append("type", exportType);
+    params.append("reportType", reportType);
     if (startDate) params.append("startDate", startDate);
     if (endDate) params.append("endDate", endDate);
     if (projectId) params.append("projectId", projectId);
     if (userId) params.append("userId", userId);
     if (status && status !== "all") params.append("status", status);
-    if (docType) params.append("type", docType);
+    if (activeTab === "documents" && docType) params.append("type", docType);
 
+    const fileLabel = activeTab === "documents" && docType ? docType : reportType;
     const exportUrl = `${apiBaseUrl}/reports/export-xlsx?${params.toString()}`;
     // Trigger download with auth
     fetch(exportUrl, {
@@ -241,7 +247,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `HVE_BaoCao_${exportType}_${new Date().toISOString().split("T")[0]}.xlsx`;
+        a.download = `HVE_BaoCao_${fileLabel}_${new Date().toISOString().split("T")[0]}.xlsx`;
         document.body.appendChild(a);
         a.click();
         a.remove();
@@ -255,6 +261,30 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   const handlePrint = () => {
     window.print();
   };
+
+  // Nhãn bộ lọc + phạm vi hiển thị trên bản in PDF
+  const docTypeFilterLabel: Record<string, string> = {
+    payment_request: "Đề nghị thanh toán",
+    proposal: "Đề xuất / Tờ trình",
+    contract: "Hợp đồng",
+  };
+  const scopeLabel = isEmployee
+    ? "Cá nhân"
+    : isDeptHead
+      ? "Các dự án phụ trách"
+      : "Toàn công ty";
+  const printFilterLabel = [
+    startDate ? `Từ ${new Date(startDate).toLocaleDateString("vi-VN")}` : "",
+    endDate ? `Đến ${new Date(endDate).toLocaleDateString("vi-VN")}` : "",
+    projectId
+      ? `Dự án: ${projects.find((p) => String(p.id) === projectId)?.name || projectId}`
+      : "",
+    userId ? `Nhân sự: ${users.find((u) => String(u.id) === userId)?.name || userId}` : "",
+    activeTab === "documents" && docType ? `Loại hồ sơ: ${docTypeFilterLabel[docType] || docType}` : "",
+    activeTab !== "documents" && status !== "all" ? `Trạng thái: ${status}` : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   const resetFilters = () => {
     setStartDate("");
@@ -916,6 +946,14 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           )}
         </div>
       )}
+
+      <ReportPrintSheet
+        activeTab={activeTab}
+        summaryData={summaryData}
+        auditLogs={auditLogs}
+        scopeLabel={scopeLabel}
+        filterLabel={printFilterLabel}
+      />
     </div>
   );
 };

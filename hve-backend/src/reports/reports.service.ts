@@ -41,8 +41,9 @@ export class ReportsService {
         docFilters.createdAt.lte = end;
       }
     }
-    if (filter.type) {
-      docFilters.type = filter.type;
+    const typeFilter = Array.isArray(filter.type) ? filter.type[0] : filter.type;
+    if (typeFilter) {
+      docFilters.type = typeFilter;
     }
     if (filter.status && filter.status !== 'all') {
       docFilters.status = filter.status;
@@ -227,16 +228,25 @@ export class ReportsService {
         approvalRate: docTotal > 0 ? Math.round((docApproved / docTotal) * 100) : 0,
         avgApprovalTimeHours,
         byType: docTypeMap,
-        items: documents.slice(0, 100).map((d: any) => ({
-          id: d.id,
-          code: d.code,
-          title: d.title,
-          type: d.type,
-          status: d.status,
-          creator: d.createdBy.name,
-          createdAt: d.createdAt,
-          project: d.project?.name || 'Huy Võ Education',
-        })),
+        items: documents.slice(0, 100).map((d: any) => {
+          const data = (d.dataJson as any) || {};
+          const approvedSteps = (d.steps || [])
+            .filter((st: any) => st.status === 'approved' && st.actedAt)
+            .sort((a: any, b: any) => new Date(b.actedAt).getTime() - new Date(a.actedAt).getTime());
+          return {
+            id: d.id,
+            code: d.code,
+            title: d.title,
+            type: d.type,
+            status: d.status,
+            creator: d.createdBy.name,
+            createdAt: d.createdAt,
+            project: d.project?.name || 'Huy Võ Education',
+            amount: d.type === 'payment_request' ? Number(data.amount) || 0 : undefined,
+            receiver: d.type === 'payment_request' ? data.receiver || '' : undefined,
+            approvedAt: d.status === 'Đã duyệt' ? approvedSteps[0]?.actedAt || null : null,
+          };
+        }),
       },
       tasks: {
         total: taskTotal,
@@ -311,11 +321,12 @@ export class ReportsService {
     }));
   }
 
-  async exportCsv(user: any, type: string, filter: ReportFilterDto): Promise<string> {
+  async exportCsv(user: any, reportType: string, filter: ReportFilterDto): Promise<string> {
     const roles: string[] = user.roles ? user.roles.map((r: any) => (typeof r === 'string' ? r : r.name)) : [];
     const isCompanyWide = roles.some((r) => ['ceo', 'bgd', 'it_admin', 'accountant', 'legal'].includes(r));
     const isDeptHead = roles.includes('department_head');
     const isEmployeeOnly = !isCompanyWide && !isDeptHead;
+    const type = this.resolveExportKind(reportType, filter);
 
     if (type === 'audit_logs' && !this.isCeoOrAdmin(user)) {
       throw new ForbiddenException('Chỉ CEO và Quản trị IT mới có quyền xuất Nhật ký hệ thống.');
@@ -329,7 +340,25 @@ export class ReportsService {
     const BOM = '\uFEFF';
     let csvContent = '';
 
-    if (type === 'documents') {
+    if (type === 'payment_request') {
+      const summary = await this.getSummary(user, filter);
+      const items = summary.documents.items.filter((d: any) => d.type === 'payment_request');
+      const headers = ['Mã ĐNTT', 'Tiêu đề', 'Người đề nghị', 'Dự án', 'Người thụ hưởng', 'Số tiền (VNĐ)', 'Ngày tạo', 'Ngày duyệt chi', 'Trạng thái'];
+      const rows = items.map((d: any) => [
+        this.escapeCsv(d.code),
+        this.escapeCsv(d.title),
+        this.escapeCsv(d.creator),
+        this.escapeCsv(d.project),
+        this.escapeCsv(d.receiver || ''),
+        d.amount || 0,
+        this.escapeCsv(new Date(d.createdAt).toLocaleDateString('vi-VN')),
+        this.escapeCsv(d.approvedAt ? new Date(d.approvedAt).toLocaleDateString('vi-VN') : ''),
+        this.escapeCsv(d.status),
+      ]);
+      const totalAmount = items.reduce((sum: number, d: any) => sum + (d.amount || 0), 0);
+      const totalRow = ['', '', '', '', this.escapeCsv('TỔNG CỘNG'), totalAmount, '', '', ''];
+      csvContent = [headers.join(','), ...rows.map((r: any) => r.join(',')), totalRow.join(',')].join('\r\n');
+    } else if (type === 'documents') {
       const summary = await this.getSummary(user, filter);
       const headers = ['Mã hồ sơ', 'Tiêu đề', 'Loại hồ sơ', 'Trạng thái', 'Người tạo', 'Dự án', 'Ngày tạo'];
       const rows = summary.documents.items.map((d: any) => [
@@ -417,6 +446,8 @@ export class ReportsService {
     switch (type) {
       case 'documents':
         return 'BÁO CÁO TỔNG HỢP HỒ SƠ';
+      case 'payment_request':
+        return 'BÁO CÁO ĐỀ NGHỊ THANH TOÁN (CHI TIỀN)';
       case 'tasks':
         return 'BÁO CÁO TIẾN ĐỘ CÔNG VIỆC';
       case 'contracts':
@@ -426,6 +457,16 @@ export class ReportsService {
       default:
         return 'BÁO CÁO';
     }
+  }
+
+  // Khi khối báo cáo là "documents" nhưng có lọc theo loại hồ sơ cụ thể
+  // (vd Đề nghị thanh toán), đổi sang định dạng xuất chuyên biệt có cột số tiền.
+  private resolveExportKind(reportType: string, filter: ReportFilterDto): string {
+    const typeFilter = Array.isArray(filter.type) ? filter.type[0] : filter.type;
+    if (reportType === 'documents' && typeFilter === 'payment_request') {
+      return 'payment_request';
+    }
+    return reportType;
   }
 
   // Dựng phần đầu trang chung cho mọi file Excel: tên công ty + tiêu đề báo
@@ -495,11 +536,12 @@ export class ReportsService {
     });
   }
 
-  async exportXlsx(user: any, type: string, filter: ReportFilterDto): Promise<Buffer> {
+  async exportXlsx(user: any, reportType: string, filter: ReportFilterDto): Promise<Buffer> {
     const roles: string[] = user.roles ? user.roles.map((r: any) => (typeof r === 'string' ? r : r.name)) : [];
     const isCompanyWide = roles.some((r) => ['ceo', 'bgd', 'it_admin', 'accountant', 'legal'].includes(r));
     const isDeptHead = roles.includes('department_head');
     const isEmployeeOnly = !isCompanyWide && !isDeptHead;
+    const type = this.resolveExportKind(reportType, filter);
 
     if (type === 'audit_logs' && !this.isCeoOrAdmin(user)) {
       throw new ForbiddenException('Chỉ CEO và Quản trị IT mới có quyền xuất Nhật ký hệ thống.');
@@ -516,7 +558,35 @@ export class ReportsService {
       pageSetup: { orientation: 'landscape', fitToPage: true },
     });
 
-    if (type === 'documents') {
+    if (type === 'payment_request') {
+      const summary = await this.getSummary(user, filter);
+      const items = summary.documents.items.filter((d: any) => d.type === 'payment_request');
+      const headers = ['Mã ĐNTT', 'Tiêu đề', 'Người đề nghị', 'Dự án', 'Người thụ hưởng', 'Số tiền (VNĐ)', 'Ngày tạo', 'Ngày duyệt chi', 'Trạng thái'];
+      this.buildSheetHeader(sheet, this.reportTitle(type), headers.length);
+      const headerRow = sheet.addRow(headers);
+      this.styleHeaderRow(headerRow);
+      let totalAmount = 0;
+      items.forEach((d: any, idx: number) => {
+        totalAmount += d.amount || 0;
+        const row = sheet.addRow([
+          d.code,
+          d.title,
+          d.creator,
+          d.project,
+          d.receiver || '',
+          d.amount || 0,
+          new Date(d.createdAt).toLocaleDateString('vi-VN'),
+          d.approvedAt ? new Date(d.approvedAt).toLocaleDateString('vi-VN') : '',
+          d.status,
+        ]);
+        row.getCell(6).numFmt = '#,##0';
+        this.styleDataRow(row, idx % 2 === 0);
+      });
+      const totalRow = sheet.addRow(['', '', '', '', 'TỔNG CỘNG ĐÃ CHI', totalAmount, '', '', '']);
+      totalRow.getCell(6).numFmt = '#,##0';
+      this.styleDataRow(totalRow, false, true);
+      this.autoFitColumns(sheet, headers, [14, 28, 18, 20, 18, 16, 12, 12, 14]);
+    } else if (type === 'documents') {
       const summary = await this.getSummary(user, filter);
       const headers = ['Mã hồ sơ', 'Tiêu đề', 'Loại hồ sơ', 'Trạng thái', 'Người tạo', 'Dự án', 'Ngày tạo'];
       this.buildSheetHeader(sheet, this.reportTitle(type), headers.length);
