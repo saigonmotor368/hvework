@@ -252,6 +252,10 @@ export interface ProjectHealthItem {
   name: string;
   total: number;
   overdue: number;
+  openTasks?: number;
+  overdueTasks?: number;
+  pendingDocuments?: number;
+  overdueDocuments?: number;
   ratio: number;
   percent: number;
   level: "binh_thuong" | "can_chu_y" | "tre_tien_do" | "rui_ro_cao";

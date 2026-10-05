@@ -104,6 +104,10 @@ export class DashboardService {
         ...project,
         total,
         overdue,
+        openTasks: openTaskMap.get(project.id) || 0,
+        overdueTasks: overdueTaskMap.get(project.id) || 0,
+        pendingDocuments: pendingDocumentMap.get(project.id) || 0,
+        overdueDocuments: overdueDocumentMap.get(project.id) || 0,
         ratio,
         percent: Math.round(ratio * 100),
         level:

@@ -282,6 +282,7 @@ export default function App() {
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [tabFilter, setTabFilter] = useState<"all" | "my" | "to_review">("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [documentProjectFilter, setDocumentProjectFilter] = useState<number | null>(null);
 
   // Each screen owns a different scroll context. Reset it on navigation so a
   // long mobile screen never leaves the next screen opened halfway down.
@@ -406,6 +407,9 @@ export default function App() {
       }
       if (typeFilter !== "all") {
         url += `&type=${encodeURIComponent(typeFilter)}`;
+      }
+      if (documentProjectFilter) {
+        url += `&projectId=${documentProjectFilter}`;
       }
       const res = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
@@ -583,7 +587,7 @@ export default function App() {
   // khiến các truy vấn xác thực/DB tranh nhau connection pool.
   useEffect(() => {
     if (isAuthenticated && activeTab === "documents") void fetchDocuments();
-  }, [isAuthenticated, activeTab, tabFilter, statusFilter, typeFilter]);
+  }, [isAuthenticated, activeTab, tabFilter, statusFilter, typeFilter, documentProjectFilter]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -1491,6 +1495,7 @@ export default function App() {
         onSelectTab={(tab) => {
           setSelectedDoc(null);
           setSelectedTaskId(null);
+          setDocumentProjectFilter(null);
           if (tab === "create") resetDocumentEditor();
           const url = new URL(window.location.href);
           url.pathname = "/";
@@ -1608,10 +1613,11 @@ export default function App() {
                     setSelectedTaskId(taskId);
                     setActiveTab("tasks");
                   }}
-                  onOpenDocuments={(status) => {
+                  onOpenDocuments={(status, projectId) => {
                     setSelectedDoc(null);
                     setTabFilter("all");
                     setTypeFilter("all");
+                    setDocumentProjectFilter(projectId ?? null);
                     setStatusFilter(status);
                     setActiveTab("documents");
                   }}
@@ -1656,6 +1662,15 @@ export default function App() {
                       setStatusFilter={setStatusFilter}
                       searchQuery={searchQuery}
                       setSearchQuery={setSearchQuery}
+                      projectFilterLabel={
+                        documentProjectFilter
+                          ? (() => {
+                              const p = projects.find((item) => item.id === documentProjectFilter);
+                              return p ? `${p.code} — ${p.name}` : `Dự án #${documentProjectFilter}`;
+                            })()
+                          : null
+                      }
+                      onClearProjectFilter={() => setDocumentProjectFilter(null)}
                       getStatusBadge={getStatusBadge}
                       onSelectDoc={(doc) => {
                         setSelectedDoc(doc);

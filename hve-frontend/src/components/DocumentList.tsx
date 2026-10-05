@@ -13,6 +13,8 @@ interface DocumentListProps {
   setStatusFilter: (status: string) => void;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
+  projectFilterLabel?: string | null;
+  onClearProjectFilter?: () => void;
   getStatusBadge: (status: string) => React.ReactNode;
   onSelectDoc: (doc: DocumentItem) => void;
   onCreateNew: () => void;
@@ -28,6 +30,8 @@ export const DocumentList: React.FC<DocumentListProps> = ({
   setStatusFilter,
   searchQuery,
   setSearchQuery,
+  projectFilterLabel,
+  onClearProjectFilter,
   getStatusBadge,
   onSelectDoc,
   onCreateNew,
@@ -137,6 +141,21 @@ export const DocumentList: React.FC<DocumentListProps> = ({
           </button>
         </div>
       </div>
+
+      {projectFilterLabel && (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-xs text-blue-900">
+          <span>
+            Đang lọc theo dự án: <strong>{projectFilterLabel}</strong>
+          </span>
+          <button
+            type="button"
+            onClick={onClearProjectFilter}
+            className="shrink-0 rounded-lg bg-white px-2.5 py-1 font-bold text-[#0A66C2] hover:bg-blue-100"
+          >
+            Bỏ lọc
+          </button>
+        </div>
+      )}
 
       {/* Mobile card list */}
       <div className="space-y-3 md:hidden">

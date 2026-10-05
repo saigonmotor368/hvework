@@ -17,7 +17,7 @@ interface OverviewDashboardProps {
   getStatusBadge: (status: string) => React.ReactNode;
   onSelectDoc: (doc: any) => void;
   onSelectTask?: (taskId: number) => void;
-  onOpenDocuments: (status: string) => void;
+  onOpenDocuments: (status: string, projectId?: number) => void;
   onOpenTasks: (filter: {
     tab?: "all" | "assigned_to_me" | "assigned_by_me" | "department";
     status?: string;
@@ -505,8 +505,10 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
               const completionRate = stats?.completionRate || 0;
               const completedTasks = stats?.completedTasks || 0;
               const totalTasks = stats?.totalTasks || 0;
-              const openItems = health?.total || 0;
-              const overdueItems = health?.overdue || 0;
+              const openTasks = health?.openTasks ?? health?.total ?? 0;
+              const overdueTasksCount = health?.overdueTasks ?? 0;
+              const pendingDocs = health?.pendingDocuments ?? 0;
+              const overdueDocs = health?.overdueDocuments ?? 0;
               const style =
                 health?.level === "rui_ro_cao"
                   ? {
@@ -536,13 +538,20 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                           bar: "bg-[#0A66C2]",
                         };
               return (
-                <button
+                <div
                   key={project.id}
-                  type="button"
-                  onClick={() => onOpenTasks({ projectId: project.id })}
-                  className="group rounded-xl border border-slate-200 bg-white p-4 text-left transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md"
-                  aria-label={`Xem công việc dự án ${project.name}`}
+                  className="group rounded-xl border border-slate-200 bg-white p-4 text-left transition hover:border-blue-300 hover:shadow-md"
                 >
+                  <button
+                    type="button"
+                    onClick={() =>
+                      totalTasks === 0 && openTasks === 0 && pendingDocs > 0
+                        ? onOpenDocuments("Chờ duyệt", project.id)
+                        : onOpenTasks({ projectId: project.id })
+                    }
+                    className="block w-full text-left"
+                    aria-label={`Xem chi tiết dự án ${project.name}`}
+                  >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <span className="text-[10px] font-black uppercase tracking-wider text-[#0A66C2]">
@@ -572,21 +581,43 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                     />
                   </div>
 
+                  </button>
+
                   <div className="mt-4 grid grid-cols-3 divide-x divide-slate-100 rounded-xl bg-slate-50 py-2.5 text-center">
                     <div className="px-1">
                       <strong className="block text-sm text-slate-800">{completedTasks}/{totalTasks}</strong>
-                      <span className="text-[10px] text-slate-500">Hoàn thành</span>
+                      <span className="text-[10px] text-slate-500">Việc hoàn thành</span>
                     </div>
-                    <div className="px-1">
-                      <strong className="block text-sm text-slate-800">{openItems}</strong>
-                      <span className="text-[10px] text-slate-500">Đang mở</span>
-                    </div>
-                    <div className="px-1">
-                      <strong className={`block text-sm ${style.text}`}>{overdueItems}</strong>
-                      <span className="text-[10px] text-slate-500">Bị trễ</span>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => onOpenTasks({ projectId: project.id })}
+                      className="px-1 hover:bg-white"
+                      aria-label={`Xem công việc đang mở của ${project.name}`}
+                    >
+                      <strong className={`block text-sm ${overdueTasksCount > 0 ? style.text : "text-slate-800"}`}>
+                        {openTasks}
+                        {overdueTasksCount > 0 && (
+                          <span className="text-[10px] font-semibold"> ({overdueTasksCount} trễ)</span>
+                        )}
+                      </strong>
+                      <span className="text-[10px] text-slate-500">Việc đang mở</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onOpenDocuments("Chờ duyệt", project.id)}
+                      className="px-1 hover:bg-white"
+                      aria-label={`Xem hồ sơ chờ duyệt của ${project.name}`}
+                    >
+                      <strong className={`block text-sm ${overdueDocs > 0 ? style.text : "text-slate-800"}`}>
+                        {pendingDocs}
+                        {overdueDocs > 0 && (
+                          <span className="text-[10px] font-semibold"> ({overdueDocs} quá 5 ngày)</span>
+                        )}
+                      </strong>
+                      <span className="text-[10px] text-slate-500">Hồ sơ chờ duyệt</span>
+                    </button>
                   </div>
-                </button>
+                </div>
               );
             })}
           </div>
