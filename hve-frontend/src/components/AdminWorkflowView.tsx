@@ -47,6 +47,16 @@ export const AdminWorkflowView: React.FC<AdminWorkflowViewProps> = ({
       ],
     },
     {
+      id: 4,
+      type: 'payroll_request',
+      name: 'Quy trình duyệt Đề nghị chi lương',
+      steps: [
+        { id: 10, stepOrder: 1, roleRequired: 'hr' },
+        { id: 11, stepOrder: 2, roleRequired: 'ceo' },
+        { id: 12, stepOrder: 3, roleRequired: 'accountant' },
+      ],
+    },
+    {
       id: 3,
       type: 'contract',
       name: 'Quy trình duyệt Hợp đồng kinh tế',
@@ -231,7 +241,7 @@ export const AdminWorkflowView: React.FC<AdminWorkflowViewProps> = ({
       </div>
 
       {/* Workflow Tabs */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <button
           onClick={() => handleSelectWorkflow('payment_request')}
           className={`p-4 rounded-xl border text-left transition-all ${
@@ -270,7 +280,28 @@ export const AdminWorkflowView: React.FC<AdminWorkflowViewProps> = ({
           <div className="font-bold text-sm text-gray-900">Hợp đồng kinh tế</div>
           <div className="text-xs text-gray-500 mt-0.5">Mã HD-YYYY-NNN</div>
         </button>
+
+        <button
+          onClick={() => handleSelectWorkflow('payroll_request')}
+          className={`p-4 rounded-xl border text-left transition-all ${
+            selectedType === 'payroll_request'
+              ? 'bg-emerald-50/50 border-emerald-600 ring-2 ring-emerald-600/20'
+              : 'bg-white border-slate-200 hover:border-slate-300'
+          }`}
+        >
+          <div className="text-xl mb-1">👥</div>
+          <div className="font-bold text-sm text-gray-900">Đề nghị chi lương</div>
+          <div className="text-xs text-gray-500 mt-0.5">Mã DNCL-YYYY-NNN</div>
+        </button>
       </div>
+
+      {(selectedType === 'payroll_request' || selectedType === 'payment_request') && (
+        <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs font-semibold text-amber-800">
+          Lưu ý: cấp duyệt cuối cùng của loại hồ sơ này nên là <b>Kế toán</b> (bước chi tiền và tải chứng từ).
+          {selectedType === 'payroll_request' &&
+            ' Người lập đề nghị chi lương là Trưởng dự án nên không có cấp duyệt Trưởng dự án.'}
+        </p>
+      )}
 
       {/* Step Config Canvas */}
       <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200">
