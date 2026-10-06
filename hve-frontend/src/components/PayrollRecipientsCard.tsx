@@ -5,7 +5,7 @@ import {
   fetchWithSession,
   uploadAttachment,
 } from "../api/client";
-import { formatVnd, type PayrollItem } from "../utils/documentTypes";
+import { formatVnd, normalizePeriod, type PayrollItem } from "../utils/documentTypes";
 import {
   buildVietQrImageUrl,
   findMatchingVietQrBank,
@@ -236,7 +236,7 @@ export const PayrollRecipientsCard: React.FC<Props> = ({
         errors.push(`${label}: số tài khoản không hợp lệ`);
       }
     });
-    if (!/^(0[1-9]|1[0-2])\/\d{4}$/.test(draftPeriod)) errors.push("Kỳ lương phải có dạng MM/YYYY");
+    if (!normalizePeriod(draftPeriod)) errors.push("Kỳ lương phải có dạng MM/YYYY");
     return errors;
   }, [draft, draftPeriod]);
 
@@ -258,7 +258,7 @@ export const PayrollRecipientsCard: React.FC<Props> = ({
               netPay: Math.round(Number(row.netPay)),
               bankAccount: row.bankAccount.replace(/\s+/g, ""),
             })),
-            period: draftPeriod,
+            period: normalizePeriod(draftPeriod),
             ...(draftFileName ? { payrollFileName: draftFileName } : {}),
           }),
         },

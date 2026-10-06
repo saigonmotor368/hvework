@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import type { ProjectItem } from "../types";
 import { fetchWithSession, uploadAttachment } from "../api/client";
-import { formatVnd, type PayrollItem } from "../utils/documentTypes";
+import { formatVnd, normalizePeriod, type PayrollItem } from "../utils/documentTypes";
 
 interface ParsedPayroll {
   sheetName: string;
@@ -93,7 +93,7 @@ export const CreatePayrollRequestForm: React.FC<Props> = ({
   };
 
   const canSave =
-    Boolean(projectId && /^(0[1-9]|1[0-2])\/\d{4}$/.test(period) && title.trim() && file && parsed) &&
+    Boolean(projectId && normalizePeriod(period) && title.trim() && file && parsed) &&
     parsed!.itemErrors.length === 0;
 
   const submit = async (submitNow: boolean) => {
@@ -108,7 +108,7 @@ export const CreatePayrollRequestForm: React.FC<Props> = ({
         body: JSON.stringify({
           title: title.trim(),
           projectId: Number(projectId),
-          period,
+          period: normalizePeriod(period),
           content: content.trim() || undefined,
           fileName: parsed.fileName,
           items: parsed.items,
@@ -180,9 +180,13 @@ export const CreatePayrollRequestForm: React.FC<Props> = ({
               id="payroll-period"
               value={period}
               onChange={(e) => setPeriod(e.target.value)}
+              onBlur={() => setPeriod((cur) => normalizePeriod(cur) || cur)}
               placeholder="09/2026"
               className={inputCls}
             />
+            {period && !normalizePeriod(period) && (
+              <p className="mt-1 text-[11px] font-semibold text-rose-600">Nhập kỳ lương dạng tháng/năm, ví dụ 09/2026</p>
+            )}
           </div>
         </div>
 
@@ -277,6 +281,21 @@ export const CreatePayrollRequestForm: React.FC<Props> = ({
           />
         </div>
 
+        {!canSave && (
+          <p className="text-right text-[11px] font-semibold text-amber-700">
+            {[
+              !projectId && "chọn dự án",
+              !normalizePeriod(period) && "nhập kỳ lương (MM/YYYY)",
+              !file && "tải bảng lương Excel",
+              file && parsed && parsed.itemErrors.length > 0 && "bổ sung thông tin còn thiếu trong bảng lương",
+              !title.trim() && "nhập tiêu đề",
+            ]
+              .filter(Boolean)
+              .reduce<string[]>((acc, cur) => [...acc, cur as string], [])
+              .join(" · ")
+              .replace(/^/, "Cần: ")}
+          </p>
+        )}
         <div className="grid grid-cols-1 sm:flex sm:items-center sm:justify-end gap-2 sm:gap-3 pt-6 border-t border-slate-100">
           <button
             type="button"
