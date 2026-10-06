@@ -133,6 +133,64 @@ describe('DocumentsService', () => {
     });
   });
 
+  describe('createPayrollRequest', () => {
+    const lead = {
+      id: 10,
+      roles: ['department_head'],
+      ledProjects: [{ id: 5, isActive: true }],
+    };
+    const baseDto = {
+      title: 'Đề nghị chi lương 09/2026',
+      projectId: 5,
+      period: '09/2026',
+      items: [
+        { fullName: 'Nguyễn Văn A', netPay: 1000000, bankName: 'OCB', bankAccount: '0522 225 566', employeeCode: 'A1' },
+        { fullName: 'Trần Thị B', netPay: 2500000.4, bankName: 'VIB', bankAccount: '7222145' },
+      ],
+    };
+
+    beforeEach(() => {
+      prisma.project.findMany.mockResolvedValue([{ id: 5 }]);
+      prisma.project.findUnique = vi.fn().mockResolvedValue({ leadUserId: 10 });
+      prisma.document.findFirst.mockResolvedValue(null);
+      prisma.document.create.mockImplementation(async ({ data }: any) => ({
+        id: 7,
+        ...data,
+      }));
+    });
+
+    it('tính tổng tiền, chuẩn hóa số tài khoản và dùng mã DNCL', async () => {
+      const result: any = await service.createPayrollRequest(lead, baseDto as any);
+      expect(result.code).toMatch(/^DNCL-\d{4}-001$/);
+      expect(result.type).toBe('payroll_request');
+      expect(result.dataJson.amount).toBe(3500000);
+      expect(result.dataJson.payrollItems[0].bankAccount).toBe('0522225566');
+    });
+
+    it('từ chối người không phải Trưởng dự án phụ trách dự án', async () => {
+      prisma.project.findUnique.mockResolvedValue({ leadUserId: 99 });
+      await expect(
+        service.createPayrollRequest(lead, baseDto as any),
+      ).rejects.toThrow('Chỉ Trưởng dự án phụ trách');
+    });
+
+    it('từ chối nhân viên thường', async () => {
+      await expect(
+        service.createPayrollRequest({ id: 3, roles: ['employee'] }, baseDto as any),
+      ).rejects.toThrow('Chỉ Trưởng dự án');
+    });
+
+    it('từ chối khi một nhân viên thiếu số tài khoản', async () => {
+      const dto = {
+        ...baseDto,
+        items: [{ ...baseDto.items[0], bankAccount: '' }],
+      };
+      await expect(
+        service.createPayrollRequest(lead, dto as any),
+      ).rejects.toThrow('thiếu số tài khoản');
+    });
+  });
+
   describe('findById', () => {
     it('should include uploader identity for every attachment', async () => {
       prisma.document.findFirst.mockResolvedValue({

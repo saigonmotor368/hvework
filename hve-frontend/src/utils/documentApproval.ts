@@ -31,7 +31,7 @@ export const isCreatorAccountingSettlement = (
     ...(document.steps || []).map((item) => item.stepOrder),
   );
   return (
-    document.type === "payment_request" &&
+    (document.type === "payment_request" || document.type === "payroll_request") &&
     step.roleRequired === "accountant" &&
     step.stepOrder === maxStepOrder
   );

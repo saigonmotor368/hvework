@@ -5,6 +5,7 @@ import {
   ForbiddenException,
   ConflictException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import { CreatePaymentRequestDto } from './dto/create-payment-request.dto.js';
@@ -12,6 +13,12 @@ import { CreateProposalDto } from './dto/create-proposal.dto.js';
 import { CreateContractDto } from './dto/create-contract.dto.js';
 import { UpdateDocumentDto } from './dto/update-document.dto.js';
 import { ActionStepDto, RejectOrReturnStepDto } from './dto/action-step.dto.js';
+import { CreatePayrollRequestDto } from './dto/create-payroll-request.dto.js';
+import {
+  parsePayrollWorkbook,
+  validatePayrollItems,
+  type PayrollItem,
+} from './payroll-parser.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { AuthService } from '../auth/auth.service.js';
 import {
@@ -446,6 +453,133 @@ export class DocumentsService {
     return document;
   }
 
+  async parsePayrollFile(file: { buffer?: Buffer; originalname?: string }) {
+    if (!file?.buffer) {
+      throw new BadRequestException('Vui lòng chọn tệp bảng lương (.xlsx)');
+    }
+    try {
+      const parsed = await parsePayrollWorkbook(file.buffer);
+      return {
+        ...parsed,
+        fileName: file.originalname || '',
+        itemErrors: validatePayrollItems(parsed.items),
+      };
+    } catch (error) {
+      throw new BadRequestException(
+        error instanceof Error ? error.message : 'Không đọc được bảng lương',
+      );
+    }
+  }
+
+  private normalizePayrollItems(items: Array<Partial<PayrollItem>>): PayrollItem[] {
+    const normalized = items.map((item) => ({
+      employeeCode: (item.employeeCode || '').trim(),
+      fullName: (item.fullName || '').trim(),
+      position: (item.position || '').trim(),
+      netPay: Math.round(Number(item.netPay)),
+      bankName: (item.bankName || '').trim(),
+      bankAccount: (item.bankAccount || '').replace(/\s+/g, ''),
+      note: (item.note || '').trim(),
+    }));
+    const errors = validatePayrollItems(normalized);
+    if (errors.length > 0) {
+      throw new BadRequestException(
+        `Danh sách nhận lương chưa hợp lệ: ${errors.slice(0, 5).join('; ')}${errors.length > 5 ? ` (và ${errors.length - 5} lỗi khác)` : ''}`,
+      );
+    }
+    return normalized;
+  }
+
+  async createPayrollRequest(
+    user: any,
+    dto: CreatePayrollRequestDto,
+    ip?: string,
+  ) {
+    const roles = getRoleNames(user);
+    if (!roles.some((r) => ['department_head', 'hr', 'it_admin'].includes(r))) {
+      throw new ForbiddenException(
+        'Chỉ Trưởng dự án (hoặc Nhân sự) mới được lập Đề nghị chi lương',
+      );
+    }
+    await this.validateProjectSelection(user, dto.projectId, []);
+    if (
+      dto.projectId &&
+      !roles.some((r) => ['hr', 'it_admin'].includes(r))
+    ) {
+      const project = await this.prisma.project.findUnique({
+        where: { id: dto.projectId },
+        select: { leadUserId: true },
+      });
+      if (project?.leadUserId !== user.id) {
+        throw new ForbiddenException(
+          'Chỉ Trưởng dự án phụ trách mới được đề nghị chi lương cho dự án này',
+        );
+      }
+    }
+    await this.validateNewAttachments(user.id, dto.attachmentIds);
+
+    const items = this.normalizePayrollItems(dto.items);
+    const total = items.reduce((sum, i) => sum + i.netPay, 0);
+    const code = await this.generateDocumentCode('DNCL');
+
+    const document = await this.prisma.document.create({
+      data: {
+        code,
+        title: dto.title,
+        type: 'payroll_request',
+        status: 'Nháp',
+        dataJson: {
+          period: dto.period,
+          amount: total,
+          receiver: `Danh sách nhận lương (${items.length} người)`,
+          content: dto.content || `Chi lương nhân viên kỳ ${dto.period}`,
+          deadline: dto.deadline || '',
+          payrollItems: items as unknown as Prisma.InputJsonArray,
+          payrollFileName: dto.fileName || '',
+          attachmentIds: dto.attachmentIds || [],
+        },
+        createdById: user.id,
+        projectId: dto.projectId || null,
+        linkedProjectIds: [],
+        version: 1,
+      },
+      include: {
+        createdBy: {
+          select: { id: true, name: true, email: true, department: true },
+        },
+      },
+    });
+
+    if (dto.attachmentIds && dto.attachmentIds.length > 0) {
+      await this.prisma.attachment.updateMany({
+        where: {
+          id: { in: dto.attachmentIds },
+          uploadedById: user.id,
+          entityId: 0,
+        },
+        data: { entityId: document.id, entityType: 'document' },
+      });
+    }
+
+    await this.auditService.logEvent({
+      entityType: 'Document',
+      entityId: document.id,
+      action: 'create_document',
+      actorId: user.id,
+      afterJson: {
+        code,
+        title: dto.title,
+        type: 'payroll_request',
+        status: 'Nháp',
+        employees: items.length,
+        total,
+      },
+      ip,
+    });
+
+    return document;
+  }
+
   async createProposal(user: any, dto: CreateProposalDto, ip?: string) {
     const userId = user.id;
     const roles = getRoleNames(user);
@@ -754,7 +888,16 @@ export class DocumentsService {
       ...(dto.manager !== undefined ? { manager: dto.manager } : {}),
       ...(dto.notes !== undefined ? { notes: dto.notes } : {}),
       attachmentIds: desiredAttachmentIds,
-    };
+    } as Record<string, any>;
+    if (doc.type === 'payroll_request') {
+      if (dto.payrollItems) {
+        const items = this.normalizePayrollItems(dto.payrollItems);
+        updatedDataJson.payrollItems = items;
+        updatedDataJson.amount = items.reduce((sum, i) => sum + i.netPay, 0);
+        updatedDataJson.receiver = `Danh sách nhận lương (${items.length} người)`;
+      }
+      if (dto.period !== undefined) updatedDataJson.period = dto.period;
+    }
 
     const updatedTitle = dto.title?.trim() ?? doc.title.trim();
     if (!updatedTitle) {
@@ -1078,6 +1221,26 @@ export class DocumentsService {
           'Quy định nghiệp vụ: Bắt buộc phải đính kèm ít nhất 1 chứng từ / hóa đơn trước khi gửi duyệt.',
         );
       }
+    } else if (docType === 'payroll_request') {
+      const items: PayrollItem[] = Array.isArray(data.payrollItems)
+        ? data.payrollItems
+        : [];
+      if (items.length === 0) {
+        throw new BadRequestException(
+          'Đề nghị chi lương chưa có danh sách nhân viên nhận lương.',
+        );
+      }
+      const errors = validatePayrollItems(items);
+      if (errors.length > 0) {
+        throw new BadRequestException(
+          `Danh sách nhận lương chưa hợp lệ: ${errors.slice(0, 5).join('; ')}`,
+        );
+      }
+      if (attachmentCount === 0 && !hasAttachmentInJson) {
+        throw new BadRequestException(
+          'Quy định nghiệp vụ: Bắt buộc đính kèm bảng lương trước khi gửi duyệt.',
+        );
+      }
     } else if (docType === 'proposal') {
       if (!data.content || !data.content.trim()) {
         throw new BadRequestException(
@@ -1247,7 +1410,7 @@ export class DocumentsService {
 
     const maxStepOrder = Math.max(...doc.steps.map((s) => s.stepOrder));
     const isFinalAccountantStep =
-      doc.type === 'payment_request' &&
+      (doc.type === 'payment_request' || doc.type === 'payroll_request') &&
       step.roleRequired === 'accountant' &&
       step.stepOrder === maxStepOrder;
 
@@ -1444,9 +1607,9 @@ export class DocumentsService {
     });
 
     if (!doc) throw new NotFoundException('Không tìm thấy hồ sơ');
-    if (doc.type === 'payment_request') {
+    if (doc.type === 'payment_request' || doc.type === 'payroll_request') {
       throw new BadRequestException(
-        'Đề nghị thanh toán phải được CEO rà soát rồi chuyển Kế toán xử lý chi tiền; không được duyệt thẳng toàn bộ quy trình.',
+        'Đề nghị thanh toán / chi lương phải được CEO rà soát rồi chuyển Kế toán xử lý chi tiền; không được duyệt thẳng toàn bộ quy trình.',
       );
     }
     if (doc.status !== 'Chờ duyệt') {

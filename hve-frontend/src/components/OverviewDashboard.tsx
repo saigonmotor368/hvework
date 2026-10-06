@@ -3,6 +3,7 @@ import type { DocumentItem, ProjectHealthItem } from "../types";
 import { MOCK_DASHBOARD_DATA } from "../mockData";
 import { ENABLE_MOCK_DATA } from "../config";
 import { fetchWithSession } from "../api/client";
+import { isPaymentLikeType } from "../utils/documentTypes";
 import { BrandLoader } from "./BrandLoader";
 import { AnnouncementBoard } from "./AnnouncementBoard";
 import { UserNameButton } from "./UserNameButton";
@@ -662,7 +663,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                     </span>
                   </div>
                   <p className="text-xs text-gray-400 mt-0.5">
-                    {doc.type === "payment_request" && doc.dataJson?.amount ? (
+                    {isPaymentLikeType(doc.type) && doc.dataJson?.amount ? (
                       <>
                         Số tiền:{" "}
                         <strong className="text-gray-700">

@@ -1777,6 +1777,14 @@ export default function App() {
               {/* TAB 3: CREATE FORM */}
               {activeTab === "create" && (
                 <CreateDocumentForm
+                  apiBaseUrl={API_BASE_URL}
+                  showToast={showToast}
+                  onPayrollCreated={async (documentId) => {
+                    resetDocumentEditor();
+                    setActiveTab("documents");
+                    await fetchDocuments();
+                    await refreshDocumentDetail(documentId);
+                  }}
                   createForm={createForm}
                   setCreateForm={setCreateForm}
                   isProcessing={isProcessing}

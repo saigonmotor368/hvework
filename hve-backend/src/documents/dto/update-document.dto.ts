@@ -11,6 +11,14 @@ import { ProjectFieldsDto } from '../../common/dto/project-fields.dto.js';
 
 export class UpdateDocumentDto extends ProjectFieldsDto {
   @IsOptional()
+  @IsString()
+  period?: string;
+
+  @IsOptional()
+  @IsArray()
+  payrollItems?: any[];
+
+  @IsOptional()
   @IsString({ message: 'Tiêu đề phải là chuỗi' })
   title?: string;
 

@@ -20,6 +20,7 @@ export const AdminWorkflowView: React.FC<AdminWorkflowViewProps> = ({
     { value: 'department_head', label: 'Trưởng Ban / Trưởng dự án' },
     { value: 'accountant', label: 'Kế toán' },
     { value: 'legal', label: 'Pháp chế' },
+    { value: 'hr', label: 'Nhân sự' },
     { value: 'ceo', label: 'CEO' },
     { value: 'it_admin', label: 'Quản trị IT' },
     { value: 'employee', label: 'Nhân viên' },

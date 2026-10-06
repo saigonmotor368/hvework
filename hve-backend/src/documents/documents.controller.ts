@@ -13,6 +13,9 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { UploadedFile, UseInterceptors } from '@nestjs/common';
+import { CreatePayrollRequestDto } from './dto/create-payroll-request.dto.js';
 import { DocumentsService } from './documents.service.js';
 import { CreatePaymentRequestDto } from './dto/create-payment-request.dto.js';
 import { CreateProposalDto } from './dto/create-proposal.dto.js';
@@ -33,6 +36,24 @@ export class DocumentsController {
     @Req() req: any,
   ) {
     return this.documentsService.createPaymentRequest(req.user, dto, req.ip);
+  }
+
+  @Post('payroll-requests/parse')
+  @HttpCode(HttpStatus.OK)
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024, files: 1 } }),
+  )
+  async parsePayrollFile(@UploadedFile() file: any) {
+    return this.documentsService.parsePayrollFile(file);
+  }
+
+  @Post('payroll-requests')
+  @HttpCode(HttpStatus.CREATED)
+  async createPayrollRequest(
+    @Body() dto: CreatePayrollRequestDto,
+    @Req() req: any,
+  ) {
+    return this.documentsService.createPayrollRequest(req.user, dto, req.ip);
   }
 
   @Post('proposals')

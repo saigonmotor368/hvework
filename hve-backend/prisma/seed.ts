@@ -49,6 +49,7 @@ async function main() {
     { name: 'department_head', description: 'Trưởng Ban / Trưởng dự án' },
     { name: 'accountant', description: 'Kế toán' },
     { name: 'legal', description: 'Pháp chế' },
+    { name: 'hr', description: 'Nhân sự' },
     { name: 'ceo', description: 'CEO' },
     { name: 'it_admin', description: 'IT Admin' },
     { name: 'bgd', description: 'Ban Giám Đốc — xem toàn bộ, không thực thi lệnh' },
@@ -218,6 +219,26 @@ async function main() {
             { stepOrder: 2, roleRequired: 'legal' },
             { stepOrder: 3, roleRequired: 'accountant' },
             { stepOrder: 4, roleRequired: 'ceo' },
+          ],
+        },
+      },
+    });
+  }
+
+  // 4. payroll_request: (Trưởng dự án lập) -> Nhân sự -> CEO -> Kế toán chi
+  const existingWfPayroll = await prisma.workflowTemplate.findUnique({
+    where: { type: 'payroll_request' },
+  });
+  if (!existingWfPayroll) {
+    await prisma.workflowTemplate.create({
+      data: {
+        type: 'payroll_request',
+        name: 'Quy trình duyệt Đề nghị chi lương',
+        steps: {
+          create: [
+            { stepOrder: 1, roleRequired: 'hr' },
+            { stepOrder: 2, roleRequired: 'ceo' },
+            { stepOrder: 3, roleRequired: 'accountant' },
           ],
         },
       },

@@ -177,6 +177,10 @@ export function buildDocumentAccessWhere(user: UserWithBusinessScope): any {
   }
   if (roles.includes('accountant')) {
     conditions.push({ type: 'payment_request' });
+    conditions.push({ type: 'payroll_request' });
+  }
+  if (roles.includes('hr')) {
+    conditions.push({ type: 'payroll_request' });
   }
   if (roles.includes('legal')) {
     conditions.push({ type: 'contract' });

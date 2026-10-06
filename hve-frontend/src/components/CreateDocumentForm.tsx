@@ -1,9 +1,10 @@
 import React from "react";
 import type { DocumentItem, ProjectItem } from "../types";
 import { MultiFilePicker } from "./MultiFilePicker";
+import { CreatePayrollRequestForm } from "./CreatePayrollRequestForm";
 
 export interface CreateFormData {
-  type: "payment_request" | "proposal" | "contract";
+  type: "payment_request" | "proposal" | "contract" | "payroll_request";
   title: string;
   // payment_request
   amount: string;
@@ -44,6 +45,9 @@ interface CreateDocumentFormProps {
   editingDocument?: DocumentItem | null;
   existingAttachments?: NonNullable<DocumentItem["attachments"]>;
   onRemoveExistingAttachment?: (attachmentId: number) => void;
+  apiBaseUrl?: string;
+  showToast?: (message: string, type?: "success" | "error") => void;
+  onPayrollCreated?: (documentId: number, submitted: boolean) => void | Promise<void>;
 }
 
 export const CreateDocumentForm: React.FC<CreateDocumentFormProps> = ({
@@ -59,8 +63,14 @@ export const CreateDocumentForm: React.FC<CreateDocumentFormProps> = ({
   editingDocument = null,
   existingAttachments = [],
   onRemoveExistingAttachment,
+  apiBaseUrl = "",
+  showToast = () => undefined,
+  onPayrollCreated = () => undefined,
 }) => {
   const isBoard = currentUser?.roles?.includes("bgd");
+  const canCreatePayroll =
+    !editingDocument &&
+    ["department_head", "hr", "it_admin"].some((r) => currentUser?.roles?.includes(r));
   return (
     <div className="w-full max-w-3xl mx-auto bg-white p-4 sm:p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
       {/* Header */}
@@ -82,7 +92,7 @@ export const CreateDocumentForm: React.FC<CreateDocumentFormProps> = ({
         <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2.5">
           Loại hồ sơ phê duyệt <span className="text-red-500">*</span>
         </label>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className={`grid grid-cols-1 gap-3 ${canCreatePayroll ? "md:grid-cols-2 lg:grid-cols-4" : "md:grid-cols-3"}`}>
           <button
             type="button"
             disabled={Boolean(editingDocument)}
@@ -141,9 +151,37 @@ export const CreateDocumentForm: React.FC<CreateDocumentFormProps> = ({
               Dịch vụ, đối tác, bảo trì và theo dõi kỳ hạn
             </div>
           </button>
+
+          {canCreatePayroll && (
+            <button
+              type="button"
+              onClick={() => setCreateForm({ ...createForm, type: "payroll_request" })}
+              className={`p-4 rounded-xl border text-left transition-all ${
+                createForm.type === "payroll_request"
+                  ? "border-emerald-600 bg-emerald-50/50 ring-2 ring-emerald-600/20"
+                  : "border-slate-200 hover:border-slate-300 bg-white"
+              }`}
+            >
+              <div className="text-2xl mb-1">👥</div>
+              <div className="font-bold text-sm text-gray-900">Đề nghị chi lương</div>
+              <div className="text-[11px] text-gray-500 mt-0.5">
+                Site đề nghị, tải bảng lương Excel, kèm tài khoản nhận
+              </div>
+            </button>
+          )}
         </div>
       </div>
 
+      {createForm.type === "payroll_request" ? (
+        <CreatePayrollRequestForm
+          apiBaseUrl={apiBaseUrl}
+          projects={projects}
+          currentUser={currentUser}
+          onCancel={onCancel}
+          onCreated={onPayrollCreated}
+          showToast={showToast}
+        />
+      ) : (
       <form className="space-y-6" onSubmit={(e) => onSubmit(e, false)}>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div>
@@ -601,6 +639,7 @@ export const CreateDocumentForm: React.FC<CreateDocumentFormProps> = ({
           </button>
         </div>
       </form>
+      )}
     </div>
   );
 };

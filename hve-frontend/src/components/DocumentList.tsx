@@ -1,3 +1,4 @@
+import { isPaymentLikeType } from "../utils/documentTypes";
 import React from "react";
 import type { DocumentItem } from "../types";
 import { UserNameButton } from "./UserNameButton";
@@ -42,6 +43,12 @@ export const DocumentList: React.FC<DocumentListProps> = ({
         return (
           <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold bg-purple-100 text-purple-700 border border-purple-200">
             💡 Đề xuất
+          </span>
+        );
+      case "payroll_request":
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+            👥 Chi lương
           </span>
         );
       case "contract":
@@ -107,6 +114,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
           >
             <option value="all">Tất cả loại hồ sơ</option>
             <option value="payment_request">Đề nghị thanh toán</option>
+            <option value="payroll_request">Đề nghị chi lương</option>
             <option value="proposal">Đề xuất / Kiến nghị</option>
             <option value="contract">Hợp đồng kinh tế</option>
           </select>
@@ -192,6 +200,8 @@ export const DocumentList: React.FC<DocumentListProps> = ({
               <p className="mt-1 line-clamp-2 text-xs text-gray-500">
                 {doc.type === "payment_request" &&
                   `Thụ hưởng: ${doc.dataJson?.receiver || "—"}`}
+                {doc.type === "payroll_request" &&
+                  `Kỳ lương ${doc.dataJson?.period || "—"} · ${doc.dataJson?.payrollItems?.length || 0} nhân viên`}
                 {doc.type === "contract" &&
                   `Đối tác: ${doc.dataJson?.partner || "—"}`}
                 {doc.type === "proposal" &&
@@ -221,7 +231,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
                     Giá trị / thời hạn
                   </span>
                   <span className="font-semibold text-gray-700">
-                    {doc.type === "payment_request" &&
+                    {isPaymentLikeType(doc.type) &&
                     doc.dataJson?.amount !== undefined
                       ? `${doc.dataJson.amount.toLocaleString("vi-VN")} đ`
                       : doc.type === "contract" && doc.dataJson?.endDate
@@ -298,9 +308,11 @@ export const DocumentList: React.FC<DocumentListProps> = ({
                             </span>
                           )}
                       </div>
-                      {doc.type === "payment_request" && (
+                      {isPaymentLikeType(doc.type) && (
                         <p className="text-xs text-gray-400 line-clamp-1">
-                          Thụ hưởng: {doc.dataJson?.receiver}
+                          {doc.type === "payroll_request"
+                            ? `Kỳ lương ${doc.dataJson?.period || "—"} · ${doc.dataJson?.payrollItems?.length || 0} nhân viên`
+                            : `Thụ hưởng: ${doc.dataJson?.receiver}`}
                         </p>
                       )}
                       {doc.type === "contract" && (
@@ -316,7 +328,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
                       )}
                     </td>
                     <td className="px-6 py-4 font-bold text-gray-900 whitespace-nowrap">
-                      {doc.type === "payment_request" &&
+                      {isPaymentLikeType(doc.type) &&
                         doc.dataJson?.amount !== undefined && (
                           <span>
                             {doc.dataJson.amount.toLocaleString("vi-VN")} đ
@@ -360,7 +372,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
                       </span>
                     </td>
                     <td className="px-6 py-4 text-xs text-gray-600 whitespace-nowrap">
-                      {doc.type === "payment_request" &&
+                      {isPaymentLikeType(doc.type) &&
                         (doc.dataJson?.deadline || "—")}
                       {doc.type === "contract" && (
                         <span>

@@ -9,6 +9,7 @@ import {
 import { authenticatedFileUrl } from "../api/client";
 import { UserNameButton } from "./UserNameButton";
 import { PaymentRequestAuditView } from "./PaymentRequestAuditView";
+import { isPaymentLikeType } from "../utils/documentTypes";
 import type { PaymentSettlementInput } from "./PaymentRequestAuditView";
 import { matchesDepartmentHeadScope } from "../utils/documentApproval";
 
@@ -180,7 +181,7 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
           {/* Header Actions */}
           <div className="flex w-full flex-wrap items-center gap-2 md:w-auto">
             {selectedDoc.status === "Chờ duyệt" &&
-              selectedDoc.type !== "payment_request" &&
+              !isPaymentLikeType(selectedDoc.type) &&
               (user?.roles?.includes("ceo") || delegatedCeo) &&
               selectedDoc.createdById !== user?.id && (
                 <button
@@ -295,7 +296,7 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
         )}
 
         {/* Luôn hiển thị để người xem biết rõ hồ sơ có/không có tài liệu. */}
-        {selectedDoc.type !== "payment_request" && (
+        {!isPaymentLikeType(selectedDoc.type) && (
         <div className="mt-6 border-t border-slate-100 pt-6">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
@@ -321,7 +322,7 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
                   ? authenticatedFileUrl(apiBaseUrl, att.fileUrl, token)
                   : att.fileUrl;
                 const isAccountingProof =
-                  selectedDoc.type === "payment_request" &&
+                  isPaymentLikeType(selectedDoc.type) &&
                   att.uploadedBy?.roles?.some(
                     (role) => role.name === "accountant",
                   );
@@ -374,7 +375,7 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
         )}
       </div>
 
-      {selectedDoc.type === "payment_request" && (
+      {isPaymentLikeType(selectedDoc.type) && (
         <PaymentRequestAuditView
           document={selectedDoc}
           user={user}
@@ -388,7 +389,7 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
       )}
 
       {/* Dynamic Workflow Timeline */}
-      {selectedDoc.type !== "payment_request" && (
+      {!isPaymentLikeType(selectedDoc.type) && (
       <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-slate-200">
         <h4 className="text-base font-bold text-gray-900 mb-6">
           Tiến trình phê duyệt {(selectedDoc.steps?.length || 0) + 1} cấp

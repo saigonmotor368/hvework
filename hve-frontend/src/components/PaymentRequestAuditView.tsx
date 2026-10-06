@@ -5,6 +5,7 @@ import { authenticatedFileUrl, uploadAttachment } from "../api/client";
 import { UserNameButton } from "./UserNameButton";
 import { PaymentRequestPrintSheet } from "./PaymentRequestPrintSheet";
 import { VietQrPaymentCard } from "./VietQrPaymentCard";
+import { PayrollRecipientsCard } from "./PayrollRecipientsCard";
 import {
   isCreatorAccountingSettlement,
   matchesDepartmentHeadScope,
@@ -287,7 +288,11 @@ export const PaymentRequestAuditView: React.FC<PaymentRequestAuditViewProps> = (
             )}
             {accounting && (
               <>
-                <VietQrPaymentCard document={document} />
+                {document.type === "payroll_request" ? (
+                  <PayrollRecipientsCard document={document} showQr />
+                ) : (
+                  <VietQrPaymentCard document={document} />
+                )}
                 <div className="mb-3 rounded-xl border border-emerald-200 bg-white p-3">
                   <p className="text-xs font-bold text-emerald-800">
                     Xác nhận giao dịch và chứng từ bắt buộc
@@ -444,8 +449,12 @@ export const PaymentRequestAuditView: React.FC<PaymentRequestAuditViewProps> = (
 
   return (
     <div className="space-y-4 md:space-y-5">
-      <PaymentRequestPrintSheet document={document} />
-      {canPrintPaymentVoucher && (
+      {document.type === "payroll_request" ? (
+        <PayrollRecipientsCard document={document} />
+      ) : (
+        <PaymentRequestPrintSheet document={document} />
+      )}
+      {canPrintPaymentVoucher && document.type !== "payroll_request" && (
         <section className="flex flex-col gap-3 rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-50 via-white to-emerald-50 p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <div>
             <p className="text-sm font-black text-slate-900">

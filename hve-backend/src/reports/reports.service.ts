@@ -437,6 +437,8 @@ export class ReportsService {
         return 'Đề xuất / Tờ trình';
       case 'contract':
         return 'Hợp đồng';
+      case 'payroll_request':
+        return 'Đề nghị chi lương';
       default:
         return type;
     }

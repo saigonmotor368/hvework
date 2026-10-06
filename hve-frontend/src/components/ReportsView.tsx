@@ -265,6 +265,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   // Nhãn bộ lọc + phạm vi hiển thị trên bản in PDF
   const docTypeFilterLabel: Record<string, string> = {
     payment_request: "Đề nghị thanh toán",
+    payroll_request: "Đề nghị chi lương",
     proposal: "Đề xuất / Tờ trình",
     contract: "Hợp đồng",
   };

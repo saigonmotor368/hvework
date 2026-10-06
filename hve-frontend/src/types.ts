@@ -60,6 +60,19 @@ export interface DocumentItem {
       proofAttachmentCount?: number;
     };
 
+    // payroll_request (Đề nghị chi lương)
+    period?: string;
+    payrollFileName?: string;
+    payrollItems?: Array<{
+      employeeCode: string;
+      fullName: string;
+      position: string;
+      netPay: number;
+      bankName: string;
+      bankAccount: string;
+      note: string;
+    }>;
+
     // proposal & general content
     content?: string;
 
@@ -266,6 +279,7 @@ export const ROLE_LABELS: Record<string, string> = {
   department_head: "Trưởng Ban / Trưởng dự án",
   accountant: "Kế toán",
   legal: "Pháp chế",
+  hr: "Nhân sự",
   ceo: "CEO",
   it_admin: "Quản trị IT",
   bgd: "Ban Giám Đốc",
@@ -273,6 +287,7 @@ export const ROLE_LABELS: Record<string, string> = {
 
 export const DOCUMENT_TYPE_LABELS: Record<string, string> = {
   payment_request: "Đề nghị thanh toán",
+  payroll_request: "Đề nghị chi lương",
   proposal: "Đề xuất",
   contract: "Hợp đồng",
 };
