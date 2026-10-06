@@ -580,6 +580,131 @@ export class DocumentsService {
     return document;
   }
 
+  /** Lấy đề nghị chi lương đang chờ Kế toán chi tiền và kiểm tra quyền. */
+  private async loadPayrollForPayment(user: any, documentId: number) {
+    const doc = await this.prisma.document.findUnique({
+      where: { id: documentId },
+      include: { steps: { orderBy: { stepOrder: 'asc' } } },
+    });
+    if (!doc || doc.type !== 'payroll_request') {
+      throw new NotFoundException('Không tìm thấy đề nghị chi lương');
+    }
+    const maxStepOrder = Math.max(...doc.steps.map((s) => s.stepOrder));
+    const step = doc.steps.find(
+      (s) =>
+        s.status === 'pending' &&
+        s.roleRequired === 'accountant' &&
+        s.stepOrder === maxStepOrder,
+    );
+    if (doc.status !== 'Chờ duyệt' || !step) {
+      throw new BadRequestException(
+        'Đề nghị chi lương chưa đến bước Kế toán chi tiền hoặc đã hoàn tất',
+      );
+    }
+    this.resolveApprovalDelegator(doc, user, 'accountant');
+    return doc;
+  }
+
+  async markPayrollItemPaid(
+    user: any,
+    documentId: number,
+    index: number,
+    dto: { attachmentId: number; reference?: string; paidAt: string },
+    ip?: string,
+  ) {
+    const doc = await this.loadPayrollForPayment(user, documentId);
+    const data: any = doc.dataJson || {};
+    const items: any[] = Array.isArray(data.payrollItems) ? data.payrollItems : [];
+    const item = items[index];
+    if (!item) throw new NotFoundException('Không tìm thấy nhân viên trong danh sách');
+    if (item.payment?.paidAt) {
+      throw new BadRequestException(
+        `${item.fullName} đã được xác nhận chi. Hãy hoàn tác trước nếu cần ghi nhận lại.`,
+      );
+    }
+    const paidAt = new Date(dto.paidAt);
+    if (Number.isNaN(paidAt.getTime())) {
+      throw new BadRequestException('Thời gian chuyển khoản không hợp lệ');
+    }
+    const attachment = await this.prisma.attachment.findFirst({
+      where: {
+        id: dto.attachmentId,
+        entityType: 'document',
+        entityId: documentId,
+        uploadedById: user.id,
+      },
+      select: { id: true, fileName: true },
+    });
+    if (!attachment) {
+      throw new BadRequestException(
+        'Chứng từ chuyển khoản chưa được tải lên hồ sơ bởi bạn',
+      );
+    }
+
+    items[index] = {
+      ...item,
+      payment: {
+        paidAt: paidAt.toISOString(),
+        reference: dto.reference?.trim() || '',
+        attachmentId: attachment.id,
+        attachmentName: attachment.fileName,
+        paidById: user.id,
+        paidByName: user.name || '',
+        recordedAt: new Date().toISOString(),
+      },
+    };
+    const updated = await this.prisma.document.update({
+      where: { id: documentId },
+      data: { dataJson: { ...data, payrollItems: items } },
+      include: { steps: { orderBy: { stepOrder: 'asc' } } },
+    });
+    await this.auditService.logEvent({
+      entityType: 'Document',
+      entityId: documentId,
+      action: 'payroll_item_paid',
+      actorId: user.id,
+      afterJson: {
+        employee: item.fullName,
+        amount: item.netPay,
+        reference: dto.reference?.trim() || null,
+        attachmentId: attachment.id,
+      },
+      ip,
+    });
+    return updated;
+  }
+
+  async clearPayrollItemPayment(
+    user: any,
+    documentId: number,
+    index: number,
+    ip?: string,
+  ) {
+    const doc = await this.loadPayrollForPayment(user, documentId);
+    const data: any = doc.dataJson || {};
+    const items: any[] = Array.isArray(data.payrollItems) ? data.payrollItems : [];
+    const item = items[index];
+    if (!item?.payment) {
+      throw new BadRequestException('Nhân viên này chưa có xác nhận chi để hoàn tác');
+    }
+    const { payment, ...rest } = item;
+    items[index] = rest;
+    const updated = await this.prisma.document.update({
+      where: { id: documentId },
+      data: { dataJson: { ...data, payrollItems: items } },
+      include: { steps: { orderBy: { stepOrder: 'asc' } } },
+    });
+    await this.auditService.logEvent({
+      entityType: 'Document',
+      entityId: documentId,
+      action: 'payroll_item_payment_cleared',
+      actorId: user.id,
+      beforeJson: { employee: item.fullName, reference: payment.reference || null },
+      ip,
+    });
+    return updated;
+  }
+
   async createProposal(user: any, dto: CreateProposalDto, ip?: string) {
     const userId = user.id;
     const roles = getRoleNames(user);
@@ -893,6 +1018,9 @@ export class DocumentsService {
       if (dto.payrollItems) {
         const items = this.normalizePayrollItems(dto.payrollItems);
         updatedDataJson.payrollItems = items;
+        if (dto.payrollFileName !== undefined) {
+          updatedDataJson.payrollFileName = dto.payrollFileName;
+        }
         updatedDataJson.amount = items.reduce((sum, i) => sum + i.netPay, 0);
         updatedDataJson.receiver = `Danh sách nhận lương (${items.length} người)`;
       }
@@ -1128,6 +1256,16 @@ export class DocumentsService {
             : {}),
           parentDocumentId: doc.id,
           revision: nextRevision,
+          // Bản sửa đổi không kế thừa xác nhận chi cũ (chứng từ không được sao chép).
+          ...(doc.type === 'payroll_request' &&
+          Array.isArray((doc.dataJson as any)?.payrollItems)
+            ? {
+                payrollItems: (doc.dataJson as any).payrollItems.map(
+                  ({ payment: _payment, ...item }: any) => item,
+                ),
+                settlement: undefined,
+              }
+            : {}),
         },
         createdById: userId,
         projectId: doc.projectId,
@@ -1433,7 +1571,32 @@ export class DocumentsService {
     // hiện — xác định động theo cấu hình luồng hiện tại (stepOrder lớn nhất),
     // không hardcode, để đúng ngay cả khi IT admin đổi lại số cấp duyệt sau này.
     let paymentProofCount = 0;
-    if (isFinalAccountantStep) {
+    let settlementReference = dto?.paymentReference?.trim();
+    let settlementPaidAt = dto?.paymentPaidAt;
+    let settlementMethod = dto?.paymentMethod || 'vietqr';
+    if (isFinalAccountantStep && doc.type === 'payroll_request') {
+      const items: PayrollItem[] = Array.isArray((doc.dataJson as any)?.payrollItems)
+        ? (doc.dataJson as any).payrollItems
+        : [];
+      const unpaid = items.filter((item: any) => !item.payment?.paidAt);
+      if (items.length === 0 || unpaid.length > 0) {
+        throw new BadRequestException(
+          `Còn ${unpaid.length} nhân viên chưa có chứng từ chuyển khoản: ${unpaid
+            .slice(0, 5)
+            .map((i) => i.fullName)
+            .join(', ')}${unpaid.length > 5 ? '…' : ''}. Vui lòng xác nhận chi cho từng người trước khi hoàn tất.`,
+        );
+      }
+      paymentProofCount = items.length;
+      settlementMethod = 'bank_transfer';
+      settlementReference =
+        dto?.paymentReference?.trim() || `Chi lương ${items.length} giao dịch`;
+      settlementPaidAt = items
+        .map((i: any) => i.payment.paidAt as string)
+        .sort()
+        .pop();
+    }
+    if (isFinalAccountantStep && doc.type === 'payment_request') {
       const accountingStepActivatedAt =
         (step as { updatedAt?: Date; createdAt?: Date }).updatedAt ||
         (step as { createdAt?: Date }).createdAt;
@@ -1513,9 +1676,9 @@ export class DocumentsService {
                   settlement: {
                     status: 'paid',
                     source: 'manual_proof',
-                    method: dto?.paymentMethod || 'vietqr',
-                    reference: dto?.paymentReference?.trim(),
-                    paidAt: dto?.paymentPaidAt,
+                    method: settlementMethod,
+                    reference: settlementReference,
+                    paidAt: settlementPaidAt,
                     verifiedById: user.id,
                     verifiedAt: new Date().toISOString(),
                     proofAttachmentCount: paymentProofCount,
@@ -1549,9 +1712,9 @@ export class DocumentsService {
           skippedStepOrders: activation.skippedStepOrders,
           ...(isFinalAccountantStep
             ? {
-                paymentReference: dto?.paymentReference?.trim(),
-                paymentPaidAt: dto?.paymentPaidAt,
-                paymentMethod: dto?.paymentMethod || 'vietqr',
+                paymentReference: settlementReference,
+                paymentPaidAt: settlementPaidAt,
+                paymentMethod: settlementMethod,
                 paymentProofCount,
               }
             : undefined),

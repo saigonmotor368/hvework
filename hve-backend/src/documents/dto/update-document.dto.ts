@@ -19,6 +19,10 @@ export class UpdateDocumentDto extends ProjectFieldsDto {
   payrollItems?: any[];
 
   @IsOptional()
+  @IsString()
+  payrollFileName?: string;
+
+  @IsOptional()
   @IsString({ message: 'Tiêu đề phải là chuỗi' })
   title?: string;
 

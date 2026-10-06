@@ -16,6 +16,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UploadedFile, UseInterceptors } from '@nestjs/common';
 import { CreatePayrollRequestDto } from './dto/create-payroll-request.dto.js';
+import { PayrollPaymentDto } from './dto/payroll-payment.dto.js';
 import { DocumentsService } from './documents.service.js';
 import { CreatePaymentRequestDto } from './dto/create-payment-request.dto.js';
 import { CreateProposalDto } from './dto/create-proposal.dto.js';
@@ -130,6 +131,37 @@ export class DocumentsController {
     @Req() req: any,
   ) {
     return this.documentsService.deletePaymentRequest(id, req.user.id, req.ip);
+  }
+
+  @Post(':id/payroll-items/:index/payment')
+  @HttpCode(HttpStatus.OK)
+  async markPayrollItemPaid(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('index', ParseIntPipe) index: number,
+    @Body() dto: PayrollPaymentDto,
+    @Req() req: any,
+  ) {
+    return this.documentsService.markPayrollItemPaid(
+      req.user,
+      id,
+      index,
+      dto,
+      req.ip,
+    );
+  }
+
+  @Delete(':id/payroll-items/:index/payment')
+  async clearPayrollItemPayment(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('index', ParseIntPipe) index: number,
+    @Req() req: any,
+  ) {
+    return this.documentsService.clearPayrollItemPayment(
+      req.user,
+      id,
+      index,
+      req.ip,
+    );
   }
 
   @Post(':id/new-version')

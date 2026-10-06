@@ -6,6 +6,7 @@ import { UserNameButton } from "./UserNameButton";
 import { PaymentRequestPrintSheet } from "./PaymentRequestPrintSheet";
 import { VietQrPaymentCard } from "./VietQrPaymentCard";
 import { PayrollRecipientsCard } from "./PayrollRecipientsCard";
+import { PayrollPrintSheet } from "./PayrollPrintSheet";
 import {
   isCreatorAccountingSettlement,
   matchesDepartmentHeadScope,
@@ -143,6 +144,12 @@ export const PaymentRequestAuditView: React.FC<PaymentRequestAuditViewProps> = (
       .slice(0, 16);
   });
   const [renderedAt] = useState(() => Date.now());
+  const isPayroll = document.type === "payroll_request";
+  const payrollItems: Array<{ payment?: { paidAt?: string } }> =
+    (document.dataJson as any)?.payrollItems || [];
+  const payrollPaidCount = payrollItems.filter((i) => i.payment?.paidAt).length;
+  const payrollAllPaid =
+    payrollItems.length > 0 && payrollPaidCount === payrollItems.length;
   const steps = document.steps || [];
   const accountingStep = steps.find((step) => step.roleRequired === "accountant");
   const approvalSteps = steps.filter((step) => step.roleRequired !== "accountant");
@@ -286,13 +293,22 @@ export const PaymentRequestAuditView: React.FC<PaymentRequestAuditViewProps> = (
                 🔄 Đang xử lý thay {delegated.name}
               </p>
             )}
-            {accounting && (
+            {accounting && isPayroll && (
+              <p
+                className={`mb-3 rounded-xl border px-3 py-2.5 text-xs font-bold ${
+                  payrollAllPaid
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                    : "border-amber-200 bg-amber-50 text-amber-800"
+                }`}
+              >
+                {payrollAllPaid
+                  ? "Đã có chứng từ chuyển khoản cho tất cả nhân viên — có thể hoàn tất chi lương."
+                  : `Đã chi ${payrollPaidCount}/${payrollItems.length} nhân viên. Xác nhận chi và tải chứng từ từng người ở bảng danh sách phía trên.`}
+              </p>
+            )}
+            {accounting && !isPayroll && (
               <>
-                {document.type === "payroll_request" ? (
-                  <PayrollRecipientsCard document={document} showQr />
-                ) : (
-                  <VietQrPaymentCard document={document} />
-                )}
+                <VietQrPaymentCard document={document} />
                 <div className="mb-3 rounded-xl border border-emerald-200 bg-white p-3">
                   <p className="text-xs font-bold text-emerald-800">
                     Xác nhận giao dịch và chứng từ bắt buộc
@@ -398,7 +414,7 @@ export const PaymentRequestAuditView: React.FC<PaymentRequestAuditViewProps> = (
                     document,
                     step,
                     approvalComment.trim() || undefined,
-                    accounting
+                    accounting && !isPayroll
                       ? {
                           paymentReference: paymentReference.trim(),
                           paymentPaidAt: new Date(paymentPaidAt).toISOString(),
@@ -410,16 +426,20 @@ export const PaymentRequestAuditView: React.FC<PaymentRequestAuditViewProps> = (
                 disabled={
                   isProcessing ||
                   (accounting &&
-                    (accountingFiles.length === 0 ||
-                      !paymentReference.trim() ||
-                      !paymentPaidAt))
+                    (isPayroll
+                      ? !payrollAllPaid
+                      : accountingFiles.length === 0 ||
+                        !paymentReference.trim() ||
+                        !paymentPaidAt))
                 }
                 className="rounded-xl bg-emerald-700 px-4 py-2.5 text-xs font-bold text-white shadow-sm disabled:opacity-50"
               >
                 {isProcessing
                   ? "Đang xử lý..."
                   : accounting
-                    ? "✓ Xác nhận đã chi tiền & hoàn tất"
+                    ? isPayroll
+                      ? "✓ Hoàn tất chi lương"
+                      : "✓ Xác nhận đã chi tiền & hoàn tất"
                     : "✓ Phê duyệt đề nghị"}
               </button>
               <button
@@ -449,12 +469,43 @@ export const PaymentRequestAuditView: React.FC<PaymentRequestAuditViewProps> = (
 
   return (
     <div className="space-y-4 md:space-y-5">
-      {document.type === "payroll_request" ? (
-        <PayrollRecipientsCard document={document} />
+      {isPayroll ? (
+        <>
+          <PayrollRecipientsCard
+            document={document}
+            apiBaseUrl={apiBaseUrl}
+            canPay={Boolean(accountingStep && canActOnStep(accountingStep))}
+            canEdit={document.status === "Nháp" && document.createdById === user?.id}
+            onChanged={onAttachmentUploaded}
+            showToast={showToast}
+          />
+          {document.status === "Đã duyệt" && accountingStep?.status === "approved" && (
+            <>
+              <PayrollPrintSheet document={document} />
+              <section className="flex flex-col gap-3 rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-50 via-white to-emerald-50 p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                <div>
+                  <p className="text-sm font-black text-slate-900">
+                    Đã chi lương — phiếu đề nghị chi lương kiêm phiếu chi đã sẵn sàng
+                  </p>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    Gồm danh sách nhận lương, thời gian và mã giao dịch từng người, lịch sử phê duyệt.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="shrink-0 rounded-xl bg-[#0A66C2] px-4 py-2.5 text-xs font-black text-white shadow-sm transition hover:bg-blue-700"
+                >
+                  🖨️ In phiếu chi lương
+                </button>
+              </section>
+            </>
+          )}
+        </>
       ) : (
         <PaymentRequestPrintSheet document={document} />
       )}
-      {canPrintPaymentVoucher && document.type !== "payroll_request" && (
+      {canPrintPaymentVoucher && !isPayroll && (
         <section className="flex flex-col gap-3 rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-50 via-white to-emerald-50 p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <div>
             <p className="text-sm font-black text-slate-900">
@@ -479,7 +530,9 @@ export const PaymentRequestAuditView: React.FC<PaymentRequestAuditViewProps> = (
             1
           </span>
           <div>
-            <h4 className="text-base font-black text-slate-900">Nội dung đề nghị thanh toán</h4>
+            <h4 className="text-base font-black text-slate-900">
+              {isPayroll ? "Nội dung đề nghị chi lương" : "Nội dung đề nghị thanh toán"}
+            </h4>
             <p className="mt-0.5 text-xs text-slate-500">
               Thông tin do người đề nghị cung cấp và chịu trách nhiệm.
             </p>
@@ -493,6 +546,23 @@ export const PaymentRequestAuditView: React.FC<PaymentRequestAuditViewProps> = (
                 {Number(document.dataJson?.amount || 0).toLocaleString("vi-VN")} ₫
               </p>
             </div>
+            {isPayroll ? (
+              <>
+            <div className="rounded-xl border border-slate-200 p-4">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Kỳ lương</p>
+              <p className="mt-1.5 text-sm font-bold text-slate-800">{(document.dataJson as any)?.period || "—"}</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 p-4">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Số nhân viên nhận lương</p>
+              <p className="mt-1.5 text-sm font-bold text-slate-800">{payrollItems.length} người</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 p-4">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Dự án (Site)</p>
+              <p className="mt-1.5 text-sm font-bold text-slate-800">{document.project?.name || "—"}</p>
+            </div>
+              </>
+            ) : (
+              <>
             <div className="rounded-xl border border-slate-200 p-4">
               <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Người/đơn vị thụ hưởng</p>
               <p className="mt-1.5 text-sm font-bold text-slate-800">{document.dataJson?.receiver || "—"}</p>
@@ -506,6 +576,8 @@ export const PaymentRequestAuditView: React.FC<PaymentRequestAuditViewProps> = (
               <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Hạn thanh toán</p>
               <p className="mt-1.5 text-sm font-bold text-slate-800">{document.dataJson?.deadline || "—"}</p>
             </div>
+              </>
+            )}
           </div>
 
           <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">

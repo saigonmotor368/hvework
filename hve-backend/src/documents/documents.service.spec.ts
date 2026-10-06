@@ -191,6 +191,78 @@ describe('DocumentsService', () => {
     });
   });
 
+  describe('payroll per-person payment', () => {
+    const accountant = { id: 20, name: 'Kế toán', roles: ['accountant'] };
+    const makeDoc = (items: any[], stepStatus = 'pending') => ({
+      id: 9,
+      type: 'payroll_request',
+      status: 'Chờ duyệt',
+      createdById: 10,
+      dataJson: { payrollItems: items },
+      steps: [
+        { id: 1, stepOrder: 1, roleRequired: 'hr', status: 'approved' },
+        { id: 2, stepOrder: 2, roleRequired: 'ceo', status: 'approved' },
+        { id: 3, stepOrder: 3, roleRequired: 'accountant', status: stepStatus },
+      ],
+    });
+    const item = { fullName: 'Nguyễn Văn A', netPay: 1000000 };
+
+    beforeEach(() => {
+      prisma.attachment.findFirst = vi
+        .fn()
+        .mockResolvedValue({ id: 55, fileName: 'ck-a.png' });
+      prisma.document.update.mockImplementation(async ({ data }: any) => ({
+        id: 9,
+        ...data,
+      }));
+    });
+
+    it('ghi nhận chi cho đúng một người kèm chứng từ', async () => {
+      prisma.document.findUnique.mockResolvedValue(makeDoc([item, { ...item, fullName: 'B' }]));
+      const result: any = await service.markPayrollItemPaid(accountant, 9, 0, {
+        attachmentId: 55,
+        reference: 'FT123',
+        paidAt: '2026-10-06T03:00:00.000Z',
+      });
+      const items = result.dataJson.payrollItems;
+      expect(items[0].payment).toMatchObject({ reference: 'FT123', attachmentId: 55, paidById: 20 });
+      expect(items[1].payment).toBeUndefined();
+    });
+
+    it('từ chối khi người dùng không phải Kế toán', async () => {
+      prisma.document.findUnique.mockResolvedValue(makeDoc([item]));
+      await expect(
+        service.markPayrollItemPaid({ id: 3, roles: ['employee'] }, 9, 0, {
+          attachmentId: 55,
+          paidAt: '2026-10-06T03:00:00.000Z',
+        }),
+      ).rejects.toThrow('không có vai trò');
+    });
+
+    it('từ chối khi chưa đến bước Kế toán', async () => {
+      prisma.document.findUnique.mockResolvedValue(makeDoc([item], 'not_started'));
+      await expect(
+        service.markPayrollItemPaid(accountant, 9, 0, {
+          attachmentId: 55,
+          paidAt: '2026-10-06T03:00:00.000Z',
+        }),
+      ).rejects.toThrow('chưa đến bước Kế toán');
+    });
+
+    it('từ chối ghi nhận trùng và cho phép hoàn tác', async () => {
+      const paid = { ...item, payment: { paidAt: '2026-10-06T03:00:00.000Z', reference: 'X' } };
+      prisma.document.findUnique.mockResolvedValue(makeDoc([paid]));
+      await expect(
+        service.markPayrollItemPaid(accountant, 9, 0, {
+          attachmentId: 55,
+          paidAt: '2026-10-06T04:00:00.000Z',
+        }),
+      ).rejects.toThrow('đã được xác nhận chi');
+      const cleared: any = await service.clearPayrollItemPayment(accountant, 9, 0);
+      expect(cleared.dataJson.payrollItems[0].payment).toBeUndefined();
+    });
+  });
+
   describe('findById', () => {
     it('should include uploader identity for every attachment', async () => {
       prisma.document.findFirst.mockResolvedValue({

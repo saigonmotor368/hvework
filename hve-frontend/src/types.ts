@@ -71,6 +71,14 @@ export interface DocumentItem {
       bankName: string;
       bankAccount: string;
       note: string;
+      payment?: {
+        paidAt: string;
+        reference?: string;
+        attachmentId: number;
+        attachmentName?: string;
+        paidById?: number;
+        paidByName?: string;
+      };
     }>;
 
     // proposal & general content
