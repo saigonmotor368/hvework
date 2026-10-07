@@ -6,7 +6,7 @@ import {
   ROLE_LABELS,
   DOCUMENT_TYPE_LABELS,
 } from "../types";
-import { authenticatedFileUrl } from "../api/client";
+import { authenticatedFileUrl, fileLinkClickHandler } from "../api/client";
 import { UserNameButton } from "./UserNameButton";
 import { PaymentRequestAuditView } from "./PaymentRequestAuditView";
 import { isPaymentLikeType } from "../utils/documentTypes";
@@ -330,6 +330,7 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
                   <a
                     key={att.id}
                     href={downloadUrl}
+                    onClick={fileLinkClickHandler(apiBaseUrl, att.fileUrl)}
                     target="_blank"
                     rel="noreferrer"
                     className="group min-w-0 rounded-xl border border-slate-200 bg-slate-50 p-3.5 text-xs transition-colors hover:border-blue-300 hover:bg-blue-50/60"

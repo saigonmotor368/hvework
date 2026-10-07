@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   authenticatedFileUrl,
+  fileLinkClickHandler,
   fetchWithSession,
   uploadAttachment,
 } from "../api/client";
@@ -688,6 +689,7 @@ export const ProjectReportsView: React.FC<Props> = ({
                           file.fileUrl,
                           token,
                         )}
+                        onClick={fileLinkClickHandler(apiBaseUrl, file.fileUrl)}
                         target="_blank"
                         rel="noreferrer"
                         className="flex min-h-11 items-center gap-3 rounded-xl border border-slate-200 px-3 text-sm font-semibold text-blue-700 hover:bg-blue-50"

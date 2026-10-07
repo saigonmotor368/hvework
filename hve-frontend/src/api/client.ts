@@ -315,6 +315,39 @@ export async function markAllNotificationsRead(
   }
 }
 
+/**
+ * Mở tệp đính kèm bằng phiên đăng nhập còn hiệu lực. Token truy cập chỉ sống
+ * 15 phút nên không thể nhúng sẵn vào liên kết: tải tệp qua fetchWithSession
+ * (tự làm mới token khi hết hạn) rồi mở bản blob trong tab mới.
+ */
+export async function openAuthenticatedFile(apiBaseUrl: string, fileUrl: string): Promise<void> {
+  // Mở tab ngay trong thao tác bấm để trình duyệt/di động không chặn popup.
+  const tab = window.open('', '_blank');
+  try {
+    const response = await fetchWithSession(apiUrl(apiBaseUrl, fileUrl), {
+      headers: { Authorization: `Bearer ${localStorage.getItem('access_token') || ''}` },
+    });
+    if (!response.ok) throw new Error(await responseMessage(response, 'Không mở được tệp đính kèm'));
+    const objectUrl = URL.createObjectURL(await response.blob());
+    if (tab) tab.location.href = objectUrl;
+    else window.location.assign(objectUrl);
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 5 * 60_000);
+  } catch (error) {
+    tab?.close();
+    throw error;
+  }
+}
+
+/** Gắn vào onClick của thẻ <a>: giữ href dự phòng, nhưng mở tệp bằng phiên mới. */
+export function fileLinkClickHandler(apiBaseUrl: string, fileUrl: string) {
+  return (event: { preventDefault: () => void }) => {
+    event.preventDefault();
+    openAuthenticatedFile(apiBaseUrl, fileUrl).catch((error) =>
+      window.alert(error instanceof Error ? error.message : 'Không mở được tệp đính kèm'),
+    );
+  };
+}
+
 export function authenticatedFileUrl(apiBaseUrl: string, fileUrl: string, token: string): string {
   const url = new URL(apiUrl(apiBaseUrl, fileUrl));
   url.searchParams.set('token', token);

@@ -1,7 +1,7 @@
 import React, { useRef, useState } from "react";
 import type { ApprovalStep, DocumentItem } from "../types";
 import { ROLE_LABELS } from "../types";
-import { authenticatedFileUrl, uploadAttachment } from "../api/client";
+import { authenticatedFileUrl, fileLinkClickHandler, uploadAttachment } from "../api/client";
 import { UserNameButton } from "./UserNameButton";
 import { PaymentRequestPrintSheet } from "./PaymentRequestPrintSheet";
 import { VietQrPaymentCard } from "./VietQrPaymentCard";
@@ -94,6 +94,7 @@ const AttachmentCard: React.FC<{
   return (
     <a
       href={downloadUrl}
+      onClick={fileLinkClickHandler(apiBaseUrl, attachment.fileUrl)}
       target="_blank"
       rel="noreferrer"
       className="group flex min-w-0 items-start gap-3 rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm transition hover:border-blue-300 hover:shadow-md"

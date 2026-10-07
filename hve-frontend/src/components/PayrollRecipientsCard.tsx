@@ -3,6 +3,7 @@ import type { DocumentItem } from "../types";
 import {
   authenticatedFileUrl,
   fetchWithSession,
+  fileLinkClickHandler,
   uploadAttachment,
 } from "../api/client";
 import { formatVnd, normalizePeriod, type PayrollItem } from "../utils/documentTypes";
@@ -422,7 +423,13 @@ export const PayrollRecipientsCard: React.FC<Props> = ({
                             {item.payment.reference ? ` · ${item.payment.reference}` : ""}
                           </p>
                           {link && (
-                            <a href={link} target="_blank" rel="noreferrer" className="font-bold text-[#0A66C2] hover:underline">
+                            <a
+                              href={link}
+                              onClick={fileLinkClickHandler(apiBaseUrl, attachments.find((a) => a.id === item.payment?.attachmentId)?.fileUrl || "")}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="font-bold text-[#0A66C2] hover:underline"
+                            >
                               📎 Chứng từ ↗
                             </a>
                           )}

@@ -6,7 +6,7 @@ import {
   type ProjectItem,
 } from "../types";
 import { MOCK_TASKS } from "../mockData";
-import { authenticatedFileUrl, fetchWithSession } from "../api/client";
+import { authenticatedFileUrl, fetchWithSession, fileLinkClickHandler } from "../api/client";
 import { ENABLE_MOCK_DATA } from "../config";
 import { BrandLoader } from "./BrandLoader";
 import { UserNameButton } from "./UserNameButton";
@@ -870,6 +870,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                         file.fileUrl,
                         localStorage.getItem("access_token") || "",
                       )}
+                      onClick={fileLinkClickHandler(apiBaseUrl, file.fileUrl)}
                       target="_blank"
                       rel="noreferrer"
                       className="flex min-w-0 items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-xs font-semibold text-blue-700 transition hover:border-blue-300 hover:bg-blue-50"
