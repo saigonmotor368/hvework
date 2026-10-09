@@ -219,6 +219,26 @@ export class DocumentsService {
       if (!step) {
         return { finalStatus: 'Đã duyệt', activatedStepOrder: null, skippedStepOrders };
       }
+      if (step.roleRequired === 'hr') {
+        const creatorRoles = (doc.createdBy?.roles || []).map((role) =>
+          typeof role === 'string' ? role : role.name,
+        );
+        // Người lập đồng thời là Nhân sự (VD: kiêm Trưởng dự án) thì không tự
+        // duyệt chính hồ sơ của mình ở bước Nhân sự — chuyển thẳng cấp kế tiếp.
+        if (creatorRoles.includes('hr')) {
+          await tx.documentApprovalStep.update({
+            where: { id: step.id },
+            data: {
+              status: 'approved',
+              comment:
+                'Tự động bỏ qua: người lập đề nghị đồng thời là Nhân sự. Chuyển thẳng CEO duyệt.',
+            },
+          });
+          skippedStepOrders.push(order);
+          order += 1;
+          continue;
+        }
+      }
       if (step.roleRequired === 'department_head') {
         const creatorRoles = (doc.createdBy?.roles || []).map((role) =>
           typeof role === 'string' ? role : role.name,
@@ -1515,7 +1535,13 @@ export class DocumentsService {
       include: {
         steps: { orderBy: { stepOrder: 'asc' } },
         createdBy: {
-          select: { id: true, name: true, email: true, departmentId: true },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            departmentId: true,
+            roles: { select: { name: true } },
+          },
         },
       },
     });

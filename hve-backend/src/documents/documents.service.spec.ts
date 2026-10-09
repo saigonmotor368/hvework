@@ -658,6 +658,59 @@ describe('DocumentsService', () => {
       );
     });
 
+    it('bỏ qua bước Nhân sự và chuyển thẳng CEO khi người lập đề nghị chi lương đồng thời là Nhân sự', async () => {
+      prisma.document.findUnique.mockResolvedValue({
+        id: 8,
+        code: 'DNCL-2026-001',
+        title: 'Chi lương',
+        type: 'payroll_request',
+        status: 'Nháp',
+        createdById: 10,
+        version: 1,
+        projectId: 5,
+        linkedProjectIds: [],
+        createdBy: {
+          id: 10,
+          departmentId: null,
+          roles: [{ name: 'department_head' }, { name: 'hr' }],
+        },
+        dataJson: {
+          payrollItems: [
+            { fullName: 'A', netPay: 1000000, bankName: 'OCB', bankAccount: '123456' },
+          ],
+          attachmentIds: [1],
+        },
+      });
+      prisma.attachment.count.mockResolvedValue(1);
+      prisma.workflowTemplate.findUnique.mockResolvedValue({
+        type: 'payroll_request',
+        steps: [
+          { stepOrder: 1, roleRequired: 'hr' },
+          { stepOrder: 2, roleRequired: 'ceo' },
+          { stepOrder: 3, roleRequired: 'accountant' },
+        ],
+      });
+      let nextStepId = 1;
+      const steps: Record<number, any> = {};
+      prisma.documentApprovalStep.create.mockImplementation(({ data }: any) => {
+        const step = { id: nextStepId++, ...data };
+        steps[step.id] = step;
+        return Promise.resolve(step);
+      });
+      prisma.documentApprovalStep.update.mockImplementation(({ where, data }: any) => {
+        Object.assign(steps[where.id], data);
+        return Promise.resolve(steps[where.id]);
+      });
+      prisma.document.update.mockResolvedValue({ id: 8, status: 'Chờ duyệt', version: 2 });
+
+      await service.submitForApproval(8, 10);
+
+      expect(steps[1].status).toBe('approved');
+      expect(steps[1].comment).toContain('Nhân sự');
+      expect(steps[2].status).toBe('pending');
+      expect(steps[3].status).toBe('not_started');
+    });
+
     it('should skip self-approval and activate CEO when the creator is Trưởng Ban', async () => {
       prisma.document.findUnique.mockResolvedValue({
         id: 3,
