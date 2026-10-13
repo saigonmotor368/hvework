@@ -3,7 +3,7 @@ import type { DocumentItem } from "../types";
 import {
   buildVietQrImageUrl,
   findMatchingVietQrBank,
-  getPaymentReference,
+  DEFAULT_TRANSFER_NOTE,
   type VietQrBank,
 } from "../utils/vietQr";
 
@@ -41,8 +41,8 @@ export const VietQrPaymentCard: React.FC<VietQrPaymentCardProps> = ({ document }
 
   const selectedBank = banks.find((bank) => bank.bin === selectedBin);
   const paymentReference = useMemo(
-    () => getPaymentReference(document.code),
-    [document.code],
+    () => DEFAULT_TRANSFER_NOTE,
+    [],
   );
   const qrUrl = useMemo(
     () =>

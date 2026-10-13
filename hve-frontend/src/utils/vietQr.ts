@@ -14,6 +14,9 @@ export const normalizeBankName = (value = "") =>
     .replace(/\b(ngan hang|thuong mai|co phan|tmcp|viet nam|bank)\b/g, " ")
     .replace(/[^a-z0-9]/g, "");
 
+/** Nội dung chuyển khoản mặc định của mọi mã QR (không dấu để ngân hàng nào cũng nhận). */
+export const DEFAULT_TRANSFER_NOTE = "Chuyen tien";
+
 export const getPaymentReference = (documentCode = "") => {
   const normalizedCode = documentCode.trim();
   const trailingNumber = normalizedCode.match(/(\d+)$/)?.[1];

@@ -9,6 +9,7 @@ import {
 import { formatVnd, normalizePeriod, type PayrollItem } from "../utils/documentTypes";
 import {
   buildVietQrImageUrl,
+  DEFAULT_TRANSFER_NOTE,
   findMatchingVietQrBank,
   type VietQrBank,
 } from "../utils/vietQr";
@@ -105,8 +106,7 @@ export const PayrollRecipientsCard: React.FC<Props> = ({
       : items;
   }, [items, filter]);
 
-  const transferNote = (item: PayrollItem) =>
-    `LUONG ${period.replace("/", "")} ${item.employeeCode || ""}`.trim();
+  const transferNote = (_item?: PayrollItem) => DEFAULT_TRANSFER_NOTE;
 
   const qrFor = (item: PayrollItem) => {
     const bank = findMatchingVietQrBank(item.bankName, banks);
