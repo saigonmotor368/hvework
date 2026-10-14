@@ -173,6 +173,15 @@ export class DocumentsController {
     return this.documentsService.createNewVersion(id, req.user.id, req.ip);
   }
 
+  @Post(':id/withdraw')
+  @HttpCode(HttpStatus.OK)
+  async withdrawForEdit(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() req: any,
+  ) {
+    return this.documentsService.withdrawForEdit(id, req.user.id, req.ip);
+  }
+
   @Post(':id/submit')
   @HttpCode(HttpStatus.OK)
   async submitForApproval(

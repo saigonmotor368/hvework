@@ -6,7 +6,7 @@ import {
   ROLE_LABELS,
   DOCUMENT_TYPE_LABELS,
 } from "../types";
-import { authenticatedFileUrl, fileLinkClickHandler } from "../api/client";
+import { authenticatedFileUrl, fetchWithSession, fileLinkClickHandler } from "../api/client";
 import { UserNameButton } from "./UserNameButton";
 import { PaymentRequestAuditView } from "./PaymentRequestAuditView";
 import { isPaymentLikeType } from "../utils/documentTypes";
@@ -58,6 +58,45 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
   showToast,
 }) => {
   const [renderedAt] = useState(() => Date.now());
+  const [withdrawing, setWithdrawing] = useState(false);
+  const canWithdraw =
+    selectedDoc.status === "Chờ duyệt" &&
+    selectedDoc.createdById === user?.id &&
+    (selectedDoc.steps || []).length > 0 &&
+    (selectedDoc.steps || []).every((step) => !step.actedById);
+
+  const withdrawForEdit = async () => {
+    if (
+      withdrawing ||
+      !window.confirm(
+        "Rút hồ sơ về Nháp để chỉnh sửa? Hồ sơ sẽ ngừng chờ duyệt và cần gửi duyệt lại sau khi sửa.",
+      )
+    ) {
+      return;
+    }
+    setWithdrawing(true);
+    try {
+      const res = await fetchWithSession(
+        `${apiBaseUrl}/documents/${selectedDoc.id}/withdraw`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("access_token") || ""}`,
+          },
+        },
+      );
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.message || "Không rút lại được hồ sơ");
+      }
+      showToast("Đã rút hồ sơ về Nháp. Anh/chị có thể chỉnh sửa rồi gửi duyệt lại.");
+      await onAttachmentUploaded();
+    } catch (error: any) {
+      showToast(error.message || "Không rút lại được hồ sơ", "error");
+    } finally {
+      setWithdrawing(false);
+    }
+  };
 
   const linkedProjects = projects.filter((project) =>
     selectedDoc.linkedProjectIds?.includes(project.id),
@@ -196,6 +235,15 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
                       : "⚡ CEO duyệt thẳng"}
                 </button>
               )}
+            {canWithdraw && (
+              <button
+                onClick={() => void withdrawForEdit()}
+                disabled={withdrawing || isProcessing}
+                className="w-full rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-xs font-bold text-amber-800 shadow-sm transition-all hover:bg-amber-100 disabled:opacity-50 sm:w-auto"
+              >
+                {withdrawing ? "Đang rút lại..." : "↩ Rút lại để chỉnh sửa"}
+              </button>
+            )}
             {selectedDoc.status === "Nháp" &&
               selectedDoc.createdById === user?.id && (
                 <>

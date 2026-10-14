@@ -191,6 +191,47 @@ describe('DocumentsService', () => {
     });
   });
 
+  describe('withdrawForEdit', () => {
+    const base = (steps: any[], extra: any = {}) => ({
+      id: 5,
+      status: 'Chờ duyệt',
+      createdById: 10,
+      version: 2,
+      dataJson: {},
+      steps,
+      ...extra,
+    });
+
+    it('rút về Nháp khi chưa ai xử lý (bước tự bỏ qua không tính)', async () => {
+      prisma.document.findUnique.mockResolvedValue(
+        base([
+          { id: 1, stepOrder: 1, status: 'approved', actedById: null },
+          { id: 2, stepOrder: 2, status: 'pending', actedById: null },
+        ]),
+      );
+      prisma.document.update.mockResolvedValue({ id: 5, status: 'Nháp', version: 3 });
+      const result: any = await service.withdrawForEdit(5, 10);
+      expect(result.status).toBe('Nháp');
+      expect(prisma.documentApprovalStep.deleteMany).toHaveBeenCalledWith({
+        where: { documentId: 5 },
+      });
+    });
+
+    it('từ chối khi đã có người duyệt', async () => {
+      prisma.document.findUnique.mockResolvedValue(
+        base([{ id: 1, stepOrder: 1, status: 'approved', actedById: 7 }]),
+      );
+      await expect(service.withdrawForEdit(5, 10)).rejects.toThrow('đã có người xử lý');
+    });
+
+    it('từ chối khi không phải người tạo', async () => {
+      prisma.document.findUnique.mockResolvedValue(
+        base([{ id: 1, stepOrder: 1, status: 'pending', actedById: null }]),
+      );
+      await expect(service.withdrawForEdit(5, 99)).rejects.toThrow('Chỉ người tạo');
+    });
+  });
+
   describe('payroll per-person payment', () => {
     const accountant = { id: 20, name: 'Kế toán', roles: ['accountant'] };
     const makeDoc = (items: any[], stepStatus = 'pending') => ({

@@ -1183,6 +1183,58 @@ export class DocumentsService {
     return updatedDoc;
   }
 
+  /**
+   * Người tạo rút hồ sơ đã gửi về Nháp để chỉnh sửa — chỉ khi chưa có ai xử lý
+   * (chưa có cấp nào duyệt / trả lại / từ chối; bước tự động bỏ qua không tính).
+   */
+  async withdrawForEdit(documentId: number, userId: number, ip?: string) {
+    const doc = await this.prisma.document.findUnique({
+      where: { id: documentId },
+      include: { steps: { orderBy: { stepOrder: 'asc' } } },
+    });
+    if (!doc) throw new NotFoundException('Không tìm thấy hồ sơ');
+    if (doc.createdById !== userId) {
+      throw new ForbiddenException('Chỉ người tạo hồ sơ mới được rút lại để chỉnh sửa');
+    }
+    if (doc.status !== 'Chờ duyệt') {
+      throw new BadRequestException('Chỉ rút lại được hồ sơ đang ở trạng thái Chờ duyệt');
+    }
+    if (doc.steps.some((step) => step.actedById)) {
+      throw new BadRequestException(
+        'Hồ sơ đã có người xử lý nên không thể rút lại. Hãy chờ kết quả hoặc đề nghị người duyệt trả lại.',
+      );
+    }
+    const items: any[] = Array.isArray((doc.dataJson as any)?.payrollItems)
+      ? (doc.dataJson as any).payrollItems
+      : [];
+    if (items.some((item) => item.payment)) {
+      throw new BadRequestException('Đã có khoản chi lương được xác nhận nên không thể rút lại hồ sơ');
+    }
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      await tx.documentApprovalStep.deleteMany({ where: { documentId } });
+      const result = await tx.document.update({
+        where: { id: documentId },
+        data: { status: 'Nháp', version: doc.version + 1 },
+        include: {
+          steps: { orderBy: { stepOrder: 'asc' } },
+          createdBy: { select: { id: true, name: true, email: true } },
+        },
+      });
+      await this.auditService.logEvent({
+        entityType: 'Document',
+        entityId: documentId,
+        action: 'withdraw_for_edit',
+        actorId: userId,
+        beforeJson: { status: 'Chờ duyệt' },
+        afterJson: { status: 'Nháp' },
+        ip,
+      });
+      return result;
+    });
+    return updated;
+  }
+
   async deletePaymentRequest(documentId: number, userId: number, ip?: string) {
     const doc = await this.prisma.document.findUnique({
       where: { id: documentId },
