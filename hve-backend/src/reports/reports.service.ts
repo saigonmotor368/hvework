@@ -245,6 +245,7 @@ export class ReportsService {
             amount: d.type === 'payment_request' ? Number(data.amount) || 0 : undefined,
             receiver: d.type === 'payment_request' ? data.receiver || '' : undefined,
             approvedAt: d.status === 'Đã duyệt' ? approvedSteps[0]?.actedAt || null : null,
+            ...(d.type === 'collection_request' ? { collection: this.mapCollection(d, now) } : {}),
           };
         }),
       },
@@ -279,7 +280,103 @@ export class ReportsService {
         totalDisbursedValue,
         disbursedCount,
       },
+      collections: this.summarizeCollections(documents as any[], now),
     };
+  }
+
+  /** Quy đổi một hồ sơ Đề nghị thu thành các số liệu báo cáo. */
+  private mapCollection(d: any, now: Date) {
+    const data = (d.dataJson as any) || {};
+    const requested = Number(data.amount) || 0;
+    const collection = data.collection;
+    const remittance = data.remittance;
+    const deadline = data.deadline ? new Date(data.deadline) : null;
+    const siteStep = (d.steps || []).find((s: any) => s.roleRequired === 'department_head');
+    const accountingStep = (d.steps || []).find((s: any) => s.roleRequired === 'accountant');
+    let state = 'draft';
+    if (d.status === 'Đã duyệt') state = collection?.status === 'partial' ? 'partial' : 'collected';
+    else if (d.status === 'Chờ duyệt') {
+      state = accountingStep?.status === 'pending' && siteStep?.status !== 'pending' ? 'waiting_accountant' : 'waiting_site';
+    } else if (d.status === 'Trả lại' || d.status === 'Từ chối') state = 'returned';
+    const open = d.status === 'Chờ duyệt';
+    const received = Number(collection?.receivedAmount) || 0;
+    const outstanding =
+      d.status === 'Đã duyệt'
+        ? Number(collection?.outstandingAmount) || 0
+        : open
+          ? requested
+          : 0;
+    return {
+      period: data.period || '',
+      requested,
+      remitted: Number(remittance?.amount) || 0,
+      received,
+      outstanding,
+      deadline: data.deadline || null,
+      state,
+      isOverdue: open && deadline ? deadline.getTime() + 86_400_000 < now.getTime() : false,
+      receivedAt: collection?.receivedAt || null,
+    };
+  }
+
+  private summarizeCollections(documents: any[], now: Date) {
+    const rows = documents
+      .filter((d) => d.type === 'collection_request' && ['Chờ duyệt', 'Đã duyệt'].includes(d.status))
+      .map((d) => ({ d, c: this.mapCollection(d, now) }));
+    const bySiteMap = new Map<string, any>();
+    for (const { d, c } of rows) {
+      const key = d.project?.name || 'Huy Võ Education';
+      const site = bySiteMap.get(key) || { site: key, requested: 0, received: 0, outstanding: 0, pendingCount: 0, overdueCount: 0 };
+      site.requested += c.requested;
+      site.received += c.received;
+      site.outstanding += c.outstanding;
+      if (d.status === 'Chờ duyệt') site.pendingCount += 1;
+      if (c.isOverdue) site.overdueCount += 1;
+      bySiteMap.set(key, site);
+    }
+    return {
+      count: rows.length,
+      requested: rows.reduce((s, r) => s + r.c.requested, 0),
+      received: rows.reduce((s, r) => s + r.c.received, 0),
+      outstanding: rows.reduce((s, r) => s + r.c.outstanding, 0),
+      overdueCount: rows.filter((r) => r.c.isOverdue).length,
+      bySite: [...bySiteMap.values()].sort((a, b) => b.outstanding - a.outstanding),
+    };
+  }
+
+  private collectionStateLabel(state: string): string {
+    switch (state) {
+      case 'collected':
+        return 'Đã thu đủ';
+      case 'partial':
+        return 'Thu một phần';
+      case 'waiting_accountant':
+        return 'Chờ kế toán xác nhận';
+      case 'waiting_site':
+        return 'Chờ site nộp';
+      case 'returned':
+        return 'Bị trả lại';
+      default:
+        return 'Nháp';
+    }
+  }
+
+  private collectionRows(items: any[]) {
+    return items
+      .filter((d: any) => d.type === 'collection_request' && d.collection)
+      .map((d: any) => ({
+        code: d.code,
+        site: d.project,
+        period: d.collection.period,
+        requested: d.collection.requested,
+        deadline: d.collection.deadline ? new Date(d.collection.deadline).toLocaleDateString('vi-VN') : '',
+        remitted: d.collection.remitted,
+        received: d.collection.received,
+        outstanding: d.collection.outstanding,
+        state: this.collectionStateLabel(d.collection.state) + (d.collection.isOverdue ? ' (quá hạn)' : ''),
+        receivedAt: d.collection.receivedAt ? new Date(d.collection.receivedAt).toLocaleDateString('vi-VN') : '',
+        creator: d.creator,
+      }));
   }
 
   async getAuditLogs(user: any, filter: { startDate?: string; endDate?: string; entityType?: string; limit?: number }) {
@@ -357,6 +454,18 @@ export class ReportsService {
       ]);
       const totalAmount = items.reduce((sum: number, d: any) => sum + (d.amount || 0), 0);
       const totalRow = ['', '', '', '', this.escapeCsv('TỔNG CỘNG'), totalAmount, '', '', ''];
+      csvContent = [headers.join(','), ...rows.map((r: any) => r.join(',')), totalRow.join(',')].join('\r\n');
+    } else if (type === 'collection_request') {
+      const summary = await this.getSummary(user, filter);
+      const items = this.collectionRows(summary.documents.items);
+      const headers = ['Mã ĐNT', 'Site', 'Kỳ', 'Số cần thu (VNĐ)', 'Hạn nộp', 'Site đã nộp (VNĐ)', 'Thực nhận (VNĐ)', 'Còn thiếu (VNĐ)', 'Trạng thái', 'Ngày xác nhận thu', 'Người lập'];
+      const rows = items.map((r: any) => [
+        this.escapeCsv(r.code), this.escapeCsv(r.site), this.escapeCsv(r.period), r.requested,
+        this.escapeCsv(r.deadline), r.remitted, r.received, r.outstanding,
+        this.escapeCsv(r.state), this.escapeCsv(r.receivedAt), this.escapeCsv(r.creator),
+      ]);
+      const sum = (k: string) => items.reduce((s: number, r: any) => s + (r[k] || 0), 0);
+      const totalRow = ['', this.escapeCsv('TỔNG CỘNG'), '', sum('requested'), '', sum('remitted'), sum('received'), sum('outstanding'), '', '', ''];
       csvContent = [headers.join(','), ...rows.map((r: any) => r.join(',')), totalRow.join(',')].join('\r\n');
     } else if (type === 'documents') {
       const summary = await this.getSummary(user, filter);
@@ -452,6 +561,8 @@ export class ReportsService {
         return 'BÁO CÁO TỔNG HỢP HỒ SƠ';
       case 'payment_request':
         return 'BÁO CÁO ĐỀ NGHỊ THANH TOÁN (CHI TIỀN)';
+      case 'collection_request':
+        return 'BÁO CÁO ĐỀ NGHỊ THU (NỘP TIỀN VỀ CÔNG TY)';
       case 'tasks':
         return 'BÁO CÁO TIẾN ĐỘ CÔNG VIỆC';
       case 'contracts':
@@ -469,6 +580,9 @@ export class ReportsService {
     const typeFilter = Array.isArray(filter.type) ? filter.type[0] : filter.type;
     if (reportType === 'documents' && typeFilter === 'payment_request') {
       return 'payment_request';
+    }
+    if (reportType === 'documents' && typeFilter === 'collection_request') {
+      return 'collection_request';
     }
     return reportType;
   }
@@ -590,6 +704,23 @@ export class ReportsService {
       totalRow.getCell(6).numFmt = '#,##0';
       this.styleDataRow(totalRow, false, true);
       this.autoFitColumns(sheet, headers, [14, 28, 18, 20, 18, 16, 12, 12, 14]);
+    } else if (type === 'collection_request') {
+      const summary = await this.getSummary(user, filter);
+      const items = this.collectionRows(summary.documents.items);
+      const headers = ['Mã ĐNT', 'Site', 'Kỳ', 'Số cần thu (VNĐ)', 'Hạn nộp', 'Site đã nộp (VNĐ)', 'Thực nhận (VNĐ)', 'Còn thiếu (VNĐ)', 'Trạng thái', 'Ngày xác nhận thu', 'Người lập'];
+      this.buildSheetHeader(sheet, this.reportTitle(type), headers.length);
+      const headerRow = sheet.addRow(headers);
+      this.styleHeaderRow(headerRow);
+      items.forEach((r: any, idx: number) => {
+        const row = sheet.addRow([r.code, r.site, r.period, r.requested, r.deadline, r.remitted, r.received, r.outstanding, r.state, r.receivedAt, r.creator]);
+        [4, 6, 7, 8].forEach((c) => (row.getCell(c).numFmt = '#,##0'));
+        this.styleDataRow(row, idx % 2 === 0, r.outstanding > 0 && r.state.includes('quá hạn'));
+      });
+      const sum = (k: string) => items.reduce((s: number, r: any) => s + (r[k] || 0), 0);
+      const totalRow = sheet.addRow(['', 'TỔNG CỘNG', '', sum('requested'), '', sum('remitted'), sum('received'), sum('outstanding'), '', '', '']);
+      [4, 6, 7, 8].forEach((c) => (totalRow.getCell(c).numFmt = '#,##0'));
+      this.styleDataRow(totalRow, false, true);
+      this.autoFitColumns(sheet, headers, [14, 24, 10, 16, 12, 16, 16, 16, 22, 14, 18]);
     } else if (type === 'documents') {
       const summary = await this.getSummary(user, filter);
       const headers = ['Mã hồ sơ', 'Tiêu đề', 'Loại hồ sơ', 'Trạng thái', 'Người tạo', 'Dự án', 'Ngày tạo'];

@@ -183,6 +183,15 @@ export class DocumentsController {
     return this.documentsService.createNewVersion(id, req.user.id, req.ip);
   }
 
+  @Post(':id/collection-follow-up')
+  @HttpCode(HttpStatus.CREATED)
+  async createCollectionFollowUp(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() req: any,
+  ) {
+    return this.documentsService.createCollectionFollowUp(req.user, id, req.ip);
+  }
+
   @Post(':id/withdraw')
   @HttpCode(HttpStatus.OK)
   async withdrawForEdit(

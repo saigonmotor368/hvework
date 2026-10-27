@@ -266,6 +266,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   const docTypeFilterLabel: Record<string, string> = {
     payment_request: "Đề nghị thanh toán",
     payroll_request: "Đề nghị chi lương",
+    collection_request: "Đề nghị thu",
     proposal: "Đề xuất / Tờ trình",
     contract: "Hợp đồng",
   };
@@ -506,6 +507,8 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
               >
                 <option value="">Tất cả loại hồ sơ</option>
                 <option value="payment_request">Đề nghị thanh toán</option>
+                <option value="payroll_request">Đề nghị chi lương</option>
+                <option value="collection_request">Đề nghị thu</option>
                 <option value="proposal">Đề xuất / Tờ trình</option>
                 {!isEmployee && <option value="contract">Hợp đồng</option>}
               </select>
@@ -569,6 +572,64 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 </div>
               </div>
 
+              {/* Đề nghị thu: tổng hợp theo site */}
+              {docType === "collection_request" && summaryData.collections && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="bg-white p-4 rounded-2xl border border-slate-200">
+                      <span className="text-[11px] font-bold text-gray-500 uppercase">Tổng cần thu</span>
+                      <p className="text-xl font-black text-gray-900 mt-1">{Number(summaryData.collections.requested).toLocaleString("vi-VN")} đ</p>
+                    </div>
+                    <div className="bg-white p-4 rounded-2xl border border-slate-200">
+                      <span className="text-[11px] font-bold text-emerald-600 uppercase">Đã thu về</span>
+                      <p className="text-xl font-black text-emerald-700 mt-1">{Number(summaryData.collections.received).toLocaleString("vi-VN")} đ</p>
+                    </div>
+                    <div className="bg-white p-4 rounded-2xl border border-slate-200">
+                      <span className="text-[11px] font-bold text-amber-600 uppercase">Còn phải thu</span>
+                      <p className="text-xl font-black text-amber-700 mt-1">{Number(summaryData.collections.outstanding).toLocaleString("vi-VN")} đ</p>
+                    </div>
+                    <div className="bg-white p-4 rounded-2xl border border-slate-200">
+                      <span className="text-[11px] font-bold text-rose-600 uppercase">Đề nghị quá hạn</span>
+                      <p className="text-xl font-black text-rose-700 mt-1">{summaryData.collections.overdueCount}</p>
+                    </div>
+                  </div>
+                  <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                    <div className="px-6 py-4 border-b border-slate-100">
+                      <h3 className="font-bold text-gray-800 text-sm">Tình hình nộp tiền theo site</h3>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-50 text-gray-600 font-bold border-b border-slate-100 uppercase tracking-wider">
+                          <tr>
+                            <th className="px-6 py-3">Site</th>
+                            <th className="px-6 py-3 text-right">Cần thu</th>
+                            <th className="px-6 py-3 text-right">Đã thu</th>
+                            <th className="px-6 py-3 text-right">Còn phải thu</th>
+                            <th className="px-6 py-3 text-right">Đang chờ</th>
+                            <th className="px-6 py-3 text-right">Quá hạn</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {summaryData.collections.bySite.map((row: any) => (
+                            <tr key={row.site}>
+                              <td className="px-6 py-3 font-bold text-gray-800">{row.site}</td>
+                              <td className="px-6 py-3 text-right">{Number(row.requested).toLocaleString("vi-VN")}</td>
+                              <td className="px-6 py-3 text-right text-emerald-700">{Number(row.received).toLocaleString("vi-VN")}</td>
+                              <td className="px-6 py-3 text-right font-bold text-amber-700">{Number(row.outstanding).toLocaleString("vi-VN")}</td>
+                              <td className="px-6 py-3 text-right">{row.pendingCount}</td>
+                              <td className={`px-6 py-3 text-right font-bold ${row.overdueCount > 0 ? "text-rose-700" : "text-gray-400"}`}>{row.overdueCount}</td>
+                            </tr>
+                          ))}
+                          {summaryData.collections.bySite.length === 0 && (
+                            <tr><td colSpan={6} className="px-6 py-6 text-center text-gray-400">Chưa có đề nghị thu nào đang theo dõi.</td></tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Data Table */}
               <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
                 <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
@@ -608,9 +669,13 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                           <td className="px-6 py-3 text-gray-500">
                             {d.type === "payment_request"
                               ? "Thanh toán"
-                              : d.type === "contract"
-                                ? "Hợp đồng"
-                                : "Đề xuất"}
+                              : d.type === "payroll_request"
+                                ? "Chi lương"
+                                : d.type === "collection_request"
+                                  ? "Đề nghị thu"
+                                  : d.type === "contract"
+                                    ? "Hợp đồng"
+                                    : "Đề xuất"}
                           </td>
                           <td className="px-6 py-3 text-gray-700">
                             {typeof d.creator === "object"

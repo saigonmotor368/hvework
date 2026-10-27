@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { ApprovalStep, DocumentItem } from "../types";
-import { uploadAttachment } from "../api/client";
+import { fetchWithSession, uploadAttachment } from "../api/client";
+import { CollectionPrintSheet } from "./CollectionPrintSheet";
 import {
   isCreatorAccountingSettlement,
   matchesDepartmentHeadScope,
 } from "../utils/documentApproval";
-import { formatVnd } from "../utils/documentTypes";
+import { formatVnd, normalizePeriod } from "../utils/documentTypes";
 import {
   buildVietQrImageUrl,
   DEFAULT_TRANSFER_NOTE,
@@ -27,6 +28,7 @@ interface Props {
   ) => void;
   onOpenModalAction: (type: "return" | "reject", stepId: number, documentId: number) => void;
   onAttachmentUploaded: () => Promise<void> | void;
+  onOpenDocument?: (documentId: number) => Promise<void> | void;
   showToast: (message: string, type?: "success" | "error") => void;
 }
 
@@ -46,6 +48,7 @@ export const CollectionRequestView: React.FC<Props> = ({
   onApproveStep,
   onOpenModalAction,
   onAttachmentUploaded,
+  onOpenDocument,
   showToast,
 }) => {
   const data: any = document.dataJson || {};
@@ -143,8 +146,6 @@ export const CollectionRequestView: React.FC<Props> = ({
   const overdue =
     document.status === "Chờ duyệt" && data.deadline && new Date(data.deadline).getTime() + 86_400_000 < renderedAt;
 
-  const inputCls = "mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs font-semibold text-slate-700";
-  const labelCls = "text-[10px] font-bold uppercase tracking-wider text-slate-500";
 
   const statusBanner = () => {
     if (document.status === "Đã duyệt" && collection) {
@@ -174,8 +175,131 @@ export const CollectionRequestView: React.FC<Props> = ({
     return null;
   };
 
+  const inputCls = "mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs font-semibold text-slate-700";
+  const labelCls = "text-[10px] font-bold uppercase tracking-wider text-slate-500";
+
+  // ---- tạo đề nghị cho phần còn thiếu ----
+  const [creatingFollowUp, setCreatingFollowUp] = useState(false);
+  const canFollowUp =
+    document.status === "Đã duyệt" &&
+    collection?.status === "partial" &&
+    collection.outstandingAmount > 0 &&
+    (user?.roles?.includes("accountant") || user?.roles?.includes("it_admin"));
+  const createFollowUp = async () => {
+    if (creatingFollowUp) return;
+    setCreatingFollowUp(true);
+    try {
+      const res = await fetchWithSession(`${apiBaseUrl}/documents/${document.id}/collection-follow-up`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${localStorage.getItem("access_token") || ""}` },
+      });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(Array.isArray(body?.message) ? body.message.join("; ") : body?.message || "Không tạo được đề nghị");
+      showToast(`Đã tạo bản nháp ${body.code} cho phần còn thiếu. Kiểm tra hạn nộp rồi gửi site.`);
+      await onOpenDocument?.(body.id);
+    } catch (err: any) {
+      showToast(err.message || "Không tạo được đề nghị", "error");
+    } finally {
+      setCreatingFollowUp(false);
+    }
+  };
+
+  // ---- sửa bản nháp ----
+  const canEditDraft = document.status === "Nháp" && document.createdById === user?.id;
+  const [editing, setEditing] = useState(false);
+  const [editForm, setEditForm] = useState({ amount: "", deadline: "", content: "", period: "" });
+  const [savingEdit, setSavingEdit] = useState(false);
+  const startEdit = () => {
+    setEditForm({
+      amount: String(amount),
+      deadline: data.deadline || "",
+      content: data.content || "",
+      period: data.period || "",
+    });
+    setEditing(true);
+  };
+  const saveEdit = async () => {
+    if (savingEdit) return;
+    setSavingEdit(true);
+    try {
+      const res = await fetchWithSession(`${apiBaseUrl}/documents/${document.id}?version=${document.version}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("access_token") || ""}`,
+        },
+        body: JSON.stringify({
+          amount: Math.round(Number(editForm.amount)),
+          deadline: editForm.deadline,
+          content: editForm.content,
+          period: normalizePeriod(editForm.period),
+        }),
+      });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(Array.isArray(body?.message) ? body.message.join("; ") : body?.message || "Không lưu được thay đổi");
+      showToast("Đã lưu thay đổi đề nghị thu.");
+      setEditing(false);
+      await onAttachmentUploaded();
+    } catch (err: any) {
+      showToast(err.message || "Không lưu được thay đổi", "error");
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+  const editValid =
+    Number(editForm.amount) > 0 && Boolean(editForm.deadline) && Boolean(normalizePeriod(editForm.period));
+
   return (
     <div className="space-y-4 md:space-y-5">
+      {document.status === "Đã duyệt" && collection && (
+        <>
+          <CollectionPrintSheet document={document} />
+          <section className="flex flex-col gap-3 rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-50 via-white to-emerald-50 p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:px-5">
+            <div>
+              <p className="text-sm font-black text-slate-900">
+                {collection.status === "partial" ? "Đã thu một phần — phiếu thu sẵn sàng" : "Đã thu đủ — phiếu thu sẵn sàng"}
+              </p>
+              <p className="mt-0.5 text-xs text-slate-500">Phiếu gồm số liệu đối chiếu, mã giao dịch và nhật ký xử lý.</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {canFollowUp && (
+                <button type="button" disabled={creatingFollowUp} onClick={() => void createFollowUp()} className="rounded-xl bg-amber-500 px-4 py-2.5 text-xs font-black text-white shadow-sm hover:bg-amber-600 disabled:opacity-50">
+                  {creatingFollowUp ? "Đang tạo..." : `➕ Tạo đề nghị thu phần còn thiếu (${formatVnd(collection.outstandingAmount)})`}
+                </button>
+              )}
+              <button type="button" onClick={() => window.print()} className="rounded-xl bg-[#0A66C2] px-4 py-2.5 text-xs font-black text-white shadow-sm hover:bg-blue-700">
+                🖨️ In phiếu thu
+              </button>
+            </div>
+          </section>
+        </>
+      )}
+
+      {canEditDraft && (
+        <section className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4">
+          {editing ? (
+            <div className="space-y-3">
+              <p className="text-xs font-black text-amber-900">Chỉnh sửa bản nháp</p>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <label><span className={labelCls}>Số tiền cần thu (đ)</span><input type="number" min={1} value={editForm.amount} onChange={(e) => setEditForm({ ...editForm, amount: e.target.value })} className={inputCls} /></label>
+                <label><span className={labelCls}>Kỳ (MM/YYYY)</span><input value={editForm.period} onChange={(e) => setEditForm({ ...editForm, period: e.target.value })} className={inputCls} /></label>
+                <label><span className={labelCls}>Hạn nộp</span><input type="date" value={editForm.deadline} onChange={(e) => setEditForm({ ...editForm, deadline: e.target.value })} className={inputCls} /></label>
+              </div>
+              <label className="block"><span className={labelCls}>Nội dung</span><textarea rows={2} value={editForm.content} onChange={(e) => setEditForm({ ...editForm, content: e.target.value })} className={inputCls} /></label>
+              <div className="flex gap-2">
+                <button type="button" disabled={!editValid || savingEdit} onClick={() => void saveEdit()} className="rounded-lg bg-[#0A66C2] px-4 py-2 text-xs font-bold text-white disabled:opacity-50">{savingEdit ? "Đang lưu..." : "Lưu thay đổi"}</button>
+                <button type="button" disabled={savingEdit} onClick={() => setEditing(false)} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600">Hủy</button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs font-semibold text-amber-900">Hồ sơ đang là bản nháp. Kiểm tra số tiền, kỳ, hạn nộp rồi bấm “Gửi duyệt hồ sơ”.</p>
+              <button type="button" onClick={startEdit} className="rounded-lg bg-amber-100 px-3 py-1.5 text-xs font-bold text-amber-800 hover:bg-amber-200">✏️ Sửa số tiền / hạn nộp</button>
+            </div>
+          )}
+        </section>
+      )}
+
       <section className="overflow-hidden rounded-2xl border border-blue-200 bg-white shadow-sm">
         <div className="border-b border-blue-100 bg-gradient-to-r from-blue-50 to-white px-4 py-4 sm:px-6">
           <h4 className="text-base font-black text-slate-900">Nội dung đề nghị thu</h4>

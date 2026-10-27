@@ -18,9 +18,13 @@ const fmtMoney = (v?: number) => `${Number(v || 0).toLocaleString("vi-VN")} đ`;
 const docTypeLabel = (type: string) =>
   type === "payment_request"
     ? "Thanh toán"
-    : type === "contract"
-      ? "Hợp đồng"
-      : "Đề xuất";
+    : type === "payroll_request"
+      ? "Chi lương"
+      : type === "collection_request"
+        ? "Đề nghị thu"
+        : type === "contract"
+          ? "Hợp đồng"
+          : "Đề xuất";
 
 const reportTitle = (tab: ReportTab) => {
   switch (tab) {

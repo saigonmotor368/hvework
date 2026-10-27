@@ -1715,6 +1715,10 @@ export default function App() {
                           throw error;
                         }
                       }}
+                      onOpenDocument={async (documentId) => {
+                        await fetchDocuments();
+                        await refreshDocumentDetail(documentId);
+                      }}
                       showToast={showToast}
                       onOpenModalAction={(type, stepId, docId) => {
                         setModalAction({

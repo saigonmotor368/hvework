@@ -1334,6 +1334,48 @@ describe('DocumentsService', () => {
       expect(result.status).toBe('Chờ duyệt');
     });
 
+    describe('createCollectionFollowUp', () => {
+      const partialDoc = {
+        id: 11,
+        code: 'DNT-2026-001',
+        title: 'Thu kết quả kinh doanh',
+        type: 'collection_request',
+        status: 'Đã duyệt',
+        projectId: 5,
+        dataJson: {
+          period: '09/2026',
+          receiver: 'CTY',
+          bankName: 'VCB',
+          bankAccount: '123456',
+          bankAccountId: 1,
+          collection: { status: 'partial', outstandingAmount: 4000000 },
+        },
+      };
+
+      it('tạo nháp cho phần còn thiếu, liên kết hồ sơ gốc', async () => {
+        prisma.document.findUnique.mockResolvedValue(partialDoc);
+        prisma.document.findFirst.mockResolvedValue(null);
+        prisma.document.create.mockImplementation(async ({ data }: any) => ({ id: 12, ...data }));
+        const result: any = await service.createCollectionFollowUp(accountant, 11);
+        expect(result.dataJson.amount).toBe(4000000);
+        expect(result.dataJson.parentDocumentId).toBe(11);
+        expect(result.status).toBe('Nháp');
+        expect(result.title).toContain('thu phần còn thiếu');
+      });
+
+      it('từ chối khi đã có đề nghị phần còn thiếu hoặc hồ sơ chưa thu một phần', async () => {
+        prisma.document.findUnique.mockResolvedValue(partialDoc);
+        prisma.document.findFirst.mockResolvedValue({ code: 'DNT-2026-002' });
+        await expect(service.createCollectionFollowUp(accountant, 11)).rejects.toThrow('DNT-2026-002');
+
+        prisma.document.findUnique.mockResolvedValue({
+          ...partialDoc,
+          dataJson: { collection: { status: 'collected', outstandingAmount: 0 } },
+        });
+        await expect(service.createCollectionFollowUp(accountant, 11)).rejects.toThrow('thu một phần');
+      });
+    });
+
     it('chỉ Kế toán / IT lập được đề nghị thu', async () => {
       await expect(
         service.createCollectionRequest(

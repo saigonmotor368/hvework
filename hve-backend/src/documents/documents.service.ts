@@ -813,6 +813,72 @@ export class DocumentsService {
     return document;
   }
 
+  /** Tạo bản nháp Đề nghị thu cho phần còn thiếu sau khi đã thu một phần. */
+  async createCollectionFollowUp(user: any, documentId: number, ip?: string) {
+    const roles = getRoleNames(user);
+    if (!roles.some((r) => ['accountant', 'it_admin'].includes(r))) {
+      throw new ForbiddenException('Chỉ Kế toán (hoặc Quản trị IT) mới được lập Đề nghị thu');
+    }
+    const parent = await this.prisma.document.findUnique({ where: { id: documentId } });
+    if (!parent || parent.type !== 'collection_request') {
+      throw new NotFoundException('Không tìm thấy đề nghị thu');
+    }
+    const parentData: any = parent.dataJson || {};
+    const outstanding = Number(parentData.collection?.outstandingAmount) || 0;
+    if (parent.status !== 'Đã duyệt' || parentData.collection?.status !== 'partial' || outstanding <= 0) {
+      throw new BadRequestException('Chỉ tạo được đề nghị cho phần còn thiếu của hồ sơ đã thu một phần');
+    }
+    const existing = await this.prisma.document.findFirst({
+      where: {
+        type: 'collection_request',
+        status: { not: 'Từ chối' },
+        dataJson: { path: ['parentDocumentId'], equals: parent.id },
+      },
+      select: { code: true },
+    });
+    if (existing) {
+      throw new BadRequestException(`Đã có đề nghị thu phần còn thiếu cho hồ sơ này (${existing.code})`);
+    }
+
+    const code = await this.generateDocumentCode('DNT');
+    const nextWeek = new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+    const cleanTitle = parent.title.replace(/\s*\(thu phần còn thiếu\)$/, '');
+    const document = await this.prisma.document.create({
+      data: {
+        code,
+        title: `${cleanTitle} (thu phần còn thiếu)`,
+        type: 'collection_request',
+        status: 'Nháp',
+        dataJson: {
+          period: parentData.period,
+          amount: outstanding,
+          receiver: parentData.receiver,
+          bankName: parentData.bankName,
+          bankAccount: parentData.bankAccount,
+          bankAccountId: parentData.bankAccountId,
+          content: `Thu phần còn thiếu của ${parent.code}: còn ${outstanding.toLocaleString('vi-VN')} đ`,
+          deadline: nextWeek,
+          attachmentIds: [],
+          parentDocumentId: parent.id,
+        },
+        createdById: user.id,
+        projectId: parent.projectId,
+        linkedProjectIds: [],
+        version: 1,
+      },
+      include: { createdBy: { select: { id: true, name: true, email: true, department: true } } },
+    });
+    await this.auditService.logEvent({
+      entityType: 'Document',
+      entityId: document.id,
+      action: 'create_collection_followup',
+      actorId: user.id,
+      afterJson: { code, parent: parent.code, amount: outstanding },
+      ip,
+    });
+    return document;
+  }
+
   async createProposal(user: any, dto: CreateProposalDto, ip?: string) {
     const userId = user.id;
     const roles = getRoleNames(user);
@@ -1530,7 +1596,7 @@ export class DocumentsService {
           'Đề nghị thu thiếu thông tin bắt buộc (site, số tiền, tài khoản nhận).',
         );
       }
-      if (attachmentCount === 0 && !hasAttachmentInJson) {
+      if (attachmentCount === 0 && !hasAttachmentInJson && !data.parentDocumentId) {
         throw new BadRequestException(
           'Quy định nghiệp vụ: Bắt buộc đính kèm biên bản đối soát trước khi gửi đề nghị thu.',
         );

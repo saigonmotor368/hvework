@@ -38,6 +38,7 @@ interface DocumentDetailModalProps {
   ) => void;
   projects: ProjectItem[];
   onAttachmentUploaded: () => Promise<void> | void;
+  onOpenDocument?: (documentId: number) => Promise<void> | void;
   showToast: (message: string, type?: "success" | "error") => void;
 }
 
@@ -56,6 +57,7 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
   onOpenModalAction,
   projects,
   onAttachmentUploaded,
+  onOpenDocument,
   showToast,
 }) => {
   const [renderedAt] = useState(() => Date.now());
@@ -248,6 +250,8 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
             {selectedDoc.status === "Nháp" &&
               selectedDoc.createdById === user?.id && (
                 <>
+                  {selectedDoc.type !== "payroll_request" &&
+                    selectedDoc.type !== "collection_request" && (
                   <button
                     onClick={() => onEditDraft(selectedDoc)}
                     disabled={isProcessing}
@@ -255,6 +259,7 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
                   >
                     ✏️ Chỉnh sửa nội dung & tệp
                   </button>
+                  )}
                   <button
                     onClick={() => onSubmitDraft(selectedDoc)}
                     disabled={isProcessing}
@@ -434,6 +439,7 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
           onApproveStep={onApproveStep}
           onOpenModalAction={onOpenModalAction}
           onAttachmentUploaded={onAttachmentUploaded}
+          onOpenDocument={onOpenDocument}
           showToast={showToast}
         />
       )}

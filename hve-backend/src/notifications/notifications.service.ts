@@ -305,6 +305,60 @@ export class NotificationsService {
       }
     }
 
+    // 4. Đề nghị thu: nhắc Trưởng dự án (site) khi gần hạn / quá hạn nộp tiền
+    // và báo Kế toán lập đề nghị biết site nào đang trễ.
+    const openCollections = await this.prisma.document.findMany({
+      where: { type: 'collection_request', status: 'Chờ duyệt' },
+      include: {
+        steps: true,
+        project: { select: { id: true, name: true, leadUserId: true } },
+      },
+    });
+    for (const doc of openCollections) {
+      const data: any = doc.dataJson || {};
+      if (!data.deadline) continue;
+      const siteStepPending = doc.steps.some(
+        (st) => st.roleRequired === 'department_head' && st.status === 'pending',
+      );
+      if (!siteStepPending) continue; // site đã nộp, đang chờ kế toán xác nhận
+      const deadline = new Date(data.deadline);
+      const daysLeft = Math.ceil((deadline.getTime() + 24 * 3600 * 1000 - now.getTime()) / (1000 * 3600 * 24));
+      const amountLabel = `${Number(data.amount || 0).toLocaleString('vi-VN')} đ`;
+      const siteName = doc.project?.name || 'site';
+      const siteLeadId = doc.project?.leadUserId;
+
+      if (daysLeft >= 0 && daysLeft <= 3 && siteLeadId) {
+        const res = await this.dispatchNotification({
+          userId: siteLeadId,
+          eventType: 'collection_due_soon',
+          entityRef: `document:${doc.id}`,
+          title: `Sắp đến hạn nộp tiền về công ty: ${doc.code}`,
+          content: daysLeft === 0
+            ? `Hôm nay là hạn nộp ${amountLabel} (kỳ ${data.period || '---'}) của ${siteName}. Vui lòng nộp tiền và tải chứng từ.`
+            : `Còn ${daysLeft} ngày là đến hạn nộp ${amountLabel} (kỳ ${data.period || '---'}) của ${siteName}.`,
+          link: `/documents?id=${doc.id}`,
+          dedupeKey: `reminder_collection_${doc.id}_due${daysLeft}_${dateStr}`,
+        });
+        if (res.in_app) dispatchedCount++;
+      } else if (daysLeft < 0) {
+        const overdueDays = Math.abs(daysLeft);
+        const recipients = new Set<number>([doc.createdById]);
+        if (siteLeadId) recipients.add(siteLeadId);
+        for (const uid of recipients) {
+          const res = await this.dispatchNotification({
+            userId: uid,
+            eventType: 'collection_overdue',
+            entityRef: `document:${doc.id}`,
+            title: `Quá hạn nộp tiền: ${doc.code}`,
+            content: `${siteName} chưa nộp ${amountLabel} (kỳ ${data.period || '---'}), quá hạn ${overdueDays} ngày (hạn ${deadline.toLocaleDateString('vi-VN')}).`,
+            link: `/documents?id=${doc.id}`,
+            dedupeKey: `reminder_collection_${doc.id}_overdue_${dateStr}_user${uid}`,
+          });
+          if (res.in_app) dispatchedCount++;
+        }
+      }
+    }
+
     this.logger.log(`[SCHEDULED REMINDERS] Completed scan for date ${dateStr}. In-app dispatched: ${dispatchedCount}`);
     return { date: dateStr, dispatchedCount };
   }
