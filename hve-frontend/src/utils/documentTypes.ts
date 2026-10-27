@@ -1,6 +1,6 @@
 /** Hồ sơ có bước Kế toán chi tiền cuối quy trình (cần chứng từ chuyển khoản). */
 export const isPaymentLikeType = (type?: string): boolean =>
-  type === "payment_request" || type === "payroll_request";
+  type === "payment_request" || type === "payroll_request" || type === "collection_request";
 
 export interface PayrollItem {
   employeeCode: string;

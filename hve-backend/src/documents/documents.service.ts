@@ -14,6 +14,7 @@ import { CreateContractDto } from './dto/create-contract.dto.js';
 import { UpdateDocumentDto } from './dto/update-document.dto.js';
 import { ActionStepDto, RejectOrReturnStepDto } from './dto/action-step.dto.js';
 import { CreatePayrollRequestDto } from './dto/create-payroll-request.dto.js';
+import { CreateCollectionRequestDto } from './dto/create-collection-request.dto.js';
 import {
   parsePayrollWorkbook,
   validatePayrollItems,
@@ -725,6 +726,93 @@ export class DocumentsService {
     return updated;
   }
 
+  async createCollectionRequest(
+    user: any,
+    dto: CreateCollectionRequestDto,
+    ip?: string,
+  ) {
+    const roles = getRoleNames(user);
+    if (!roles.some((r) => ['accountant', 'it_admin'].includes(r))) {
+      throw new ForbiddenException(
+        'Chỉ Kế toán (hoặc Quản trị IT) mới được lập Đề nghị thu',
+      );
+    }
+    const project = await this.prisma.project.findFirst({
+      where: { id: dto.projectId, isActive: true },
+      select: { id: true, name: true, leadUserId: true },
+    });
+    if (!project) {
+      throw new BadRequestException('Dự án (site) không tồn tại hoặc đã ngừng hoạt động');
+    }
+    const account = await this.prisma.companyBankAccount.findFirst({
+      where: { id: dto.bankAccountId, isActive: true },
+    });
+    if (!account) {
+      throw new BadRequestException('Tài khoản nhận tiền không tồn tại hoặc đã ngừng sử dụng');
+    }
+    await this.validateNewAttachments(user.id, dto.attachmentIds);
+
+    const code = await this.generateDocumentCode('DNT');
+    const document = await this.prisma.document.create({
+      data: {
+        code,
+        title: dto.title,
+        type: 'collection_request',
+        status: 'Nháp',
+        dataJson: {
+          period: dto.period,
+          amount: dto.amount,
+          // Thông tin tài khoản được chụp lại tại thời điểm lập để hồ sơ không
+          // đổi khi danh sách tài khoản công ty được chỉnh sửa về sau.
+          receiver: account.accountName,
+          bankName: account.bankName,
+          bankAccount: account.accountNumber,
+          bankAccountId: account.id,
+          content: dto.content || `Nộp kết quả kinh doanh kỳ ${dto.period} về công ty`,
+          deadline: dto.deadline,
+          attachmentIds: dto.attachmentIds || [],
+        },
+        createdById: user.id,
+        projectId: project.id,
+        linkedProjectIds: [],
+        version: 1,
+      },
+      include: {
+        createdBy: {
+          select: { id: true, name: true, email: true, department: true },
+        },
+      },
+    });
+
+    if (dto.attachmentIds && dto.attachmentIds.length > 0) {
+      await this.prisma.attachment.updateMany({
+        where: {
+          id: { in: dto.attachmentIds },
+          uploadedById: user.id,
+          entityId: 0,
+        },
+        data: { entityId: document.id, entityType: 'document' },
+      });
+    }
+
+    await this.auditService.logEvent({
+      entityType: 'Document',
+      entityId: document.id,
+      action: 'create_document',
+      actorId: user.id,
+      afterJson: {
+        code,
+        title: dto.title,
+        type: 'collection_request',
+        status: 'Nháp',
+        project: project.name,
+        amount: dto.amount,
+      },
+      ip,
+    });
+    return document;
+  }
+
   async createProposal(user: any, dto: CreateProposalDto, ip?: string) {
     const userId = user.id;
     const roles = getRoleNames(user);
@@ -1044,7 +1132,12 @@ export class DocumentsService {
         updatedDataJson.amount = items.reduce((sum, i) => sum + i.netPay, 0);
         updatedDataJson.receiver = `Danh sách nhận lương (${items.length} người)`;
       }
-      if (dto.period !== undefined) updatedDataJson.period = dto.period;
+    }
+    if (
+      (doc.type === 'payroll_request' || doc.type === 'collection_request') &&
+      dto.period !== undefined
+    ) {
+      updatedDataJson.period = dto.period;
     }
 
     const updatedTitle = dto.title?.trim() ?? doc.title.trim();
@@ -1431,6 +1524,17 @@ export class DocumentsService {
           'Quy định nghiệp vụ: Bắt buộc phải đính kèm ít nhất 1 chứng từ / hóa đơn trước khi gửi duyệt.',
         );
       }
+    } else if (docType === 'collection_request') {
+      if (!data.amount || Number(data.amount) <= 0 || !data.bankAccount || !doc.projectId) {
+        throw new BadRequestException(
+          'Đề nghị thu thiếu thông tin bắt buộc (site, số tiền, tài khoản nhận).',
+        );
+      }
+      if (attachmentCount === 0 && !hasAttachmentInJson) {
+        throw new BadRequestException(
+          'Quy định nghiệp vụ: Bắt buộc đính kèm biên bản đối soát trước khi gửi đề nghị thu.',
+        );
+      }
     } else if (docType === 'payroll_request') {
       const items: PayrollItem[] = Array.isArray(data.payrollItems)
         ? data.payrollItems
@@ -1626,7 +1730,9 @@ export class DocumentsService {
 
     const maxStepOrder = Math.max(...doc.steps.map((s) => s.stepOrder));
     const isFinalAccountantStep =
-      (doc.type === 'payment_request' || doc.type === 'payroll_request') &&
+      (doc.type === 'payment_request' ||
+        doc.type === 'payroll_request' ||
+        doc.type === 'collection_request') &&
       step.roleRequired === 'accountant' &&
       step.stepOrder === maxStepOrder;
 
@@ -1652,6 +1758,69 @@ export class DocumentsService {
     let settlementReference = dto?.paymentReference?.trim();
     let settlementPaidAt = dto?.paymentPaidAt;
     let settlementMethod = dto?.paymentMethod || 'vietqr';
+    let collectionPatch: Record<string, unknown> | null = null;
+    if (doc.type === 'collection_request') {
+      const data: any = doc.dataJson || {};
+      const requested = Number(data.amount) || 0;
+      if (isFinalAccountantStep) {
+        const received = Number(dto?.receivedAmount);
+        if (!Number.isFinite(received) || received <= 0) {
+          throw new BadRequestException('Vui lòng nhập số tiền thực nhận (lớn hơn 0).');
+        }
+        if (received > requested) {
+          throw new BadRequestException(
+            `Số tiền thực nhận không được vượt quá số tiền đề nghị thu (${requested.toLocaleString('vi-VN')} đ).`,
+          );
+        }
+        const receivedRounded = Math.round(received);
+        const outstanding = Math.round(requested) - receivedRounded;
+        collectionPatch = {
+          collection: {
+            status: outstanding > 0 ? 'partial' : 'collected',
+            requestedAmount: Math.round(requested),
+            receivedAmount: receivedRounded,
+            outstandingAmount: outstanding,
+            reference:
+              dto?.paymentReference?.trim() || data.remittance?.reference || '',
+            receivedAt: dto?.paymentPaidAt || new Date().toISOString(),
+            confirmedById: user.id,
+            confirmedAt: new Date().toISOString(),
+          },
+        };
+      } else if (step.roleRequired === 'department_head') {
+        const stepActivatedAt =
+          (step as { updatedAt?: Date; createdAt?: Date }).updatedAt ||
+          (step as { createdAt?: Date }).createdAt;
+        const proofCount = await this.prisma.attachment.count({
+          where: {
+            entityType: 'document',
+            entityId: documentId,
+            uploadedById: user.id,
+            ...(stepActivatedAt ? { uploadedAt: { gt: stepActivatedAt } } : undefined),
+          },
+        });
+        if (proofCount === 0) {
+          throw new BadRequestException(
+            'Bắt buộc tải chứng từ nộp tiền (và biên bản đã ký) trước khi xác nhận đã nộp.',
+          );
+        }
+        if (!dto?.paymentReference?.trim() || !dto?.paymentPaidAt) {
+          throw new BadRequestException(
+            'Bắt buộc nhập mã giao dịch và thời gian nộp tiền.',
+          );
+        }
+        collectionPatch = {
+          remittance: {
+            amount: Math.round(Number(dto?.remittedAmount) || requested),
+            reference: dto.paymentReference.trim(),
+            paidAt: dto.paymentPaidAt,
+            submittedById: user.id,
+            submittedAt: new Date().toISOString(),
+            proofAttachmentCount: proofCount,
+          },
+        };
+      }
+    }
     if (isFinalAccountantStep && doc.type === 'payroll_request') {
       const items: PayrollItem[] = Array.isArray((doc.dataJson as any)?.payrollItems)
         ? (doc.dataJson as any).payrollItems
@@ -1747,7 +1916,15 @@ export class DocumentsService {
         data: {
           status: newDocumentStatus,
           version: doc.version + 1,
-          ...(isFinalAccountantStep
+          ...(collectionPatch
+            ? {
+                dataJson: {
+                  ...(doc.dataJson as Record<string, unknown>),
+                  ...collectionPatch,
+                } as Prisma.InputJsonObject,
+              }
+            : {}),
+          ...(isFinalAccountantStep && doc.type !== 'collection_request'
             ? {
                 dataJson: {
                   ...(doc.dataJson as Record<string, unknown>),
@@ -1848,9 +2025,13 @@ export class DocumentsService {
     });
 
     if (!doc) throw new NotFoundException('Không tìm thấy hồ sơ');
-    if (doc.type === 'payment_request' || doc.type === 'payroll_request') {
+    if (
+      doc.type === 'payment_request' ||
+      doc.type === 'payroll_request' ||
+      doc.type === 'collection_request'
+    ) {
       throw new BadRequestException(
-        'Đề nghị thanh toán / chi lương phải được CEO rà soát rồi chuyển Kế toán xử lý chi tiền; không được duyệt thẳng toàn bộ quy trình.',
+        'Đề nghị thanh toán / chi lương / thu phải được CEO rà soát rồi chuyển Kế toán xử lý chi tiền; không được duyệt thẳng toàn bộ quy trình.',
       );
     }
     if (doc.status !== 'Chờ duyệt') {

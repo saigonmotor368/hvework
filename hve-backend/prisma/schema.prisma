@@ -488,3 +488,15 @@ model PushSubscription {
 
   @@index([userId])
 }
+
+// Tài khoản ngân hàng của công ty để các site nộp tiền về (Đề nghị thu).
+model CompanyBankAccount {
+  id            Int      @id @default(autoincrement())
+  bankName      String
+  accountNumber String
+  accountName   String
+  note          String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}

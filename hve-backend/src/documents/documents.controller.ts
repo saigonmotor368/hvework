@@ -23,6 +23,7 @@ import { CreateProposalDto } from './dto/create-proposal.dto.js';
 import { CreateContractDto } from './dto/create-contract.dto.js';
 import { UpdateDocumentDto } from './dto/update-document.dto.js';
 import { ActionStepDto, RejectOrReturnStepDto } from './dto/action-step.dto.js';
+import { CreateCollectionRequestDto } from './dto/create-collection-request.dto.js';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 
 @UseGuards(JwtAuthGuard)
@@ -37,6 +38,15 @@ export class DocumentsController {
     @Req() req: any,
   ) {
     return this.documentsService.createPaymentRequest(req.user, dto, req.ip);
+  }
+
+  @Post('collection-requests')
+  @HttpCode(HttpStatus.CREATED)
+  async createCollectionRequest(
+    @Body() dto: CreateCollectionRequestDto,
+    @Req() req: any,
+  ) {
+    return this.documentsService.createCollectionRequest(req.user, dto, req.ip);
   }
 
   @Post('payroll-requests/parse')

@@ -45,6 +45,12 @@ export const DocumentList: React.FC<DocumentListProps> = ({
             💡 Đề xuất
           </span>
         );
+      case "collection_request":
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold bg-sky-100 text-sky-800 border border-sky-200">
+            📥 Đề nghị thu
+          </span>
+        );
       case "payroll_request":
         return (
           <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
@@ -115,6 +121,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
             <option value="all">Tất cả loại hồ sơ</option>
             <option value="payment_request">Đề nghị thanh toán</option>
             <option value="payroll_request">Đề nghị chi lương</option>
+            <option value="collection_request">Đề nghị thu</option>
             <option value="proposal">Đề xuất / Kiến nghị</option>
             <option value="contract">Hợp đồng kinh tế</option>
           </select>
@@ -200,6 +207,8 @@ export const DocumentList: React.FC<DocumentListProps> = ({
               <p className="mt-1 line-clamp-2 text-xs text-gray-500">
                 {doc.type === "payment_request" &&
                   `Thụ hưởng: ${doc.dataJson?.receiver || "—"}`}
+                {doc.type === "collection_request" &&
+                  `Site: ${doc.project?.name || "—"} · Kỳ ${doc.dataJson?.period || "—"}`}
                 {doc.type === "payroll_request" &&
                   `Kỳ lương ${doc.dataJson?.period || "—"} · ${doc.dataJson?.payrollItems?.length || 0} nhân viên`}
                 {doc.type === "contract" &&
@@ -310,7 +319,9 @@ export const DocumentList: React.FC<DocumentListProps> = ({
                       </div>
                       {isPaymentLikeType(doc.type) && (
                         <p className="text-xs text-gray-400 line-clamp-1">
-                          {doc.type === "payroll_request"
+                          {doc.type === "collection_request"
+                            ? `Site: ${doc.project?.name || "—"} · Kỳ ${doc.dataJson?.period || "—"}`
+                            : doc.type === "payroll_request"
                             ? `Kỳ lương ${doc.dataJson?.period || "—"} · ${doc.dataJson?.payrollItems?.length || 0} nhân viên`
                             : `Thụ hưởng: ${doc.dataJson?.receiver}`}
                         </p>

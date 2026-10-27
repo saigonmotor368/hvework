@@ -1,4 +1,4 @@
-import { IsISO8601, IsIn, IsOptional, IsString, Matches } from 'class-validator';
+import { IsISO8601, IsIn, IsNumber, IsOptional, IsString, Matches, Min } from 'class-validator';
 
 export class ActionStepDto {
   @IsOptional()
@@ -25,6 +25,18 @@ export class ActionStepDto {
     message: 'Hình thức thanh toán không hợp lệ',
   })
   paymentMethod?: 'vietqr' | 'bank_transfer' | 'cash';
+
+  // Đề nghị thu — site nhập số tiền thực nộp (bước Trưởng dự án).
+  @IsOptional()
+  @IsNumber({}, { message: 'Số tiền nộp phải là số' })
+  @Min(1, { message: 'Số tiền nộp phải lớn hơn 0' })
+  remittedAmount?: number;
+
+  // Đề nghị thu — kế toán nhập số tiền thực nhận (bước cuối).
+  @IsOptional()
+  @IsNumber({}, { message: 'Số tiền thực nhận phải là số' })
+  @Min(1, { message: 'Số tiền thực nhận phải lớn hơn 0' })
+  receivedAmount?: number;
 }
 
 export class RejectOrReturnStepDto {

@@ -57,6 +57,15 @@ export const AdminWorkflowView: React.FC<AdminWorkflowViewProps> = ({
       ],
     },
     {
+      id: 5,
+      type: 'collection_request',
+      name: 'Quy trình Đề nghị thu',
+      steps: [
+        { id: 13, stepOrder: 1, roleRequired: 'department_head' },
+        { id: 14, stepOrder: 2, roleRequired: 'accountant' },
+      ],
+    },
+    {
       id: 3,
       type: 'contract',
       name: 'Quy trình duyệt Hợp đồng kinh tế',
@@ -241,7 +250,7 @@ export const AdminWorkflowView: React.FC<AdminWorkflowViewProps> = ({
       </div>
 
       {/* Workflow Tabs */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
         <button
           onClick={() => handleSelectWorkflow('payment_request')}
           className={`p-4 rounded-xl border text-left transition-all ${
@@ -292,6 +301,19 @@ export const AdminWorkflowView: React.FC<AdminWorkflowViewProps> = ({
           <div className="text-xl mb-1">👥</div>
           <div className="font-bold text-sm text-gray-900">Đề nghị chi lương</div>
           <div className="text-xs text-gray-500 mt-0.5">Mã DNCL-YYYY-NNN</div>
+        </button>
+
+        <button
+          onClick={() => handleSelectWorkflow('collection_request')}
+          className={`p-4 rounded-xl border text-left transition-all ${
+            selectedType === 'collection_request'
+              ? 'bg-sky-50/50 border-sky-600 ring-2 ring-sky-600/20'
+              : 'bg-white border-slate-200 hover:border-slate-300'
+          }`}
+        >
+          <div className="text-xl mb-1">📥</div>
+          <div className="font-bold text-sm text-gray-900">Đề nghị thu</div>
+          <div className="text-xs text-gray-500 mt-0.5">Mã DNT-YYYY-NNN</div>
         </button>
       </div>
 

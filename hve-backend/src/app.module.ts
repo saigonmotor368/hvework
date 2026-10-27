@@ -7,6 +7,7 @@ import { AuditModule } from './audit/audit.module.js';
 import { DocumentsModule } from './documents/documents.module.js';
 import { AttachmentsModule } from './attachments/attachments.module.js';
 import { WorkflowsModule } from './workflows/workflows.module.js';
+import { CompanyAccountsModule } from './company-accounts/company-accounts.module.js';
 import { AdminModule } from './admin/admin.module.js';
 import { TasksModule } from './tasks/tasks.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
@@ -30,6 +31,7 @@ import { SimpleThrottlerGuard } from './common/simple-throttler.guard.js';
     DocumentsModule,
     AttachmentsModule,
     WorkflowsModule,
+    CompanyAccountsModule,
     AdminModule,
     TasksModule,
     NotificationsModule,

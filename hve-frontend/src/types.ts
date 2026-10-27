@@ -81,6 +81,26 @@ export interface DocumentItem {
       };
     }>;
 
+    // collection_request (Đề nghị thu)
+    remittance?: {
+      amount: number;
+      reference: string;
+      paidAt: string;
+      submittedById?: number;
+      submittedAt?: string;
+      proofAttachmentCount?: number;
+    };
+    collection?: {
+      status: "collected" | "partial";
+      requestedAmount: number;
+      receivedAmount: number;
+      outstandingAmount: number;
+      reference?: string;
+      receivedAt?: string;
+      confirmedById?: number;
+      confirmedAt?: string;
+    };
+
     // proposal & general content
     content?: string;
 
@@ -114,6 +134,15 @@ export interface DocumentItem {
       roles?: Array<{ name: string }>;
     } | null;
   }>;
+}
+
+export interface CompanyAccount {
+  id: number;
+  bankName: string;
+  accountNumber: string;
+  accountName: string;
+  note?: string | null;
+  isActive: boolean;
 }
 
 export interface WorkflowStepTemplate {
@@ -296,6 +325,7 @@ export const ROLE_LABELS: Record<string, string> = {
 export const DOCUMENT_TYPE_LABELS: Record<string, string> = {
   payment_request: "Đề nghị thanh toán",
   payroll_request: "Đề nghị chi lương",
+  collection_request: "Đề nghị thu",
   proposal: "Đề xuất",
   contract: "Hợp đồng",
 };

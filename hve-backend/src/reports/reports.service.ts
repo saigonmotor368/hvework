@@ -439,6 +439,8 @@ export class ReportsService {
         return 'Hợp đồng';
       case 'payroll_request':
         return 'Đề nghị chi lương';
+      case 'collection_request':
+        return 'Đề nghị thu';
       default:
         return type;
     }

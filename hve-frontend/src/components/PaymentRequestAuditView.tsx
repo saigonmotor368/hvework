@@ -17,6 +17,8 @@ export interface PaymentSettlementInput {
   paymentReference: string;
   paymentPaidAt: string;
   paymentMethod: "vietqr" | "bank_transfer" | "cash";
+  remittedAmount?: number;
+  receivedAmount?: number;
 }
 
 interface PaymentRequestAuditViewProps {

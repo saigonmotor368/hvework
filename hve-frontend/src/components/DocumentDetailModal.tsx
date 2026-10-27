@@ -9,6 +9,7 @@ import {
 import { authenticatedFileUrl, fetchWithSession, fileLinkClickHandler } from "../api/client";
 import { UserNameButton } from "./UserNameButton";
 import { PaymentRequestAuditView } from "./PaymentRequestAuditView";
+import { CollectionRequestView } from "./CollectionRequestView";
 import { isPaymentLikeType } from "../utils/documentTypes";
 import type { PaymentSettlementInput } from "./PaymentRequestAuditView";
 import { matchesDepartmentHeadScope } from "../utils/documentApproval";
@@ -424,7 +425,20 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
         )}
       </div>
 
-      {isPaymentLikeType(selectedDoc.type) && (
+      {selectedDoc.type === "collection_request" && (
+        <CollectionRequestView
+          document={selectedDoc}
+          user={user}
+          isProcessing={isProcessing}
+          apiBaseUrl={apiBaseUrl}
+          onApproveStep={onApproveStep}
+          onOpenModalAction={onOpenModalAction}
+          onAttachmentUploaded={onAttachmentUploaded}
+          showToast={showToast}
+        />
+      )}
+
+      {isPaymentLikeType(selectedDoc.type) && selectedDoc.type !== "collection_request" && (
         <PaymentRequestAuditView
           document={selectedDoc}
           user={user}

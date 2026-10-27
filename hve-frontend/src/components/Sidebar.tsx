@@ -13,6 +13,7 @@ type AppTab =
   | "admin_workflows"
   | "admin_users"
   | "admin_projects"
+  | "admin_company_accounts"
   | "admin_announcements";
 
 interface SidebarProps {
@@ -43,6 +44,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     userRoleNames.includes("it_admin") || userRoleNames.includes("ceo");
   const isItAdmin = userRoleNames.includes("it_admin");
   const isCeo = userRoleNames.includes("ceo");
+  const isAccountant = userRoleNames.includes("accountant");
 
   const handleTabSelect = (tab: any) => {
     onSelectTab(tab);
@@ -192,6 +194,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </button>
 
                 <button
+                  onClick={() => handleTabSelect("admin_company_accounts")}
+                  className={`w-full flex items-center px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                    activeTab === "admin_company_accounts"
+                      ? "bg-blue-50 text-[#0A66C2] font-semibold"
+                      : "text-gray-600 hover:bg-slate-50"
+                  }`}
+                >
+                  <span className="mr-3">🏦</span> Tài khoản công ty
+                </button>
+
+                <button
                   onClick={() => handleTabSelect("admin_workflows")}
                   className={`w-full flex items-center px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
                     activeTab === "admin_workflows"
@@ -225,6 +238,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <span className="mr-3">📢</span> Quản lý thông báo
                   </button>
                 )}
+              </div>
+            )}
+            {isAccountant && !isAdmin && (
+              <div className="pt-4 mt-4 border-t border-slate-100 space-y-1.5">
+                <div className="px-3.5 pb-1 text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                  Kế toán
+                </div>
+                <button
+                  onClick={() => handleTabSelect("admin_company_accounts")}
+                  className={`w-full flex items-center px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                    activeTab === "admin_company_accounts"
+                      ? "bg-blue-50 text-[#0A66C2] font-semibold"
+                      : "text-gray-600 hover:bg-slate-50"
+                  }`}
+                >
+                  <span className="mr-3">🏦</span> Tài khoản công ty
+                </button>
               </div>
             )}
           </nav>

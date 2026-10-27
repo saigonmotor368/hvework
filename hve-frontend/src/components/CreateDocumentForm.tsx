@@ -2,9 +2,10 @@ import React from "react";
 import type { DocumentItem, ProjectItem } from "../types";
 import { MultiFilePicker } from "./MultiFilePicker";
 import { CreatePayrollRequestForm } from "./CreatePayrollRequestForm";
+import { CreateCollectionRequestForm } from "./CreateCollectionRequestForm";
 
 export interface CreateFormData {
-  type: "payment_request" | "proposal" | "contract" | "payroll_request";
+  type: "payment_request" | "proposal" | "contract" | "payroll_request" | "collection_request";
   title: string;
   // payment_request
   amount: string;
@@ -71,6 +72,10 @@ export const CreateDocumentForm: React.FC<CreateDocumentFormProps> = ({
   const canCreatePayroll =
     !editingDocument &&
     ["department_head", "hr", "it_admin"].some((r) => currentUser?.roles?.includes(r));
+  const canCreateCollection =
+    !editingDocument &&
+    ["accountant", "it_admin"].some((r) => currentUser?.roles?.includes(r));
+  const extraTypeCount = Number(canCreatePayroll) + Number(canCreateCollection);
   return (
     <div className="w-full max-w-3xl mx-auto bg-white p-4 sm:p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
       {/* Header */}
@@ -92,7 +97,7 @@ export const CreateDocumentForm: React.FC<CreateDocumentFormProps> = ({
         <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2.5">
           Loại hồ sơ phê duyệt <span className="text-red-500">*</span>
         </label>
-        <div className={`grid grid-cols-1 gap-3 ${canCreatePayroll ? "md:grid-cols-2 lg:grid-cols-4" : "md:grid-cols-3"}`}>
+        <div className={`grid grid-cols-1 gap-3 ${extraTypeCount === 2 ? "md:grid-cols-2 lg:grid-cols-5" : extraTypeCount === 1 ? "md:grid-cols-2 lg:grid-cols-4" : "md:grid-cols-3"}`}>
           <button
             type="button"
             disabled={Boolean(editingDocument)}
@@ -169,10 +174,36 @@ export const CreateDocumentForm: React.FC<CreateDocumentFormProps> = ({
               </div>
             </button>
           )}
+
+          {canCreateCollection && (
+            <button
+              type="button"
+              onClick={() => setCreateForm({ ...createForm, type: "collection_request" })}
+              className={`p-4 rounded-xl border text-left transition-all ${
+                createForm.type === "collection_request"
+                  ? "border-sky-600 bg-sky-50/50 ring-2 ring-sky-600/20"
+                  : "border-slate-200 hover:border-slate-300 bg-white"
+              }`}
+            >
+              <div className="text-2xl mb-1">📥</div>
+              <div className="font-bold text-sm text-gray-900">Đề nghị thu</div>
+              <div className="text-[11px] text-gray-500 mt-0.5">
+                Yêu cầu site nộp kết quả kinh doanh về công ty
+              </div>
+            </button>
+          )}
         </div>
       </div>
 
-      {createForm.type === "payroll_request" ? (
+      {createForm.type === "collection_request" ? (
+        <CreateCollectionRequestForm
+          apiBaseUrl={apiBaseUrl}
+          projects={projects}
+          onCancel={onCancel}
+          onCreated={onPayrollCreated}
+          showToast={showToast}
+        />
+      ) : createForm.type === "payroll_request" ? (
         <CreatePayrollRequestForm
           apiBaseUrl={apiBaseUrl}
           projects={projects}

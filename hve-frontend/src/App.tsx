@@ -68,6 +68,8 @@ const ProjectReportsView = lazy(() =>
     "project_reports",
   ).then((module) => ({ default: module.ProjectReportsView })),
 );
+import { AdminCompanyAccountsView } from "./components/AdminCompanyAccountsView";
+
 const AdminWorkflowView = lazy(() =>
   loadLazyModuleWithRecovery(
     () => import("./components/AdminWorkflowView"),
@@ -250,6 +252,7 @@ export default function App() {
     | "admin_workflows"
     | "admin_users"
     | "admin_projects"
+    | "admin_company_accounts"
     | "admin_announcements"
   >("overview");
   const contentScrollRef = useRef<HTMLDivElement>(null);
@@ -1550,6 +1553,7 @@ export default function App() {
               {activeTab === "admin_users" &&
                 "Quản lý người dùng (Quản trị IT)"}
               {activeTab === "admin_projects" && "Quản lý dự án"}
+              {activeTab === "admin_company_accounts" && "Tài khoản nhận tiền của công ty"}
             </h2>
             {selectedDoc && (
               <span className="hidden sm:inline text-sm text-gray-400 font-medium">
@@ -1822,6 +1826,13 @@ export default function App() {
                 <AdminUserView
                   apiBaseUrl={API_BASE_URL}
                   currentUser={user}
+                  showToast={showToast}
+                />
+              )}
+
+              {activeTab === "admin_company_accounts" && (
+                <AdminCompanyAccountsView
+                  apiBaseUrl={API_BASE_URL}
                   showToast={showToast}
                 />
               )}

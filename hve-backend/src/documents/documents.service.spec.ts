@@ -1225,6 +1225,132 @@ describe('DocumentsService', () => {
     });
   });
 
+  describe('collection_request (Đề nghị thu)', () => {
+    const makeDoc = (stepStates: [string, string], extraData: any = {}) => ({
+      id: 11,
+      code: 'DNT-2026-001',
+      title: 'Thu kết quả kinh doanh 09/2026',
+      type: 'collection_request',
+      status: 'Chờ duyệt',
+      createdById: 10,
+      version: 2,
+      projectId: 5,
+      linkedProjectIds: [],
+      createdBy: { id: 10, name: 'Kế toán lập', email: 'kt@hve.vn' },
+      dataJson: { amount: 10000000, bankAccount: '123456', ...extraData },
+      steps: [
+        { id: 1, stepOrder: 1, roleRequired: 'department_head', status: stepStates[0] },
+        { id: 2, stepOrder: 2, roleRequired: 'accountant', status: stepStates[1] },
+      ],
+    });
+    const accountant = { id: 20, roles: [{ name: 'accountant' }] };
+    const siteLead = {
+      id: 30,
+      roles: [{ name: 'department_head' }],
+      ledProjects: [{ id: 5, isActive: true }],
+    };
+
+    beforeEach(() => {
+      prisma.document.update.mockImplementation(async ({ data }: any) => ({
+        id: 11,
+        steps: [],
+        ...data,
+      }));
+      prisma.documentApprovalStep.update.mockResolvedValue({});
+    });
+
+    it('kế toán xác nhận thu một phần: ghi nhận số đã nhận và còn thiếu', async () => {
+      prisma.document.findUnique.mockResolvedValue(makeDoc(['approved', 'pending']));
+      const result: any = await service.approveStep(11, 2, accountant, {
+        receivedAmount: 6000000,
+        paymentReference: 'FT999',
+      });
+      expect(result.dataJson.collection).toMatchObject({
+        status: 'partial',
+        receivedAmount: 6000000,
+        outstandingAmount: 4000000,
+        reference: 'FT999',
+      });
+      expect(result.status).toBe('Đã duyệt');
+    });
+
+    it('kế toán thu đủ thì trạng thái collected', async () => {
+      prisma.document.findUnique.mockResolvedValue(makeDoc(['approved', 'pending']));
+      const result: any = await service.approveStep(11, 2, accountant, {
+        receivedAmount: 10000000,
+      });
+      expect(result.dataJson.collection.status).toBe('collected');
+      expect(result.dataJson.collection.outstandingAmount).toBe(0);
+    });
+
+    it('từ chối thu vượt số đề nghị hoặc thiếu số tiền', async () => {
+      prisma.document.findUnique.mockResolvedValue(makeDoc(['approved', 'pending']));
+      await expect(
+        service.approveStep(11, 2, accountant, { receivedAmount: 10000001 }),
+      ).rejects.toThrow('không được vượt quá');
+      await expect(service.approveStep(11, 2, accountant, {})).rejects.toThrow(
+        'số tiền thực nhận',
+      );
+    });
+
+    it('người tạo (kế toán) vẫn được xác nhận đã thu ở bước cuối', async () => {
+      prisma.document.findUnique.mockResolvedValue(makeDoc(['approved', 'pending']));
+      const creator = { id: 10, roles: [{ name: 'accountant' }] };
+      const result: any = await service.approveStep(11, 2, creator, {
+        receivedAmount: 10000000,
+      });
+      expect(result.status).toBe('Đã duyệt');
+    });
+
+    it('site phải tải chứng từ, mã giao dịch và thời gian nộp', async () => {
+      prisma.document.findUnique.mockResolvedValue(makeDoc(['pending', 'not_started']));
+      prisma.attachment.count.mockResolvedValue(0);
+      await expect(
+        service.approveStep(11, 1, siteLead, {
+          paymentReference: 'FT1',
+          paymentPaidAt: '2026-10-27T03:00:00.000Z',
+        }),
+      ).rejects.toThrow('chứng từ nộp tiền');
+
+      prisma.attachment.count.mockResolvedValue(2);
+      await expect(
+        service.approveStep(11, 1, siteLead, {}),
+      ).rejects.toThrow('mã giao dịch');
+    });
+
+    it('site nộp tiền xong thì chuyển cho kế toán và lưu thông tin nộp', async () => {
+      prisma.document.findUnique.mockResolvedValue(makeDoc(['pending', 'not_started']));
+      prisma.attachment.count.mockResolvedValue(1);
+      const result: any = await service.approveStep(11, 1, siteLead, {
+        paymentReference: 'FT1',
+        paymentPaidAt: '2026-10-27T03:00:00.000Z',
+        remittedAmount: 9000000,
+      });
+      expect(result.dataJson.remittance).toMatchObject({
+        amount: 9000000,
+        reference: 'FT1',
+        submittedById: 30,
+      });
+      expect(result.status).toBe('Chờ duyệt');
+    });
+
+    it('chỉ Kế toán / IT lập được đề nghị thu', async () => {
+      await expect(
+        service.createCollectionRequest(
+          { id: 3, roles: ['employee'] },
+          {
+            title: 'x',
+            projectId: 5,
+            period: '09/2026',
+            amount: 1000,
+            bankAccountId: 1,
+            deadline: '2026-11-05',
+          } as any,
+        ),
+      ).rejects.toThrow('Chỉ Kế toán');
+    });
+  });
+
   describe('CEO direct approval', () => {
     it('should let CEO approve every remaining step and complete the document', async () => {
       prisma.document.findUnique.mockResolvedValue({

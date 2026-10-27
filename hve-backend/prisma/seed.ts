@@ -245,6 +245,25 @@ async function main() {
     });
   }
 
+  // 5. collection_request: (Kế toán lập) -> Trưởng dự án nộp tiền -> Kế toán xác nhận đã thu
+  const existingWfCollection = await prisma.workflowTemplate.findUnique({
+    where: { type: 'collection_request' },
+  });
+  if (!existingWfCollection) {
+    await prisma.workflowTemplate.create({
+      data: {
+        type: 'collection_request',
+        name: 'Quy trình Đề nghị thu',
+        steps: {
+          create: [
+            { stepOrder: 1, roleRequired: 'department_head' },
+            { stepOrder: 2, roleRequired: 'accountant' },
+          ],
+        },
+      },
+    });
+  }
+
   // Dự án thật của công ty (thay cho việc phân quyền theo Phòng ban) —
   // idempotent theo "code", chạy lại không tạo trùng.
   const projectsToSeed = [
