@@ -189,6 +189,92 @@ export class ProjectsService {
     return result;
   }
 
+  /** Dữ liệu đang gắn với dự án — dùng để cảnh báo khi hoàn thành / xóa. */
+  async getUsage(id: number) {
+    const project = await this.prisma.project.findUnique({ where: { id } });
+    if (!project) throw new NotFoundException('Không tìm thấy dự án');
+    const [documents, pendingDocuments, tasks, openTasks, reports, announcements] =
+      await Promise.all([
+        this.prisma.document.count({ where: { projectId: id } }),
+        this.prisma.document.count({ where: { projectId: id, status: 'Chờ duyệt' } }),
+        this.prisma.task.count({ where: { projectId: id } }),
+        this.prisma.task.count({ where: { projectId: id, status: { not: 'Hoàn thành' } } }),
+        this.prisma.projectReport.count({ where: { projectId: id } }),
+        this.prisma.announcement.count({ where: { projectId: id } }),
+      ]);
+    return {
+      documents,
+      pendingDocuments,
+      tasks,
+      openTasks,
+      reports,
+      announcements,
+      canDelete: documents + tasks + reports + announcements === 0,
+    };
+  }
+
+  /** Đánh dấu hoàn thành / lưu trữ (isActive=false) hoặc kích hoạt lại dự án. */
+  async setActive(id: number, isActive: boolean, actorId: number, ip?: string) {
+    const existing = await this.prisma.project.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('Không tìm thấy dự án');
+    const updated = await this.prisma.project.update({
+      where: { id },
+      data: { isActive },
+      include: projectInclude,
+    });
+    if (existing.leadUserId) this.jwtStrategy.invalidateUser(existing.leadUserId);
+    await this.auditService.logEvent({
+      entityType: 'Project',
+      entityId: id,
+      action: isActive ? 'reactivate_project' : 'archive_project',
+      actorId,
+      beforeJson: { isActive: existing.isActive },
+      afterJson: { isActive },
+      ip,
+    });
+    return updated;
+  }
+
+  /**
+   * Chỉ xóa được dự án chưa có hồ sơ / công việc / báo cáo / thông báo nào.
+   * Dự án đã có dữ liệu phải lưu trữ (hoàn thành) để không làm mất liên kết
+   * và phân quyền của các hồ sơ cũ.
+   */
+  async remove(id: number, actorId: number, ip?: string) {
+    const existing = await this.prisma.project.findUnique({
+      where: { id },
+      include: { members: true },
+    });
+    if (!existing) throw new NotFoundException('Không tìm thấy dự án');
+    const usage = await this.getUsage(id);
+    if (!usage.canDelete) {
+      const parts = [
+        usage.documents && `${usage.documents} hồ sơ`,
+        usage.tasks && `${usage.tasks} công việc`,
+        usage.reports && `${usage.reports} báo cáo`,
+        usage.announcements && `${usage.announcements} thông báo`,
+      ].filter(Boolean);
+      throw new BadRequestException(
+        `Dự án đã có dữ liệu (${parts.join(', ')}) nên không thể xóa. Hãy chọn “Hoàn thành / lưu trữ” để ẩn dự án nhưng vẫn giữ lịch sử.`,
+      );
+    }
+    await this.prisma.$transaction(async (tx) => {
+      await this.syncProjectLeadRole(tx, id, existing.leadUserId, null);
+      await tx.project.delete({ where: { id } });
+    });
+    if (existing.leadUserId) this.jwtStrategy.invalidateUser(existing.leadUserId);
+    for (const member of existing.members) this.jwtStrategy.invalidateUser(member.userId);
+    await this.auditService.logEvent({
+      entityType: 'Project',
+      entityId: id,
+      action: 'delete_project',
+      actorId,
+      beforeJson: { code: existing.code, name: existing.name, leadUserId: existing.leadUserId },
+      ip,
+    });
+    return { success: true };
+  }
+
   async update(
     id: number,
     dto: UpdateProjectDto,

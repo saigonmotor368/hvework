@@ -90,6 +90,79 @@ export function AdminProjectsView({ apiBaseUrl, showToast }: Props) {
     }
   };
 
+  const authHeaders = () => ({
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${localStorage.getItem("access_token") || ""}`,
+  });
+
+  const fetchUsage = async (projectId: number) => {
+    const res = await fetchWithSession(`${apiBaseUrl}/projects/${projectId}/usage`, { headers: authHeaders() });
+    return res.ok ? res.json() : null;
+  };
+
+  const setActive = async (project: ProjectItem, isActive: boolean) => {
+    if (isActive) {
+      if (!window.confirm(`Kích hoạt lại dự án “${project.name}”?`)) return;
+    } else {
+      const usage = await fetchUsage(project.id);
+      const warning = usage
+        ? `\n\nHiện còn ${usage.openTasks} công việc đang mở và ${usage.pendingDocuments} hồ sơ chờ duyệt.`
+        : "";
+      if (
+        !window.confirm(
+          `Đánh dấu dự án “${project.name}” đã hoàn thành / lưu trữ?\nDự án sẽ không còn xuất hiện khi tạo hồ sơ hoặc giao việc mới, nhưng toàn bộ lịch sử vẫn được giữ.${warning}`,
+        )
+      ) {
+        return;
+      }
+    }
+    try {
+      const res = await fetchWithSession(`${apiBaseUrl}/projects/${project.id}/status`, {
+        method: "PATCH",
+        headers: authHeaders(),
+        body: JSON.stringify({ isActive }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.message || "Không cập nhật được trạng thái dự án");
+      showToast(isActive ? "Đã kích hoạt lại dự án." : "Đã đánh dấu dự án hoàn thành / lưu trữ.");
+      if (editingId === project.id) {
+        setEditingId(null);
+        setForm(emptyForm);
+      }
+      await load();
+    } catch (error: any) {
+      showToast(error.message, "error");
+    }
+  };
+
+  const removeProject = async (project: ProjectItem) => {
+    const usage = await fetchUsage(project.id);
+    if (usage && !usage.canDelete) {
+      showToast(
+        `Dự án đã có dữ liệu (${usage.documents} hồ sơ, ${usage.tasks} công việc, ${usage.reports} báo cáo) nên không thể xóa. Hãy chọn “Hoàn thành / lưu trữ”.`,
+        "error",
+      );
+      return;
+    }
+    if (!window.confirm(`Xóa vĩnh viễn dự án “${project.name}” (${project.code})? Thao tác này không hoàn tác được.`)) return;
+    try {
+      const res = await fetchWithSession(`${apiBaseUrl}/projects/${project.id}`, {
+        method: "DELETE",
+        headers: authHeaders(),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.message || "Không xóa được dự án");
+      showToast("Đã xóa dự án.");
+      if (editingId === project.id) {
+        setEditingId(null);
+        setForm(emptyForm);
+      }
+      await load();
+    } catch (error: any) {
+      showToast(error.message, "error");
+    }
+  };
+
   return (
     <div className="grid gap-5 xl:grid-cols-[1fr_24rem]">
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -101,10 +174,9 @@ export function AdminProjectsView({ apiBaseUrl, showToast }: Props) {
         </div>
         <div className="divide-y divide-slate-100">
           {projects.map((project) => (
-            <button
+            <div
               key={project.id}
-              onClick={() => edit(project)}
-              className="flex w-full items-start justify-between gap-3 px-5 py-4 text-left hover:bg-slate-50"
+              className={`flex w-full flex-col gap-3 px-5 py-4 text-left sm:flex-row sm:items-start sm:justify-between ${project.isActive ? "" : "bg-slate-50/70"} ${editingId === project.id ? "ring-2 ring-inset ring-blue-200" : ""}`}
             >
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
@@ -134,8 +206,8 @@ export function AdminProjectsView({ apiBaseUrl, showToast }: Props) {
                     );
                   })()}
                   {!project.isActive && (
-                    <span className="text-xs font-semibold text-rose-600">
-                      Ngừng hoạt động
+                    <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[11px] font-bold text-slate-600">
+                      ✅ Đã hoàn thành / lưu trữ
                     </span>
                   )}
                 </div>
@@ -148,8 +220,33 @@ export function AdminProjectsView({ apiBaseUrl, showToast }: Props) {
                   · {project.members?.length || 0} thành viên
                 </p>
               </div>
-              <span className="text-xs font-semibold text-blue-600">Sửa</span>
-            </button>
+              <div className="flex shrink-0 flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    edit(project);
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }}
+                  className="rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-bold text-[#0A66C2] hover:bg-blue-100"
+                >
+                  ✏️ Sửa
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void setActive(project, !project.isActive)}
+                  className="rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 hover:bg-emerald-100"
+                >
+                  {project.isActive ? "✅ Hoàn thành" : "↩ Kích hoạt lại"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void removeProject(project)}
+                  className="rounded-lg bg-rose-50 px-3 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-100"
+                >
+                  🗑 Xóa
+                </button>
+              </div>
+            </div>
           ))}
           {projects.length === 0 && (
             <p className="p-8 text-center text-sm text-slate-500">
@@ -264,7 +361,7 @@ export function AdminProjectsView({ apiBaseUrl, showToast }: Props) {
             checked={form.isActive}
             onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
           />{" "}
-          Dự án đang hoạt động
+          Dự án đang hoạt động (bỏ chọn khi dự án đã hoàn thành)
         </label>
         <button
           disabled={saving}

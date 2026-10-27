@@ -11,7 +11,12 @@ describe('ProjectsService', () => {
 
   beforeEach(async () => {
     prisma = {
+      document: { count: vi.fn().mockResolvedValue(0) },
+      task: { count: vi.fn().mockResolvedValue(0) },
+      projectReport: { count: vi.fn().mockResolvedValue(0) },
+      announcement: { count: vi.fn().mockResolvedValue(0) },
       project: {
+        delete: vi.fn(),
         findMany: vi.fn(),
         findUnique: vi.fn(),
         findFirst: vi.fn(),
@@ -182,5 +187,44 @@ describe('ProjectsService', () => {
     });
     expect(jwtStrategy.invalidateUser).toHaveBeenCalledWith(9);
     expect(jwtStrategy.invalidateUser).toHaveBeenCalledWith(10);
+  });
+  describe('hoàn thành / xóa dự án', () => {
+    it('lưu trữ rồi kích hoạt lại dự án', async () => {
+      prisma.project.findUnique.mockResolvedValue({ id: 3, leadUserId: 8, isActive: true });
+      prisma.project.update.mockResolvedValue({ id: 3, isActive: false });
+      await service.setActive(3, false, 1);
+      expect(prisma.project.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 3 }, data: { isActive: false } }),
+      );
+      expect(jwtStrategy.invalidateUser).toHaveBeenCalledWith(8);
+    });
+
+    it('xóa được dự án chưa có dữ liệu và gỡ vai trò Trưởng Ban nếu không còn dự án nào', async () => {
+      prisma.project.findUnique.mockResolvedValue({ id: 3, code: 'X', name: 'X', leadUserId: 8, members: [{ userId: 9 }] });
+      prisma.role.findUnique.mockResolvedValue({ id: 2 });
+      prisma.project.count.mockResolvedValue(0);
+      await service.remove(3, 1);
+      expect(prisma.project.delete).toHaveBeenCalledWith({ where: { id: 3 } });
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: 8 },
+        data: { roles: { disconnect: { id: 2 } } },
+      });
+    });
+
+    it('từ chối xóa dự án đã có hồ sơ / công việc', async () => {
+      prisma.project.findUnique.mockResolvedValue({ id: 3, code: 'X', name: 'X', leadUserId: null, members: [] });
+      prisma.document.count.mockResolvedValue(4);
+      prisma.task.count.mockResolvedValue(2);
+      await expect(service.remove(3, 1)).rejects.toThrow('4 hồ sơ, 2 công việc');
+      expect(prisma.project.delete).not.toHaveBeenCalled();
+    });
+
+    it('getUsage báo số việc đang mở và hồ sơ chờ duyệt', async () => {
+      prisma.project.findUnique.mockResolvedValue({ id: 3 });
+      prisma.document.count.mockResolvedValueOnce(5).mockResolvedValueOnce(2);
+      prisma.task.count.mockResolvedValueOnce(7).mockResolvedValueOnce(3);
+      const usage = await service.getUsage(3);
+      expect(usage).toMatchObject({ documents: 5, pendingDocuments: 2, tasks: 7, openTasks: 3, canDelete: false });
+    });
   });
 });
