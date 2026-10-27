@@ -199,6 +199,7 @@ export class DocumentsService {
   private async activateNextEligibleStep(
     tx: any,
     doc: {
+      type?: string;
       projectId: number | null;
       linkedProjectIds: unknown;
       createdBy?: {
@@ -244,7 +245,16 @@ export class DocumentsService {
         const creatorRoles = (doc.createdBy?.roles || []).map((role) =>
           typeof role === 'string' ? role : role.name,
         );
-        if (creatorRoles.includes('department_head')) {
+        // Đề nghị thu: bước này là của Trưởng site nộp tiền, người lập là Kế toán
+        // nên không được bỏ qua dù người lập kiêm Trưởng dự án; và site chưa có
+        // Trưởng dự án thì phải chặn, không được nhảy thẳng sang Kế toán.
+        if (doc.type === 'collection_request') {
+          if (!(await this.hasEligibleDepartmentHeadApprover(doc))) {
+            throw new BadRequestException(
+              'Site này chưa có Trưởng dự án để xác nhận nộp tiền. Vui lòng gán Trưởng dự án trong Quản lý dự án rồi gửi lại.',
+            );
+          }
+        } else if (creatorRoles.includes('department_head')) {
           await tx.documentApprovalStep.update({
             where: { id: step.id },
             data: {
@@ -257,7 +267,9 @@ export class DocumentsService {
           order += 1;
           continue;
         }
-        const eligible = await this.hasEligibleDepartmentHeadApprover(doc);
+        const eligible =
+          doc.type === 'collection_request' ||
+          (await this.hasEligibleDepartmentHeadApprover(doc));
         if (!eligible) {
           await tx.documentApprovalStep.update({
             where: { id: step.id },
@@ -1805,7 +1817,9 @@ export class DocumentsService {
     // Người tạo không được tự phê duyệt nội dung hồ sơ. Riêng bước Kế toán
     // cuối của ĐNTT chỉ là ghi nhận nghiệp vụ chi tiền sau khi CEO đã duyệt,
     // nên Kế toán tạo hồ sơ vẫn phải được phép tải chứng từ và hoàn tất chi.
-    if (doc.createdById === user.id && !isFinalAccountantStep) {
+    const isCollectionSiteStep =
+      doc.type === 'collection_request' && step.roleRequired === 'department_head';
+    if (doc.createdById === user.id && !isFinalAccountantStep && !isCollectionSiteStep) {
       throw new ForbiddenException(
         'Quy định kiểm soát nội bộ: Người tạo hồ sơ không được phép tự phê duyệt hồ sơ của chính mình',
       );
