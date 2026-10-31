@@ -425,6 +425,24 @@ export const CollectionRequestView: React.FC<Props> = ({
                 >
                   {isProcessing ? "Đang xử lý..." : "✓ Xác nhận đã nộp tiền"}
                 </button>
+                {(() => {
+                  const missing = [
+                    siteProofs.length === 0 && "chứng từ nộp tiền (chọn tệp rồi bấm “Tải lên”)",
+                    !reference.trim() && "mã giao dịch",
+                    !paidAt && "thời gian nộp",
+                    !(Number(remitted) > 0) && "số tiền đã nộp",
+                  ].filter(Boolean);
+                  return (
+                    <>
+                      {missing.length > 0 && (
+                        <p className="w-full text-[11px] font-bold text-rose-600">Cần nhập: {missing.join(", ")}.</p>
+                      )}
+                      {proofFile && (
+                        <p className="w-full text-[11px] font-bold text-amber-700">Bạn đã chọn tệp “{proofFile.name}” nhưng chưa bấm “Tải lên”.</p>
+                      )}
+                    </>
+                  );
+                })()}
                 <button type="button" disabled={isProcessing} onClick={() => onOpenModalAction("return", siteStep.id, document.id)} className="rounded-xl bg-orange-500 px-4 py-2.5 text-xs font-bold text-white disabled:opacity-50">
                   Trả lại kế toán (sai số liệu)
                 </button>
