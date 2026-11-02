@@ -313,7 +313,7 @@ describe('DocumentsService', () => {
   describe('attachViewers', () => {
     const doc = { id: 7, code: 'DNT-1' };
 
-    it('ghi nhận lần xem đầu tiên và trả về trạng thái theo dõi của BGĐ', async () => {
+    it('ghi nhận lần xem đầu tiên và trả về danh sách người đã xem', async () => {
       prisma.documentView.findUnique.mockResolvedValue(null);
       prisma.documentView.findMany.mockResolvedValue([
         {
@@ -321,12 +321,8 @@ describe('DocumentsService', () => {
           firstViewedAt: new Date('2026-11-02T01:00:00Z'),
           lastViewedAt: new Date('2026-11-02T01:00:00Z'),
           viewCount: 1,
-          user: { id: 5, name: 'CEO A', roles: [{ name: 'ceo' }] },
+          user: { id: 5, name: 'CEO A', avatarUrl: null },
         },
-      ]);
-      prisma.user.findMany.mockResolvedValue([
-        { id: 5, name: 'CEO A' },
-        { id: 6, name: 'BGĐ B' },
       ]);
 
       const result: any = await service.attachViewers({ id: 5 }, doc);
@@ -334,10 +330,8 @@ describe('DocumentsService', () => {
       expect(prisma.documentView.create).toHaveBeenCalledWith({
         data: { documentId: 7, userId: 5 },
       });
-      expect(result.viewers).toHaveLength(1);
-      expect(result.boardViewers).toEqual([
-        expect.objectContaining({ userId: 5, seen: true }),
-        expect.objectContaining({ userId: 6, seen: false, lastViewedAt: null }),
+      expect(result.viewers).toEqual([
+        expect.objectContaining({ userId: 5, name: 'CEO A', viewCount: 1 }),
       ]);
     });
 

@@ -2556,9 +2556,8 @@ export class DocumentsService {
   }
 
   /**
-   * Ghi nhận người dùng vừa mở hồ sơ và trả về danh sách người đã xem,
-   * kèm tình trạng theo dõi của từng thành viên Ban Giám đốc. Lỗi ở đây
-   * không bao giờ làm hỏng việc đọc hồ sơ.
+   * Ghi nhận người dùng vừa mở hồ sơ và trả về danh sách người đã xem.
+   * Lỗi ở đây không bao giờ làm hỏng việc đọc hồ sơ.
    */
   async attachViewers(user: any, doc: any) {
     const REVISIT_MS = 30 * 60 * 1000;
@@ -2578,36 +2577,22 @@ export class DocumentsService {
         });
       }
 
-      const [views, boardMembers] = await Promise.all([
-        this.prisma.documentView.findMany({
-          where: { documentId: doc.id },
-          orderBy: { lastViewedAt: 'desc' },
-          include: {
-            user: { select: { id: true, name: true, roles: { select: { name: true } } } },
-          },
-        }),
-        this.prisma.user.findMany({
-          where: { status: 'active', roles: { some: { name: { in: ['ceo', 'bgd'] } } } },
-          select: { id: true, name: true },
-          orderBy: { name: 'asc' },
-        }),
-      ]);
-      const viewedByUser = new Map(views.map((v) => [v.userId, v]));
+      const views = await this.prisma.documentView.findMany({
+        where: { documentId: doc.id },
+        orderBy: { lastViewedAt: 'desc' },
+        include: {
+          user: { select: { id: true, name: true, avatarUrl: true } },
+        },
+      });
       return {
         ...doc,
         viewers: views.map((v) => ({
           userId: v.userId,
           name: v.user.name,
-          roles: v.user.roles.map((r) => r.name),
+          avatarUrl: v.user.avatarUrl,
           firstViewedAt: v.firstViewedAt,
           lastViewedAt: v.lastViewedAt,
           viewCount: v.viewCount,
-        })),
-        boardViewers: boardMembers.map((m) => ({
-          userId: m.id,
-          name: m.name,
-          seen: viewedByUser.has(m.id),
-          lastViewedAt: viewedByUser.get(m.id)?.lastViewedAt ?? null,
         })),
       };
     } catch {

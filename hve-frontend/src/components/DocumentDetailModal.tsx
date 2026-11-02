@@ -350,7 +350,7 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
           </div>
         )}
 
-        <DocumentViewersCard document={selectedDoc} currentUserId={user?.id} />
+        <DocumentViewersCard document={selectedDoc} currentUserId={user?.id} apiBaseUrl={apiBaseUrl} />
 
         {/* Luôn hiển thị để người xem biết rõ hồ sơ có/không có tài liệu. */}
         {!isPaymentLikeType(selectedDoc.type) && (

@@ -137,16 +137,10 @@ export interface DocumentItem {
   viewers?: Array<{
     userId: number;
     name: string;
-    roles: string[];
+    avatarUrl?: string | null;
     firstViewedAt: string;
     lastViewedAt: string;
     viewCount: number;
-  }>;
-  boardViewers?: Array<{
-    userId: number;
-    name: string;
-    seen: boolean;
-    lastViewedAt: string | null;
   }>;
 }
 
