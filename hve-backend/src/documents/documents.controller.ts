@@ -115,7 +115,8 @@ export class DocumentsController {
     @Param('id', ParseIntPipe) id: number,
     @Req() req: any,
   ) {
-    return this.documentsService.findById(req.user, id);
+    const doc = await this.documentsService.findById(req.user, id);
+    return this.documentsService.attachViewers(req.user, doc);
   }
 
   @Put(':id')

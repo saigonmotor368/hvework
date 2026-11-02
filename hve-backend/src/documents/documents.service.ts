@@ -2555,6 +2555,66 @@ export class DocumentsService {
     });
   }
 
+  /**
+   * Ghi nhận người dùng vừa mở hồ sơ và trả về danh sách người đã xem,
+   * kèm tình trạng theo dõi của từng thành viên Ban Giám đốc. Lỗi ở đây
+   * không bao giờ làm hỏng việc đọc hồ sơ.
+   */
+  async attachViewers(user: any, doc: any) {
+    const REVISIT_MS = 30 * 60 * 1000;
+    try {
+      const now = new Date();
+      const existing = await this.prisma.documentView.findUnique({
+        where: { documentId_userId: { documentId: doc.id, userId: user.id } },
+      });
+      if (!existing) {
+        await this.prisma.documentView
+          .create({ data: { documentId: doc.id, userId: user.id } })
+          .catch(() => undefined); // mở đồng thời hai tab: dòng đã được tạo
+      } else if (now.getTime() - existing.lastViewedAt.getTime() > REVISIT_MS) {
+        await this.prisma.documentView.update({
+          where: { id: existing.id },
+          data: { lastViewedAt: now, viewCount: { increment: 1 } },
+        });
+      }
+
+      const [views, boardMembers] = await Promise.all([
+        this.prisma.documentView.findMany({
+          where: { documentId: doc.id },
+          orderBy: { lastViewedAt: 'desc' },
+          include: {
+            user: { select: { id: true, name: true, roles: { select: { name: true } } } },
+          },
+        }),
+        this.prisma.user.findMany({
+          where: { status: 'active', roles: { some: { name: { in: ['ceo', 'bgd'] } } } },
+          select: { id: true, name: true },
+          orderBy: { name: 'asc' },
+        }),
+      ]);
+      const viewedByUser = new Map(views.map((v) => [v.userId, v]));
+      return {
+        ...doc,
+        viewers: views.map((v) => ({
+          userId: v.userId,
+          name: v.user.name,
+          roles: v.user.roles.map((r) => r.name),
+          firstViewedAt: v.firstViewedAt,
+          lastViewedAt: v.lastViewedAt,
+          viewCount: v.viewCount,
+        })),
+        boardViewers: boardMembers.map((m) => ({
+          userId: m.id,
+          name: m.name,
+          seen: viewedByUser.has(m.id),
+          lastViewedAt: viewedByUser.get(m.id)?.lastViewedAt ?? null,
+        })),
+      };
+    } catch {
+      return doc;
+    }
+  }
+
   async getExpiringContracts(user: any, offsetDays: number = 30) {
     const contracts = await this.findAll(user, { type: 'contract' });
     return contracts.filter((c: any) => {

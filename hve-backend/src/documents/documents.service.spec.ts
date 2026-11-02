@@ -51,6 +51,12 @@ describe('DocumentsService', () => {
       project: {
         findMany: vi.fn(),
       },
+      documentView: {
+        findUnique: vi.fn(),
+        findMany: vi.fn().mockResolvedValue([]),
+        create: vi.fn().mockResolvedValue({}),
+        update: vi.fn(),
+      },
       $transaction: vi.fn(async (cb: any) => cb(prisma)),
     };
 
@@ -301,6 +307,65 @@ describe('DocumentsService', () => {
       ).rejects.toThrow('đã được xác nhận chi');
       const cleared: any = await service.clearPayrollItemPayment(accountant, 9, 0);
       expect(cleared.dataJson.payrollItems[0].payment).toBeUndefined();
+    });
+  });
+
+  describe('attachViewers', () => {
+    const doc = { id: 7, code: 'DNT-1' };
+
+    it('ghi nhận lần xem đầu tiên và trả về trạng thái theo dõi của BGĐ', async () => {
+      prisma.documentView.findUnique.mockResolvedValue(null);
+      prisma.documentView.findMany.mockResolvedValue([
+        {
+          userId: 5,
+          firstViewedAt: new Date('2026-11-02T01:00:00Z'),
+          lastViewedAt: new Date('2026-11-02T01:00:00Z'),
+          viewCount: 1,
+          user: { id: 5, name: 'CEO A', roles: [{ name: 'ceo' }] },
+        },
+      ]);
+      prisma.user.findMany.mockResolvedValue([
+        { id: 5, name: 'CEO A' },
+        { id: 6, name: 'BGĐ B' },
+      ]);
+
+      const result: any = await service.attachViewers({ id: 5 }, doc);
+
+      expect(prisma.documentView.create).toHaveBeenCalledWith({
+        data: { documentId: 7, userId: 5 },
+      });
+      expect(result.viewers).toHaveLength(1);
+      expect(result.boardViewers).toEqual([
+        expect.objectContaining({ userId: 5, seen: true }),
+        expect.objectContaining({ userId: 6, seen: false, lastViewedAt: null }),
+      ]);
+    });
+
+    it('không tăng lượt xem khi làm mới trang trong thời gian ngắn', async () => {
+      prisma.documentView.findUnique.mockResolvedValue({
+        id: 1,
+        lastViewedAt: new Date(),
+      });
+      await service.attachViewers({ id: 5 }, doc);
+      expect(prisma.documentView.update).not.toHaveBeenCalled();
+      expect(prisma.documentView.create).not.toHaveBeenCalled();
+    });
+
+    it('tăng lượt xem khi quay lại sau hơn 30 phút', async () => {
+      prisma.documentView.findUnique.mockResolvedValue({
+        id: 1,
+        lastViewedAt: new Date(Date.now() - 31 * 60 * 1000),
+      });
+      await service.attachViewers({ id: 5 }, doc);
+      expect(prisma.documentView.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ viewCount: { increment: 1 } }) }),
+      );
+    });
+
+    it('lỗi khi ghi nhận lượt xem không làm hỏng việc đọc hồ sơ', async () => {
+      prisma.documentView.findUnique.mockRejectedValue(new Error('db down'));
+      const result = await service.attachViewers({ id: 5 }, doc);
+      expect(result).toBe(doc);
     });
   });
 

@@ -10,6 +10,7 @@ import { authenticatedFileUrl, fetchWithSession, fileLinkClickHandler } from "..
 import { UserNameButton } from "./UserNameButton";
 import { PaymentRequestAuditView } from "./PaymentRequestAuditView";
 import { CollectionRequestView } from "./CollectionRequestView";
+import { DocumentViewersCard } from "./DocumentViewersCard";
 import { isPaymentLikeType } from "../utils/documentTypes";
 import type { PaymentSettlementInput } from "./PaymentRequestAuditView";
 import { matchesDepartmentHeadScope } from "../utils/documentApproval";
@@ -348,6 +349,8 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
             </div>
           </div>
         )}
+
+        <DocumentViewersCard document={selectedDoc} currentUserId={user?.id} />
 
         {/* Luôn hiển thị để người xem biết rõ hồ sơ có/không có tài liệu. */}
         {!isPaymentLikeType(selectedDoc.type) && (

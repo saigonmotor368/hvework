@@ -134,6 +134,20 @@ export interface DocumentItem {
       roles?: Array<{ name: string }>;
     } | null;
   }>;
+  viewers?: Array<{
+    userId: number;
+    name: string;
+    roles: string[];
+    firstViewedAt: string;
+    lastViewedAt: string;
+    viewCount: number;
+  }>;
+  boardViewers?: Array<{
+    userId: number;
+    name: string;
+    seen: boolean;
+    lastViewedAt: string | null;
+  }>;
 }
 
 export interface CompanyAccount {

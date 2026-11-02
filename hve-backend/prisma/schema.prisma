@@ -73,6 +73,7 @@ model User {
   // References for created documents/tasks
   createdDocuments       Document[]            @relation("DocumentCreator")
   targetedDocuments      Document[]            @relation("DocumentTarget")
+  documentViews          DocumentView[]
   assignedTasks          Task[]                @relation("AssignedTasks")
   createdTasks           Task[]                @relation("CreatedTasks")
   pushSubscriptions      PushSubscription[]
@@ -177,6 +178,7 @@ model Document {
   version Int @default(1)
 
   steps DocumentApprovalStep[]
+  views DocumentView[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -185,6 +187,22 @@ model Document {
   @@index([createdById, status])
   @@index([visibility, targetUserId])
   @@index([type, status])
+}
+
+// Ai đã xem hồ sơ: mỗi người một dòng, lưu lần xem đầu / gần nhất và số lượt
+// (chỉ tăng khi cách lần xem trước đủ lâu để không bị đếm khi làm mới trang).
+model DocumentView {
+  id            Int      @id @default(autoincrement())
+  documentId    Int
+  document      Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  userId        Int
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstViewedAt DateTime @default(now())
+  lastViewedAt  DateTime @default(now())
+  viewCount     Int      @default(1)
+
+  @@unique([documentId, userId])
+  @@index([userId])
 }
 
 model DocumentApprovalStep {
