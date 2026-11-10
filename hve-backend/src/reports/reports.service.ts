@@ -243,6 +243,7 @@ export class ReportsService {
             createdAt: d.createdAt,
             project: d.project?.name || 'Huy Võ Education',
             amount: d.type === 'payment_request' ? Number(data.amount) || 0 : undefined,
+            money: this.docMoney(d.type, data),
             receiver: d.type === 'payment_request' ? data.receiver || '' : undefined,
             approvedAt: d.status === 'Đã duyệt' ? approvedSteps[0]?.actedAt || null : null,
             ...(d.type === 'collection_request' ? { collection: this.mapCollection(d, now) } : {}),
@@ -469,17 +470,21 @@ export class ReportsService {
       csvContent = [headers.join(','), ...rows.map((r: any) => r.join(',')), totalRow.join(',')].join('\r\n');
     } else if (type === 'documents') {
       const summary = await this.getSummary(user, filter);
-      const headers = ['Mã hồ sơ', 'Tiêu đề', 'Loại hồ sơ', 'Trạng thái', 'Người tạo', 'Dự án', 'Ngày tạo'];
+      const headers = ['Mã hồ sơ', 'Tiêu đề', 'Loại hồ sơ', 'Số tiền (VNĐ)', 'Trạng thái', 'Người tạo', 'Dự án', 'Ngày tạo'];
       const rows = summary.documents.items.map((d: any) => [
         this.escapeCsv(d.code),
         this.escapeCsv(d.title),
         this.escapeCsv(this.mapDocType(d.type)),
+        d.money ?? '',
         this.escapeCsv(d.status),
         this.escapeCsv(d.creator),
         this.escapeCsv(d.project),
         this.escapeCsv(new Date(d.createdAt).toLocaleDateString('vi-VN')),
       ]);
-      csvContent = [headers.join(','), ...rows.map((r: any) => r.join(','))].join('\r\n');
+      const totalRows = this.moneyTotalsByType(summary.documents.items).map((t) =>
+        ['', '', this.escapeCsv(t.label), t.total, '', '', '', ''],
+      );
+      csvContent = [headers.join(','), ...rows.map((r: any) => r.join(',')), ...totalRows.map((r: any) => r.join(','))].join('\r\n');
     } else if (type === 'tasks') {
       const summary = await this.getSummary(user, filter);
       const headers = ['Mã công việc', 'Tiêu đề', 'Mức ưu tiên', 'Trạng thái', 'Tiến độ (%)', 'Người thực hiện', 'Dự án', 'Hạn hoàn thành', 'Quá hạn'];
@@ -536,6 +541,28 @@ export class ReportsService {
     if (field === null || field === undefined) return '""';
     const str = String(field).replace(/"/g, '""');
     return `"${str}"`;
+  }
+
+  /** Số tiền của một hồ sơ bất kỳ: hợp đồng lấy giá trị HĐ, các loại khác lấy dataJson.amount. */
+  private docMoney(type: string, data: any): number | null {
+    const raw = type === 'contract' ? data?.value : data?.amount;
+    if (raw === undefined || raw === null || raw === '') return null;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  /** Dòng tổng số tiền theo từng loại hồ sơ (không cộng lẫn thu với chi). */
+  private moneyTotalsByType(items: any[]): { label: string; total: number }[] {
+    const order = ['payment_request', 'payroll_request', 'collection_request', 'contract', 'proposal'];
+    const rank = (t: string) => (order.includes(t) ? order.indexOf(t) : order.length);
+    const map = new Map<string, number>();
+    for (const d of items) {
+      if (d.money === null || d.money === undefined) continue;
+      map.set(d.type, (map.get(d.type) || 0) + d.money);
+    }
+    return [...map.entries()]
+      .sort((a, b) => rank(a[0]) - rank(b[0]))
+      .map(([t, total]) => ({ label: `TỔNG ${this.mapDocType(t).toUpperCase()}`, total }));
   }
 
   private mapDocType(type: string): string {
@@ -723,7 +750,7 @@ export class ReportsService {
       this.autoFitColumns(sheet, headers, [14, 24, 10, 16, 12, 16, 16, 16, 22, 14, 18]);
     } else if (type === 'documents') {
       const summary = await this.getSummary(user, filter);
-      const headers = ['Mã hồ sơ', 'Tiêu đề', 'Loại hồ sơ', 'Trạng thái', 'Người tạo', 'Dự án', 'Ngày tạo'];
+      const headers = ['Mã hồ sơ', 'Tiêu đề', 'Loại hồ sơ', 'Số tiền (VNĐ)', 'Trạng thái', 'Người tạo', 'Dự án', 'Ngày tạo'];
       this.buildSheetHeader(sheet, this.reportTitle(type), headers.length);
       const headerRow = sheet.addRow(headers);
       this.styleHeaderRow(headerRow);
@@ -732,14 +759,23 @@ export class ReportsService {
           d.code,
           d.title,
           this.mapDocType(d.type),
+          d.money ?? '',
           d.status,
           d.creator,
           d.project,
           new Date(d.createdAt).toLocaleDateString('vi-VN'),
         ]);
+        row.getCell(4).numFmt = '#,##0';
         this.styleDataRow(row, idx % 2 === 0);
+        row.getCell(4).alignment = { vertical: 'middle', horizontal: 'right' };
       });
-      this.autoFitColumns(sheet, headers, [12, 30, 16, 14, 18, 22, 12]);
+      for (const t of this.moneyTotalsByType(summary.documents.items)) {
+        const totalRow = sheet.addRow(['', '', t.label, t.total, '', '', '', '']);
+        totalRow.getCell(4).numFmt = '#,##0';
+        this.styleDataRow(totalRow, false, true);
+        totalRow.getCell(4).alignment = { vertical: 'middle', horizontal: 'right' };
+      }
+      this.autoFitColumns(sheet, headers, [12, 30, 16, 16, 14, 18, 22, 12]);
     } else if (type === 'tasks') {
       const summary = await this.getSummary(user, filter);
       const headers = ['Mã công việc', 'Tiêu đề', 'Mức ưu tiên', 'Trạng thái', 'Tiến độ (%)', 'Người thực hiện', 'Dự án', 'Hạn hoàn thành', 'Quá hạn'];

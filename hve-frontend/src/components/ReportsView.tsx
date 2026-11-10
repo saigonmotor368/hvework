@@ -647,6 +647,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                         <th className="px-6 py-3">Mã hồ sơ</th>
                         <th className="px-6 py-3">Tiêu đề</th>
                         <th className="px-6 py-3">Phân loại</th>
+                        <th className="px-6 py-3 text-right">Số tiền</th>
                         <th className="px-6 py-3">Người tạo</th>
                         <th className="px-6 py-3">Dự án</th>
                         <th className="px-6 py-3">Ngày tạo</th>
@@ -676,6 +677,11 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                                   : d.type === "contract"
                                     ? "Hợp đồng"
                                     : "Đề xuất"}
+                          </td>
+                          <td className="px-6 py-3 text-right font-semibold text-gray-800 whitespace-nowrap">
+                            {d.money == null
+                              ? "—"
+                              : `${Number(d.money).toLocaleString("vi-VN")} đ`}
                           </td>
                           <td className="px-6 py-3 text-gray-700">
                             {typeof d.creator === "object"

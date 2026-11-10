@@ -99,11 +99,12 @@ export const ReportPrintSheet: React.FC<ReportPrintSheetProps> = ({
           <table className="report-print-table">
             <thead>
               <tr>
-                <th style={{ width: "13%" }}>Mã hồ sơ</th>
-                <th style={{ width: "27%" }}>Tiêu đề</th>
-                <th style={{ width: "13%" }}>Phân loại</th>
-                <th style={{ width: "16%" }}>Người tạo</th>
-                <th style={{ width: "16%" }}>Dự án</th>
+                <th style={{ width: "12%" }}>Mã hồ sơ</th>
+                <th style={{ width: "23%" }}>Tiêu đề</th>
+                <th style={{ width: "10%" }}>Phân loại</th>
+                <th style={{ width: "12%", textAlign: "right" }}>Số tiền</th>
+                <th style={{ width: "14%" }}>Người tạo</th>
+                <th style={{ width: "10%" }}>Dự án</th>
                 <th style={{ width: "9%" }}>Ngày tạo</th>
                 <th style={{ width: "10%" }}>Trạng thái</th>
               </tr>
@@ -114,6 +115,7 @@ export const ReportPrintSheet: React.FC<ReportPrintSheetProps> = ({
                   <td>{d.code}</td>
                   <td>{d.title}</td>
                   <td>{docTypeLabel(d.type)}</td>
+                  <td style={{ textAlign: "right" }}>{d.money == null ? "—" : fmtMoney(d.money)}</td>
                   <td>{typeof d.creator === "object" ? d.creator?.name : d.creator || "—"}</td>
                   <td>{d.project || "Huy Võ Education"}</td>
                   <td>{fmtDate(d.createdAt)}</td>
