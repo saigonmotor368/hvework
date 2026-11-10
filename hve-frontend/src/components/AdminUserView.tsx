@@ -135,7 +135,7 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
     {
       id: 6,
       name: "it_admin",
-      description: "Quản trị IT - Cấu hình hệ thống & Quản lý phân quyền",
+      description: "Quản trị - Vận hành: Cấu hình hệ thống & Quản lý phân quyền",
     },
     {
       id: 7,
@@ -1011,7 +1011,7 @@ export const AdminUserView: React.FC<AdminUserViewProps> = ({
             <span className="text-xl">⚠️</span>
             <div className="text-xs text-amber-900 leading-relaxed">
               <strong className="block font-bold mb-0.5">
-                Lưu ý quản trị IT:
+                Lưu ý Quản trị - Vận hành:
               </strong>
               Chức năng này cho phép dọn dẹp các công việc hoặc hồ sơ quy trình
               bị treo, bị kẹt phê duyệt, hoặc dữ liệu thử nghiệm thừa. Hành động

@@ -90,7 +90,7 @@ const GUIDE_TEMPLATE: Pick<
 
 7. HỖ TRỢ
 
-Nếu không đăng nhập được, không nhận mã xác thực hoặc thấy sai dữ liệu, hãy chụp màn hình lỗi và liên hệ Quản trị IT. Không gửi mật khẩu hoặc mã OTP qua tin nhắn.`,
+Nếu không đăng nhập được, không nhận mã xác thực hoặc thấy sai dữ liệu, hãy chụp màn hình lỗi và liên hệ Quản trị - Vận hành. Không gửi mật khẩu hoặc mã OTP qua tin nhắn.`,
 };
 
 function toInputDate(value?: string | null) {

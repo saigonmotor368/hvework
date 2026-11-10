@@ -242,7 +242,7 @@ export const ProjectReportsView: React.FC<Props> = ({
     if (
       !window.confirm(
         forceDelete
-          ? `Quản trị IT xóa cưỡng chế báo cáo “${report.title}” (${STATUS[report.status].label})? Hành động sẽ được ghi vào nhật ký và không thể hoàn tác.`
+          ? `Quản trị - Vận hành xóa cưỡng chế báo cáo “${report.title}” (${STATUS[report.status].label})? Hành động sẽ được ghi vào nhật ký và không thể hoàn tác.`
           : `Xóa báo cáo “${report.title}”? Thao tác này không thể hoàn tác.`,
       )
     )

@@ -394,7 +394,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 : "border-transparent text-gray-500 hover:text-gray-700"
             }`}
           >
-            🛡️ Nhật ký hệ thống (CEO / Quản trị IT)
+            🛡️ Nhật ký hệ thống (CEO / Quản trị - Vận hành)
           </button>
         )}
       </div>
@@ -954,7 +954,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 <span className="text-base">🛡️</span>
                 <div>
                   <strong>Phân quyền nghiêm ngặt:</strong> Nhật ký kiểm soát nội
-                  bộ chỉ mở cho Chủ tịch / CEO và Quản trị IT để tra cứu dấu vết
+                  bộ chỉ mở cho Chủ tịch / CEO và Quản trị - Vận hành để tra cứu dấu vết
                   thay đổi và bảo toàn tính toàn vẹn dữ liệu.
                 </div>
               </div>

@@ -157,7 +157,7 @@ describe('ProjectReportsService', () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
-  it('cho Quản trị IT xem toàn bộ và xóa cưỡng chế báo cáo bị treo', async () => {
+  it('cho Quản trị - Vận hành xem toàn bộ và xóa cưỡng chế báo cáo bị treo', async () => {
     prisma.projectReport.findMany.mockResolvedValue([]);
     await service.findAll({ id: 99, roles: ['it_admin'] }, {});
     expect(prisma.projectReport.findMany.mock.calls[0][0].where).toEqual({

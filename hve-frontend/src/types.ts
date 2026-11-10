@@ -326,7 +326,7 @@ export const ROLE_LABELS: Record<string, string> = {
   legal: "Pháp chế",
   hr: "Nhân sự",
   ceo: "CEO",
-  it_admin: "Quản trị IT",
+  it_admin: "Quản trị - Vận hành",
   bgd: "Ban Giám Đốc",
 };
 

@@ -22,7 +22,7 @@ export const AdminWorkflowView: React.FC<AdminWorkflowViewProps> = ({
     { value: 'legal', label: 'Pháp chế' },
     { value: 'hr', label: 'Nhân sự' },
     { value: 'ceo', label: 'CEO' },
-    { value: 'it_admin', label: 'Quản trị IT' },
+    { value: 'it_admin', label: 'Quản trị - Vận hành' },
     { value: 'employee', label: 'Nhân viên' },
   ];
 

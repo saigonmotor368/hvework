@@ -48,7 +48,7 @@ export class ProjectReportsService {
   }
 
   private visibleWhere(user: any) {
-    // Quản trị IT cần nhìn thấy cả bản nháp/bản bị treo để hỗ trợ vận hành.
+    // Quản trị - Vận hành cần nhìn thấy cả bản nháp/bản bị treo để hỗ trợ vận hành.
     // Quyền xem này không đồng nghĩa với quyền phê duyệt báo cáo.
     if (this.isItAdmin(user)) return {};
     if (this.isBoard(user)) {
@@ -353,7 +353,7 @@ export class ProjectReportsService {
       isAuthor && ['draft', 'submitted', 'rejected'].includes(report.status);
     if (!authorCanDelete && !isItAdmin) {
       throw new ForbiddenException(
-        'Chỉ người lập được xóa báo cáo chưa duyệt; Quản trị IT được xóa cưỡng chế khi cần hỗ trợ vận hành',
+        'Chỉ người lập được xóa báo cáo chưa duyệt; Quản trị - Vận hành được xóa cưỡng chế khi cần hỗ trợ vận hành',
       );
     }
     await this.prisma.$transaction([

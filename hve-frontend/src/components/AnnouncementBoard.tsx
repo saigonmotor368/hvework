@@ -427,7 +427,7 @@ export function AnnouncementBoard({ apiBaseUrl }: Props) {
                   Đăng bởi{" "}
                   <UserNameButton
                     user={selected.createdBy}
-                    fallback="Quản trị IT"
+                    fallback="Quản trị - Vận hành"
                   />{" "}
                   · {formatDate(selected.publishedAt, true)}
                 </p>

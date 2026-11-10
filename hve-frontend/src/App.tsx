@@ -1549,9 +1549,9 @@ export default function App() {
                   ? `Chỉnh sửa hồ sơ ${editingDocument.code}`
                   : "Khởi tạo hồ sơ phê duyệt mới")}
               {activeTab === "admin_workflows" &&
-                "Cấu hình quy trình (Quản trị IT)"}
+                "Cấu hình quy trình (Quản trị - Vận hành)"}
               {activeTab === "admin_users" &&
-                "Quản lý người dùng (Quản trị IT)"}
+                "Quản lý người dùng (Quản trị - Vận hành)"}
               {activeTab === "admin_projects" && "Quản lý dự án"}
               {activeTab === "admin_company_accounts" && "Tài khoản nhận tiền của công ty"}
             </h2>

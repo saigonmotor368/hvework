@@ -746,7 +746,7 @@ export class DocumentsService {
     const roles = getRoleNames(user);
     if (!roles.some((r) => ['accountant', 'it_admin'].includes(r))) {
       throw new ForbiddenException(
-        'Chỉ Kế toán (hoặc Quản trị IT) mới được lập Đề nghị thu',
+        'Chỉ Kế toán (hoặc Quản trị - Vận hành) mới được lập Đề nghị thu',
       );
     }
     const project = await this.prisma.project.findFirst({
@@ -829,7 +829,7 @@ export class DocumentsService {
   async createCollectionFollowUp(user: any, documentId: number, ip?: string) {
     const roles = getRoleNames(user);
     if (!roles.some((r) => ['accountant', 'it_admin'].includes(r))) {
-      throw new ForbiddenException('Chỉ Kế toán (hoặc Quản trị IT) mới được lập Đề nghị thu');
+      throw new ForbiddenException('Chỉ Kế toán (hoặc Quản trị - Vận hành) mới được lập Đề nghị thu');
     }
     const parent = await this.prisma.document.findUnique({ where: { id: documentId } });
     if (!parent || parent.type !== 'collection_request') {
@@ -1675,7 +1675,7 @@ export class DocumentsService {
 
     if (!workflowTemplate || workflowTemplate.steps.length === 0) {
       throw new BadRequestException(
-        'Chưa cấu hình quy trình duyệt cho loại hồ sơ này. Vui lòng liên hệ quản trị IT.',
+        'Chưa cấu hình quy trình duyệt cho loại hồ sơ này. Vui lòng liên hệ Quản trị - Vận hành.',
       );
     }
 

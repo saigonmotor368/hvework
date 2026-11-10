@@ -19,7 +19,7 @@ import {
   UpdateCompanyAccountDto,
 } from './dto/company-account.dto.js';
 
-// Danh sách tài khoản nhận tiền của công ty: Kế toán và Quản trị IT quản lý;
+// Danh sách tài khoản nhận tiền của công ty: Kế toán và Quản trị - Vận hành quản lý;
 // CEO / Ban Giám Đốc chỉ xem. Site xem thông tin tài khoản qua chính hồ sơ Đề nghị thu.
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('company-accounts')

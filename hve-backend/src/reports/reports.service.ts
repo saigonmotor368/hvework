@@ -382,7 +382,7 @@ export class ReportsService {
 
   async getAuditLogs(user: any, filter: { startDate?: string; endDate?: string; entityType?: string; limit?: number }) {
     if (!this.isCeoOrAdmin(user)) {
-      throw new ForbiddenException('Chỉ CEO và Quản trị IT mới có quyền xem và truy xuất Nhật ký hệ thống.');
+      throw new ForbiddenException('Chỉ CEO và Quản trị - Vận hành mới có quyền xem và truy xuất Nhật ký hệ thống.');
     }
 
     const where: any = {};
@@ -427,7 +427,7 @@ export class ReportsService {
     const type = this.resolveExportKind(reportType, filter);
 
     if (type === 'audit_logs' && !this.isCeoOrAdmin(user)) {
-      throw new ForbiddenException('Chỉ CEO và Quản trị IT mới có quyền xuất Nhật ký hệ thống.');
+      throw new ForbiddenException('Chỉ CEO và Quản trị - Vận hành mới có quyền xuất Nhật ký hệ thống.');
     }
 
     if (type === 'contracts' && isEmployeeOnly) {
@@ -689,7 +689,7 @@ export class ReportsService {
     const type = this.resolveExportKind(reportType, filter);
 
     if (type === 'audit_logs' && !this.isCeoOrAdmin(user)) {
-      throw new ForbiddenException('Chỉ CEO và Quản trị IT mới có quyền xuất Nhật ký hệ thống.');
+      throw new ForbiddenException('Chỉ CEO và Quản trị - Vận hành mới có quyền xuất Nhật ký hệ thống.');
     }
     if (type === 'contracts' && isEmployeeOnly) {
       throw new ForbiddenException('Nhân viên không có quyền truy xuất danh mục hợp đồng của công ty.');
