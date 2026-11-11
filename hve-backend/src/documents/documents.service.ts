@@ -301,6 +301,9 @@ export class DocumentsService {
         code: {
           startsWith: codePrefix,
         },
+        // Bản sửa đổi (…-v2) dùng chung số thứ tự với hồ sơ gốc: bỏ ra khỏi
+        // phép tìm số lớn nhất, nếu không mã có hậu tố làm hỏng việc đọc số.
+        NOT: { code: { contains: '-v' } },
       },
       orderBy: {
         code: 'desc',

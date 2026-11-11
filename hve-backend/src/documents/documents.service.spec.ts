@@ -89,6 +89,17 @@ describe('DocumentsService', () => {
   });
 
   describe('generateDocumentCode', () => {
+    it('loại mã bản sửa đổi (-vN) khỏi phép tìm số thứ tự lớn nhất', async () => {
+      prisma.document.findFirst.mockResolvedValue({ code: 'DX-2026-005' });
+      const code = await service.generateDocumentCode('DX');
+      expect(code).toBe(`DX-${new Date().getFullYear()}-006`);
+      expect(prisma.document.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ NOT: { code: { contains: '-v' } } }),
+        }),
+      );
+    });
+
     it('should generate DNTT-YYYY-001 when no existing document exists', async () => {
       prisma.document.findFirst.mockResolvedValue(null);
       const year = new Date().getFullYear();
