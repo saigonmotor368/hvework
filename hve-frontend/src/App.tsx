@@ -4,7 +4,6 @@ import {
   type ApprovalStep,
   type ProjectItem,
   type TaskItem,
-  ROLE_LABELS,
 } from "./types";
 
 import { Toast } from "./components/Toast";
@@ -1602,14 +1601,6 @@ export default function App() {
               <strong className="text-gray-800">
                 <UserNameButton user={user} />
               </strong>
-              <span className="hidden md:inline">
-                {" "}
-                (
-                {user?.roles
-                  ?.map((r: string) => ROLE_LABELS[r] || r)
-                  .join(", ")}
-                )
-              </span>
             </span>
           </div>
         </header>

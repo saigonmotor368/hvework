@@ -51,7 +51,7 @@ describe('PasskeyService', () => {
 
   describe('registerOptions', () => {
     it('từ chối khi sai mật khẩu', async () => {
-      await expect(service.registerOptions(1, 'sai')).rejects.toThrow(UnauthorizedException);
+      await expect(service.registerOptions(1, 'sai')).rejects.toThrow(BadRequestException);
     });
 
     it('chặn khi đã bật đủ số thiết bị tối đa', async () => {

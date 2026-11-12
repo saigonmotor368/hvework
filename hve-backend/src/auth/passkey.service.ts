@@ -97,7 +97,8 @@ export class PasskeyService {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new UnauthorizedException('Tài khoản không tồn tại');
     if (!(await bcrypt.compare(password || '', user.passwordHash))) {
-      throw new UnauthorizedException('Mật khẩu không chính xác');
+      // 400 (không phải 401) để nhập sai mật khẩu không bị hiểu là hết phiên đăng nhập.
+      throw new BadRequestException('Mật khẩu không chính xác');
     }
 
     const existing = await this.prisma.userPasskey.findMany({

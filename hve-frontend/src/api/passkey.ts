@@ -28,6 +28,14 @@ export function isPasskeyCancelled(error: unknown): boolean {
   return name === "NotAllowedError" || name === "AbortError";
 }
 
+/** fetchWithSession chỉ làm mới token đã có sẵn, nên phải gửi kèm Authorization. */
+function authHeaders(json = false): Record<string, string> {
+  return {
+    ...(json ? { "Content-Type": "application/json" } : {}),
+    Authorization: `Bearer ${localStorage.getItem("access_token") || ""}`,
+  };
+}
+
 async function readJson(response: Response) {
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {
@@ -62,7 +70,7 @@ export async function registerPasskey(
   const { challengeId, options } = await readJson(
     await fetchWithSession(`${apiBaseUrl}/auth/passkey/register/options`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: authHeaders(true),
       body: JSON.stringify({ password }),
     }),
   );
@@ -70,18 +78,18 @@ export async function registerPasskey(
   return readJson(
     await fetchWithSession(`${apiBaseUrl}/auth/passkey/register/verify`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: authHeaders(true),
       body: JSON.stringify({ challengeId, response: attestation, deviceLabel }),
     }),
   );
 }
 
 export async function listPasskeys(apiBaseUrl: string): Promise<PasskeyDevice[]> {
-  return readJson(await fetchWithSession(`${apiBaseUrl}/auth/passkeys`));
+  return readJson(await fetchWithSession(`${apiBaseUrl}/auth/passkeys`, { headers: authHeaders() }));
 }
 
 export async function removePasskey(apiBaseUrl: string, id: string) {
   return readJson(
-    await fetchWithSession(`${apiBaseUrl}/auth/passkeys/${id}`, { method: "DELETE" }),
+    await fetchWithSession(`${apiBaseUrl}/auth/passkeys/${id}`, { method: "DELETE", headers: authHeaders() }),
   );
 }

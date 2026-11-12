@@ -1,5 +1,4 @@
 import React from "react";
-import { ROLE_LABELS } from "../types.js";
 import { PwaInstallPrompt } from "./PwaInstallPrompt.js";
 import { UserNameButton } from "./UserNameButton.js";
 
@@ -283,17 +282,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             >
               Đăng xuất
             </button>
-          </div>
-
-          <div className="flex flex-wrap gap-1 mb-3">
-            {user?.roles?.map((r: string) => (
-              <span
-                key={r}
-                className="inline-block px-2 py-0.5 text-[10px] font-bold rounded-md bg-blue-100 text-[#0A66C2]"
-              >
-                {ROLE_LABELS[r] || r}
-              </span>
-            ))}
           </div>
 
           {onOpenPasskeySettings && (
