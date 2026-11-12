@@ -23,6 +23,8 @@ import { UserProfileModal } from "./components/UserProfileModal";
 import { UserNameButton } from "./components/UserNameButton";
 import { ApprovalPinModal } from "./components/ApprovalPinModal";
 import { SetApprovalPinModal } from "./components/SetApprovalPinModal";
+import { PasskeySettingsModal } from "./components/PasskeySettingsModal";
+import { isPasskeyCancelled, loginWithPasskey } from "./api/passkey";
 import { CreateTaskModal } from "./components/CreateTaskModal";
 import { TaskDetailModal } from "./components/TaskDetailModal";
 import { NotificationBell } from "./components/NotificationBell";
@@ -382,6 +384,7 @@ export default function App() {
     errorMessage: null,
   });
   const [isSetPinOpen, setIsSetPinOpen] = useState<boolean>(false);
+  const [isPasskeySettingsOpen, setIsPasskeySettingsOpen] = useState<boolean>(false);
   const [pinStatus, setPinStatus] = useState<{
     hasPin: boolean;
     enabled: boolean;
@@ -728,6 +731,31 @@ export default function App() {
       completeLogin(data);
     } catch (err: any) {
       showToast(err.message || "Không thể kết nối đến máy chủ", "error");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handlePasskeyLogin = async () => {
+    setAuthError("");
+    setIsProcessing(true);
+    try {
+      const data = await loginWithPasskey(API_BASE_URL);
+      if (data.requiresPasswordChange) {
+        setPasswordChangeRequest({
+          token: data.passwordChangeToken,
+          name: data.user?.name || "Người dùng HVE",
+          email: data.user?.email || "",
+        });
+        setEmailChallenge(null);
+        showToast(data.message || "Vui lòng đổi mật khẩu lần đầu.");
+        return;
+      }
+      completeLogin(data);
+    } catch (err: any) {
+      if (!isPasskeyCancelled(err)) {
+        showToast(err.message || "Không đăng nhập được bằng vân tay / khuôn mặt", "error");
+      }
     } finally {
       setIsProcessing(false);
     }
@@ -1466,6 +1494,7 @@ export default function App() {
           passwordChangeUser={passwordChangeRequest}
           onChangeInitialPassword={handleInitialPasswordChange}
           onVerifyEmail={handleVerifyEmail}
+          onPasskeyLogin={handlePasskeyLogin}
           onResendEmail={handleResendEmail}
           resendCooldown={resendCooldown}
           onCancelVerification={() => {
@@ -1508,6 +1537,7 @@ export default function App() {
         }}
         onLogout={handleLogout}
         onOpenSetPin={() => setIsSetPinOpen(true)}
+        onOpenPasskeySettings={() => setIsPasskeySettingsOpen(true)}
       />
 
       {/* Main Content Area */}
@@ -1922,6 +1952,14 @@ export default function App() {
             showToast={showToast}
           />
         </>
+      )}
+
+      {isPasskeySettingsOpen && (
+        <PasskeySettingsModal
+          apiBaseUrl={API_BASE_URL}
+          onClose={() => setIsPasskeySettingsOpen(false)}
+          showToast={showToast}
+        />
       )}
 
       {pinModal.isOpen && (

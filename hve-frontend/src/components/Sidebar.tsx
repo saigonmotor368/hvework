@@ -26,6 +26,7 @@ interface SidebarProps {
   onSelectTab: (tab: AppTab) => void;
   onLogout: () => void;
   onOpenSetPin?: () => void;
+  onOpenPasskeySettings?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -38,6 +39,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSelectTab,
   onLogout,
   onOpenSetPin,
+  onOpenPasskeySettings,
 }) => {
   const userRoleNames: string[] = user?.roles || [];
   const isAdmin =
@@ -293,6 +295,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </span>
             ))}
           </div>
+
+          {onOpenPasskeySettings && (
+            <button
+              onClick={onOpenPasskeySettings}
+              className="w-full flex items-center px-2 py-1.5 mb-3 rounded-lg text-[11px] font-semibold text-gray-600 hover:bg-white border border-slate-200 transition-all"
+            >
+              <span className="mr-2">🔐</span> Đăng nhập vân tay / khuôn mặt
+            </button>
+          )}
 
           {isCeo && onOpenSetPin && (
             <button

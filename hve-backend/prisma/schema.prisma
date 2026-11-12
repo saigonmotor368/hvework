@@ -74,6 +74,7 @@ model User {
   createdDocuments       Document[]            @relation("DocumentCreator")
   targetedDocuments      Document[]            @relation("DocumentTarget")
   documentViews          DocumentView[]
+  passkeys               UserPasskey[]
   assignedTasks          Task[]                @relation("AssignedTasks")
   createdTasks           Task[]                @relation("CreatedTasks")
   pushSubscriptions      PushSubscription[]
@@ -121,6 +122,35 @@ model UserAvatar {
   updatedAt DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Đăng nhập bằng vân tay / khuôn mặt (WebAuthn). Chỉ lưu khóa công khai.
+model UserPasskey {
+  id           String   @id @default(uuid())
+  userId       Int
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credentialId String   @unique
+  publicKey    String
+  counter      Int      @default(0)
+  transports   Json?
+  deviceLabel  String?
+  createdAt    DateTime @default(now())
+  lastUsedAt   DateTime @default(now())
+
+  @@index([userId])
+}
+
+// Thử thách dùng một lần cho đăng ký / đăng nhập passkey, hết hạn sau 5 phút.
+model PasskeyChallenge {
+  id        String   @id @default(uuid())
+  challenge String
+  purpose   String
+  userId    Int?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
+  @@index([userId, purpose])
 }
 
 model TrustedDevice {

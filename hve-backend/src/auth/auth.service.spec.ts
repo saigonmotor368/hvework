@@ -29,6 +29,7 @@ describe('AuthService', () => {
         update: vi.fn().mockResolvedValue({}),
         updateMany: vi.fn().mockResolvedValue({ count: 0 }),
       },
+      userPasskey: { deleteMany: vi.fn() },
       trustedDevice: {
         findUnique: vi.fn(),
         update: vi.fn(),

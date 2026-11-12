@@ -36,6 +36,7 @@ describe('AdminService', () => {
         updateMany: vi.fn().mockResolvedValue({ count: 0 }),
       },
       trustedDevice: { deleteMany: vi.fn() },
+      userPasskey: { deleteMany: vi.fn() },
       loginChallenge: { deleteMany: vi.fn() },
       $transaction: vi.fn(),
     };

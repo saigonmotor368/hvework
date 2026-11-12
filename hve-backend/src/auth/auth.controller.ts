@@ -7,8 +7,16 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  Delete,
+  Param,
 } from '@nestjs/common';
 import { AuthService } from './auth.service.js';
+import { PasskeyService } from './passkey.service.js';
+import {
+  PasskeyLoginVerifyDto,
+  PasskeyRegisterOptionsDto,
+  PasskeyRegisterVerifyDto,
+} from './dto/passkey.dto.js';
 import { LoginDto } from './dto/login.dto.js';
 import { RefreshTokenDto } from './dto/refresh-token.dto.js';
 import { ForgotPasswordDto } from './dto/forgot-password.dto.js';
@@ -25,7 +33,10 @@ import { Throttle } from '../common/throttle.decorator.js';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService) {}
+  constructor(
+    private authService: AuthService,
+    private passkeyService: PasskeyService,
+  ) {}
 
   @Throttle(5, 60000)
   @Post('login')
@@ -34,6 +45,48 @@ export class AuthController {
     const ip = request.ip;
     const device = request.headers['user-agent'];
     return this.authService.login(body, ip, device);
+  }
+
+  @Throttle(10, 60000)
+  @Post('passkey/login/options')
+  @HttpCode(HttpStatus.OK)
+  async passkeyLoginOptions() {
+    return this.passkeyService.loginOptions();
+  }
+
+  @Throttle(10, 60000)
+  @Post('passkey/login/verify')
+  @HttpCode(HttpStatus.OK)
+  async passkeyLoginVerify(@Body() body: PasskeyLoginVerifyDto, @Req() request: any) {
+    return this.passkeyService.loginVerify(body, request.ip, request.headers['user-agent']);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Throttle(5, 60000)
+  @Post('passkey/register/options')
+  @HttpCode(HttpStatus.OK)
+  async passkeyRegisterOptions(@Body() body: PasskeyRegisterOptionsDto, @Req() req: any) {
+    return this.passkeyService.registerOptions(req.user.id, body.password);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Throttle(5, 60000)
+  @Post('passkey/register/verify')
+  @HttpCode(HttpStatus.OK)
+  async passkeyRegisterVerify(@Body() body: PasskeyRegisterVerifyDto, @Req() req: any) {
+    return this.passkeyService.registerVerify(req.user.id, body, req.ip, req.headers['user-agent']);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('passkeys')
+  async listPasskeys(@Req() req: any) {
+    return this.passkeyService.list(req.user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete('passkeys/:id')
+  async removePasskey(@Param('id') id: string, @Req() req: any) {
+    return this.passkeyService.remove(req.user.id, id, req.ip);
   }
 
   @Throttle(5, 60000)

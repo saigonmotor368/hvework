@@ -517,6 +517,10 @@ export class AdminService {
     await this.prisma.loginChallenge.deleteMany({
       where: { userId: targetUserId },
     });
+    // Reset mật khẩu = thiết lập lại từ đầu: xóa luôn vân tay / khuôn mặt đã bật.
+    await this.prisma.userPasskey.deleteMany({
+      where: { userId: targetUserId },
+    });
 
     await this.auditService.logEvent({
       entityType: 'User',
@@ -567,6 +571,12 @@ export class AdminService {
         roles: true,
       },
     });
+
+    if (dto.status === 'locked') {
+      await this.prisma.userPasskey.deleteMany({
+        where: { userId: targetUserId },
+      });
+    }
 
     await this.auditService.logEvent({
       entityType: 'User',

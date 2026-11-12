@@ -134,6 +134,71 @@ export class AuthService {
     };
   }
 
+  private sessionUserInclude() {
+    return {
+      roles: true,
+      department: true,
+      ledProjects: true,
+      projectMemberships: { include: { project: true } },
+      delegatedFrom: {
+        where: { delegateUntil: { gte: new Date() }, status: 'active' },
+        include: {
+          roles: true,
+          department: true,
+          ledProjects: true,
+          projectMemberships: { include: { project: true } },
+        },
+      },
+    };
+  }
+
+  /**
+   * Hoàn tất đăng nhập sau khi passkey đã được xác minh (sinh trắc học +
+   * thiết bị đã đăng ký là đủ hai lớp, nên không cần mật khẩu / OTP email).
+   * Vẫn giữ các chốt: tài khoản khóa, khóa tạm, bắt buộc đổi mật khẩu lần đầu.
+   */
+  async completePasskeyLogin(userId: number, ip?: string, device?: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: this.sessionUserInclude(),
+    });
+    if (!user) {
+      throw new UnauthorizedException('Tài khoản không tồn tại');
+    }
+    if (user.status === 'locked') {
+      throw new UnauthorizedException(
+        'Tài khoản đã bị khoá. Vui lòng liên hệ quản trị viên.',
+      );
+    }
+    if (user.lockedUntil && user.lockedUntil > new Date()) {
+      throw new UnauthorizedException(
+        'Tài khoản đang tạm thời bị khoá. Vui lòng thử lại sau.',
+      );
+    }
+    if (user.mustChangePassword) {
+      return this.initialPasswordChangeResponse(user);
+    }
+
+    const { accessToken, refreshToken } = await this.issueSession(user);
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { failedLoginAttempts: 0, lockedUntil: null },
+    });
+    await this.auditService.logEvent({
+      entityType: 'User',
+      entityId: user.id,
+      action: 'login_passkey',
+      actorId: user.id,
+      ip,
+      device,
+    });
+    return {
+      access_token: accessToken,
+      refresh_token: refreshToken,
+      user: this.publicUser(user),
+    };
+  }
+
   async login(loginDto: LoginDto, ip?: string, device?: string) {
     const email = loginDto.email.trim().toLowerCase();
     const { password } = loginDto;
@@ -854,6 +919,7 @@ export class AuthService {
       where: { userId: user.id, revokedAt: null },
       data: { revokedAt: new Date() },
     });
+    await this.prisma.userPasskey.deleteMany({ where: { userId: user.id } });
 
     await this.auditService.logEvent({
       entityType: 'User',

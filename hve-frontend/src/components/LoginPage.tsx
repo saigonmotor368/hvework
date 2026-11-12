@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { isPasskeySupported } from "../api/passkey.js";
 import { PwaInstallPrompt } from "./PwaInstallPrompt.js";
 import { BrandLoader } from "./BrandLoader.js";
 
@@ -14,6 +15,7 @@ interface LoginPageProps {
   resendCooldown: number;
   onCancelVerification: () => void;
   onCancelPasswordChange: () => void;
+  onPasskeyLogin?: () => void;
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({
@@ -28,6 +30,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   resendCooldown,
   onCancelVerification,
   onCancelPasswordChange,
+  onPasskeyLogin,
 }) => {
   const [verificationInput, setVerificationInput] = useState<{
     email?: string;
@@ -35,6 +38,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   }>({ code: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
+  const [passkeyReady, setPasskeyReady] = useState(false);
+  useEffect(() => {
+    if (onPasskeyLogin) void isPasskeySupported().then(setPasskeyReady);
+  }, [onPasskeyLogin]);
   const verificationCode =
     verificationInput.email === verificationEmail ? verificationInput.code : "";
 
@@ -256,6 +263,22 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             </form>
           ) : (
             <form className="space-y-5" onSubmit={onLogin}>
+              {passkeyReady && onPasskeyLogin && (
+                <>
+                  <button
+                    type="button"
+                    onClick={onPasskeyLogin}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg border border-[#0A66C2] bg-blue-50 text-sm font-semibold text-[#0A66C2] hover:bg-blue-100 transition-colors"
+                  >
+                    <span aria-hidden>🔐</span> Đăng nhập bằng vân tay / khuôn mặt
+                  </button>
+                  <div className="flex items-center gap-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                    <span className="h-px flex-1 bg-gray-200" />
+                    hoặc dùng mật khẩu
+                    <span className="h-px flex-1 bg-gray-200" />
+                  </div>
+                </>
+              )}
               {authError && (
                 <div className="text-sm text-red-700 bg-red-50 p-3 rounded-lg border border-red-100">
                   {authError}

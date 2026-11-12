@@ -9,6 +9,7 @@ import { RolesGuard } from './roles.guard.js';
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { AuditModule } from '../audit/audit.module.js';
 import { LoginVerificationMailer } from './login-verification-mailer.service.js';
+import { PasskeyService } from './passkey.service.js';
 
 @Module({
   imports: [
@@ -30,7 +31,7 @@ import { LoginVerificationMailer } from './login-verification-mailer.service.js'
       },
     }),
   ],
-  providers: [AuthService, LoginVerificationMailer, JwtStrategy, JwtAuthGuard, RolesGuard],
+  providers: [AuthService, LoginVerificationMailer, PasskeyService, JwtStrategy, JwtAuthGuard, RolesGuard],
   controllers: [AuthController],
   exports: [AuthService, JwtStrategy, JwtAuthGuard, RolesGuard, PassportModule, JwtModule],
 })
