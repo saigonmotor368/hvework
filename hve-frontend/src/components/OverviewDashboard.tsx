@@ -142,47 +142,48 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
 
   return (
     <div className="min-w-0 space-y-5 md:space-y-8">
-      {/* Header with Role & Refresh Button */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200/60">
-        <div>
+      {/* Tiêu đề + làm mới */}
+      <div className="flex items-start justify-between gap-3 border-b border-slate-200/60 pb-3">
+        <div className="min-w-0">
           <h1 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">
             Tổng quan điều hành
           </h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            Phạm vi dữ liệu:{" "}
-            <strong className="text-gray-800">{scopeLabel}</strong>
-            {userRoles.length > 1 && (
-              <span className="ml-2 text-xs text-violet-700 bg-violet-50 px-2 py-0.5 rounded-full font-semibold">
-                Đã gộp {userRoles.length} vai trò
-              </span>
-            )}
-            {draftCount > 0 && (
-              <span className="ml-2 text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full font-semibold">
-                {draftCount} bản nháp cá nhân
-              </span>
-            )}
+          <p className="mt-1 text-xs sm:text-sm text-gray-500">
+            Phạm vi: <strong className="text-gray-800">{scopeLabel}</strong>
           </p>
+          {(userRoles.length > 1 || draftCount > 0) && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {userRoles.length > 1 && (
+                <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[11px] font-semibold text-violet-700">
+                  Đã gộp {userRoles.length} vai trò
+                </span>
+              )}
+              {draftCount > 0 && (
+                <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-600">
+                  {draftCount} bản nháp cá nhân
+                </span>
+              )}
+            </div>
+          )}
         </div>
-
-        <div className="flex w-full items-center sm:w-auto">
-          <button
-            onClick={() => fetchDashboard(true)}
-            disabled={isRefreshing}
-            className="inline-flex w-full sm:w-auto items-center justify-center px-3.5 py-2 text-xs font-semibold text-gray-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors shadow-sm disabled:opacity-50"
-          >
-            <span className={`mr-1.5 ${isRefreshing ? "animate-spin" : ""}`}>
-              🔄
-            </span>
+        <button
+          onClick={() => fetchDashboard(true)}
+          disabled={isRefreshing}
+          aria-label="Làm mới dữ liệu"
+          className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-gray-700 shadow-sm transition-colors hover:bg-slate-50 disabled:opacity-50"
+        >
+          <span className={isRefreshing ? "animate-spin" : ""}>🔄</span>
+          <span className="hidden sm:inline">
             {isRefreshing ? "Đang làm mới..." : "Làm mới dữ liệu"}
-          </button>
-        </div>
+          </span>
+        </button>
       </div>
 
       <AnnouncementBoard apiBaseUrl={apiBaseUrl} />
 
       {/* KHỐI 1: CẦN HÀNH ĐỘNG NGAY (ACTION REQUIRED) - ĐẶT TRÊN CÙNG */}
-      <section className="bg-gradient-to-br from-rose-50/70 via-amber-50/40 to-white rounded-2xl md:rounded-3xl p-4 md:p-6 border-2 border-rose-200/70 shadow-sm">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
+      <section className="bg-gradient-to-br from-rose-50/70 via-amber-50/40 to-white rounded-2xl md:rounded-3xl p-3 sm:p-4 md:p-6 border border-rose-200/80 md:border-2 shadow-sm">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-3 sm:mb-4">
           <div className="flex min-w-0 items-start sm:items-center space-x-2.5">
             <span className="flex h-3 w-3 relative">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
@@ -190,7 +191,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
             </span>
             <h2 className="text-sm sm:text-base font-extrabold text-gray-900 tracking-tight flex flex-wrap items-center gap-y-1">
               ⚠️ CẦN HÀNH ĐỘNG NGAY
-              <span className="ml-2 text-xs bg-rose-100 text-rose-700 px-2.5 py-0.5 rounded-full font-bold">
+              <span className="ml-2 hidden sm:inline text-xs bg-rose-100 text-rose-700 px-2.5 py-0.5 rounded-full font-bold">
                 Ưu tiên cao nhất
               </span>
             </h2>
@@ -203,9 +204,9 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
         {/* Action Items according to Role */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Action Box 1: Pending Documents for Approval */}
-          <div className="bg-white rounded-2xl p-4 border border-rose-100 shadow-sm">
+          <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 border border-rose-100 shadow-sm">
             <div className="flex flex-wrap items-start justify-between gap-2 pb-2 border-b border-slate-100">
-              <span className="text-xs font-bold text-gray-600 uppercase tracking-wider">
+              <span className="text-[11px] sm:text-xs font-bold text-gray-600 uppercase tracking-wide sm:tracking-wider leading-snug">
                 {pendingActionCount > 0
                   ? "Hồ sơ đang chờ bạn xử lý"
                   : "Hồ sơ của bạn cần bổ sung"}
@@ -215,7 +216,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
               </span>
             </div>
 
-            <div className="mt-3 divide-y divide-slate-100 max-h-48 overflow-y-auto">
+            <div className="mt-2 divide-y divide-slate-100">
               {(dashboardData?.actionRequired?.pendingDocuments?.length ||
                 0) === 0 &&
               (dashboardData?.actionRequired?.returnedDocuments?.length ||
@@ -234,25 +235,23 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                     <div
                       key={doc.id}
                       onClick={() => onSelectDoc(doc)}
-                      className="py-2 flex items-center justify-between hover:bg-slate-50 cursor-pointer px-2 rounded transition-colors"
+                      className="flex cursor-pointer items-start gap-2 rounded-lg px-1.5 py-2.5 transition-colors hover:bg-slate-50 active:bg-slate-100"
                     >
-                      <div>
-                        <div className="flex items-center space-x-2">
-                          <span className="text-xs font-bold text-[#0A66C2]">
-                            {doc.code}
-                          </span>
-                          <span className="text-xs font-semibold text-gray-800 truncate max-w-[180px]">
-                            {doc.title}
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-gray-400 mt-0.5">
+                      <div className="min-w-0 flex-1">
+                        <span className="inline-block whitespace-nowrap rounded bg-blue-50 px-1.5 py-0.5 text-[11px] font-bold text-[#0A66C2]">
+                          {doc.code}
+                        </span>
+                        <p className="mt-1 line-clamp-2 text-[13px] font-semibold leading-snug text-gray-800">
+                          {doc.title}
+                        </p>
+                        <p className="mt-0.5 truncate text-[11px] text-gray-400">
                           Người tạo:{" "}
                           <UserNameButton user={doc.createdBy} fallback="Tôi" />
                         </p>
                       </div>
-                      <button className="text-xs font-semibold text-[#0A66C2] hover:underline whitespace-nowrap ml-2">
-                        Xử lý →
-                      </button>
+                      <span className="mt-1 shrink-0 whitespace-nowrap text-xs font-semibold text-[#0A66C2]">
+                        Xử lý <span aria-hidden>›</span>
+                      </span>
                     </div>
                   ))
               )}
@@ -260,9 +259,9 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
           </div>
 
           {/* Action Box 2: Overdue / Escalated Tasks or Expiring Contracts */}
-          <div className="bg-white rounded-2xl p-4 border border-rose-100 shadow-sm">
+          <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 border border-rose-100 shadow-sm">
             <div className="flex flex-wrap items-start justify-between gap-2 pb-2 border-b border-slate-100">
-              <span className="text-xs font-bold text-gray-600 uppercase tracking-wider">
+              <span className="text-[11px] sm:text-xs font-bold text-gray-600 uppercase tracking-wide sm:tracking-wider leading-snug">
                 {capabilities.canViewCompany
                   ? "Việc quá hạn leo thang CEO (≥3 ngày)"
                   : capabilities.canViewDepartment
@@ -280,7 +279,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
               </span>
             </div>
 
-            <div className="mt-3 divide-y divide-slate-100 max-h-48 overflow-y-auto">
+            <div className="mt-2 divide-y divide-slate-100">
               {(() => {
                 const tasks =
                   (capabilities.canViewCompany &&
@@ -301,24 +300,22 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                   <div
                     key={t.id}
                     onClick={() => onSelectTask && onSelectTask(t.id)}
-                    className="py-2 flex items-center justify-between hover:bg-slate-50 cursor-pointer px-2 rounded transition-colors"
+                    className="flex cursor-pointer items-start gap-2 rounded-lg px-1.5 py-2.5 transition-colors hover:bg-slate-50 active:bg-slate-100"
                   >
-                    <div>
-                      <div className="flex items-center space-x-2">
-                        <span className="text-xs font-bold text-red-600">
-                          {t.code}
-                        </span>
-                        <span className="text-xs font-semibold text-gray-800 truncate max-w-[180px]">
-                          {t.title}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-gray-400 mt-0.5">
+                    <div className="min-w-0 flex-1">
+                      <span className="inline-block whitespace-nowrap rounded bg-rose-50 px-1.5 py-0.5 text-[11px] font-bold text-red-600">
+                        {t.code}
+                      </span>
+                      <p className="mt-1 line-clamp-2 text-[13px] font-semibold leading-snug text-gray-800">
+                        {t.title}
+                      </p>
+                      <p className="mt-0.5 truncate text-[11px] text-gray-400">
                         Phụ trách:{" "}
                         <UserNameButton user={t.assignee} fallback="N/A" />
                       </p>
                     </div>
-                    <span className="text-xs font-semibold text-red-600">
-                      Đôn đốc →
+                    <span className="mt-1 shrink-0 whitespace-nowrap text-xs font-semibold text-red-600">
+                      Đôn đốc <span aria-hidden>›</span>
                     </span>
                   </div>
                 ));
@@ -329,26 +326,26 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
       </section>
 
       {/* KHỐI 2: CÁC THẺ THỐNG KÊ CHÍNH (METRICS SUMMARY) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
         <button
           type="button"
           onClick={() => onOpenDocuments("Chờ duyệt")}
-          className="group bg-white rounded-2xl p-5 shadow-sm border border-slate-200 flex items-center justify-between text-left transition hover:-translate-y-0.5 hover:border-amber-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-amber-400"
+          className="group bg-white rounded-2xl p-3.5 sm:p-5 shadow-sm border border-slate-200 flex flex-col-reverse items-start gap-2 sm:flex-row sm:items-center sm:justify-between text-left transition hover:-translate-y-0.5 hover:border-amber-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-amber-400"
           aria-label="Xem hồ sơ chờ phê duyệt"
         >
           <div>
-            <span className="text-xs font-bold text-amber-700 uppercase tracking-wider">
+            <span className="block text-[10px] sm:text-xs font-bold text-amber-700 uppercase leading-tight tracking-wide sm:tracking-wider">
               Hồ sơ chờ phê duyệt
             </span>
-            <p className="mt-2 text-3xl font-extrabold text-amber-900">
+            <p className="mt-1 sm:mt-2 text-2xl sm:text-3xl font-extrabold text-amber-900">
               {dashboardData?.metrics?.documents?.pending ?? pendingCount}
             </p>
-            <p className="text-xs text-gray-400 mt-1">Cần hoàn tất đúng mốc</p>
-            <span className="mt-2 block text-[11px] font-bold text-amber-700 opacity-80 group-hover:opacity-100">
+            <p className="hidden sm:block text-xs text-gray-400 mt-1">Cần hoàn tất đúng mốc</p>
+            <span className="mt-2 hidden sm:block text-[11px] font-bold text-amber-700 opacity-80 group-hover:opacity-100">
               Xem chi tiết →
             </span>
           </div>
-          <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center text-2xl font-bold shadow-inner">
+          <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center text-lg sm:text-2xl font-bold shadow-inner">
             ⏳
           </div>
         </button>
@@ -356,22 +353,22 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
         <button
           type="button"
           onClick={() => onOpenDocuments("Đã duyệt")}
-          className="group bg-white rounded-2xl p-5 shadow-sm border border-slate-200 flex items-center justify-between text-left transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-emerald-400"
+          className="group bg-white rounded-2xl p-3.5 sm:p-5 shadow-sm border border-slate-200 flex flex-col-reverse items-start gap-2 sm:flex-row sm:items-center sm:justify-between text-left transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-emerald-400"
           aria-label="Xem hồ sơ đã thông qua"
         >
           <div>
-            <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider">
+            <span className="block text-[10px] sm:text-xs font-bold text-emerald-700 uppercase leading-tight tracking-wide sm:tracking-wider">
               Hồ sơ đã thông qua
             </span>
-            <p className="mt-2 text-3xl font-extrabold text-emerald-900">
+            <p className="mt-1 sm:mt-2 text-2xl sm:text-3xl font-extrabold text-emerald-900">
               {dashboardData?.metrics?.documents?.approved ?? approvedCount}
             </p>
-            <p className="text-xs text-gray-400 mt-1">Đã phê duyệt hoàn tất</p>
-            <span className="mt-2 block text-[11px] font-bold text-emerald-700 opacity-80 group-hover:opacity-100">
+            <p className="hidden sm:block text-xs text-gray-400 mt-1">Đã phê duyệt hoàn tất</p>
+            <span className="mt-2 hidden sm:block text-[11px] font-bold text-emerald-700 opacity-80 group-hover:opacity-100">
               Xem chi tiết →
             </span>
           </div>
-          <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-2xl font-bold shadow-inner">
+          <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-lg sm:text-2xl font-bold shadow-inner">
             ✓
           </div>
         </button>
@@ -383,31 +380,31 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
               tab: capabilities.canViewCompany ? "all" : "assigned_to_me",
             })
           }
-          className="group bg-white rounded-2xl p-5 shadow-sm border border-slate-200 flex items-center justify-between text-left transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-400"
+          className="group bg-white rounded-2xl p-3.5 sm:p-5 shadow-sm border border-slate-200 flex flex-col-reverse items-start gap-2 sm:flex-row sm:items-center sm:justify-between text-left transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-400"
           aria-label="Xem công việc chưa hoàn thành"
         >
           <div>
-            <span className="text-xs font-bold text-blue-700 uppercase tracking-wider">
+            <span className="block text-[10px] sm:text-xs font-bold text-blue-700 uppercase leading-tight tracking-wide sm:tracking-wider">
               {capabilities.canViewCompany
                 ? "Việc chưa hoàn thành"
                 : "Việc đang tham gia"}
             </span>
-            <p className="mt-2 text-3xl font-extrabold text-blue-900">
+            <p className="mt-1 sm:mt-2 text-2xl sm:text-3xl font-extrabold text-blue-900">
               {dashboardData?.metrics?.tasks?.active ??
                 dashboardData?.metrics?.tasks?.inProgress ??
                 dashboardData?.metrics?.departmentTasks?.inProgress ??
                 0}
             </p>
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="hidden sm:block text-xs text-gray-400 mt-1">
               {capabilities.canViewCompany
                 ? "Tổng số chưa hoàn tất toàn công ty"
                 : "Gồm việc được giao chính hoặc tham gia phối hợp"}
             </p>
-            <span className="mt-2 block text-[11px] font-bold text-blue-700 opacity-80 group-hover:opacity-100">
+            <span className="mt-2 hidden sm:block text-[11px] font-bold text-blue-700 opacity-80 group-hover:opacity-100">
               Xem chi tiết →
             </span>
           </div>
-          <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-2xl font-bold shadow-inner">
+          <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-lg sm:text-2xl font-bold shadow-inner">
             ⚙️
           </div>
         </button>
@@ -420,24 +417,24 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
               isOverdueOnly: true,
             })
           }
-          className="group bg-white rounded-2xl p-5 shadow-sm border border-slate-200 flex items-center justify-between text-left transition hover:-translate-y-0.5 hover:border-rose-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-rose-400"
+          className="group bg-white rounded-2xl p-3.5 sm:p-5 shadow-sm border border-slate-200 flex flex-col-reverse items-start gap-2 sm:flex-row sm:items-center sm:justify-between text-left transition hover:-translate-y-0.5 hover:border-rose-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-rose-400"
           aria-label="Xem công việc quá hạn"
         >
           <div>
-            <span className="text-xs font-bold text-rose-700 uppercase tracking-wider">
+            <span className="block text-[10px] sm:text-xs font-bold text-rose-700 uppercase leading-tight tracking-wide sm:tracking-wider">
               Việc quá hạn xử lý
             </span>
-            <p className="mt-2 text-3xl font-extrabold text-rose-900">
+            <p className="mt-1 sm:mt-2 text-2xl sm:text-3xl font-extrabold text-rose-900">
               {dashboardData?.metrics?.tasks?.overdue ??
                 dashboardData?.actionRequired?.overdueTasksCount ??
                 0}
             </p>
-            <p className="text-xs text-gray-400 mt-1">Cần tăng tốc can thiệp</p>
-            <span className="mt-2 block text-[11px] font-bold text-rose-700 opacity-80 group-hover:opacity-100">
+            <p className="hidden sm:block text-xs text-gray-400 mt-1">Cần tăng tốc can thiệp</p>
+            <span className="mt-2 hidden sm:block text-[11px] font-bold text-rose-700 opacity-80 group-hover:opacity-100">
               Xem chi tiết →
             </span>
           </div>
-          <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center text-2xl font-bold shadow-inner">
+          <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center text-lg sm:text-2xl font-bold shadow-inner">
             🚨
           </div>
         </button>
@@ -658,7 +655,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                     <span className="text-xs font-bold text-[#0A66C2]">
                       {doc.code}
                     </span>
-                    <span className="text-sm font-semibold text-gray-800">
+                    <span className="min-w-0 line-clamp-2 text-sm font-semibold text-gray-800">
                       {doc.title}
                     </span>
                   </div>
