@@ -1,3 +1,4 @@
+import { isTaskInactive } from '../tasks/task-status.js';
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import ExcelJS from 'exceljs';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -155,13 +156,16 @@ export class ReportsService {
     });
 
     const now = new Date();
-    const taskTotal = tasks.length;
+    const taskCancelled = tasks.filter((t: any) => t.status === 'Đã hủy').length;
+    const taskPaused = tasks.filter((t: any) => t.status === 'Tạm ngừng').length;
+    // Việc đã hủy không tính vào mẫu số của tỷ lệ hoàn thành.
+    const taskTotal = tasks.length - taskCancelled;
     const taskCompleted = tasks.filter((t: any) => t.status === 'Hoàn thành').length;
     const taskInProgress = tasks.filter((t: any) => t.status === 'Đang làm').length;
     const taskPendingReview = tasks.filter((t: any) => t.status === 'Chờ duyệt').length;
     const taskNotStarted = tasks.filter((t: any) => t.status === 'Chưa làm').length;
     const taskOverdue = tasks.filter(
-      (t: any) => t.status !== 'Hoàn thành' && t.dueDate && new Date(t.dueDate) < now,
+      (t: any) => !isTaskInactive(t.status) && t.dueDate && new Date(t.dueDate) < now,
     ).length;
 
     // 3. Contracts metrics with Role-Based Scoping
@@ -256,6 +260,8 @@ export class ReportsService {
         inProgress: taskInProgress,
         pendingReview: taskPendingReview,
         notStarted: taskNotStarted,
+        paused: taskPaused,
+        cancelled: taskCancelled,
         overdue: taskOverdue,
         completionRate: taskTotal > 0 ? Math.round((taskCompleted / taskTotal) * 100) : 0,
         items: tasks.slice(0, 100).map((t: any) => ({
@@ -267,7 +273,7 @@ export class ReportsService {
           progressPercent: t.progressPercent,
           assignee: t.assignee?.name || 'Chưa phân công',
           dueDate: t.dueDate,
-          isOverdue: t.status !== 'Hoàn thành' && t.dueDate ? new Date(t.dueDate) < now : false,
+          isOverdue: !isTaskInactive(t.status) && t.dueDate ? new Date(t.dueDate) < now : false,
           project: t.project?.name || 'Huy Võ Education',
         })),
       },

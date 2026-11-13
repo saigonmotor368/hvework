@@ -1,3 +1,4 @@
+import { TASK_INACTIVE_STATUSES } from '../tasks/task-status.js';
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { NotificationPayload } from './channels/notification-channel.interface.js';
@@ -147,7 +148,7 @@ export class NotificationsService {
     const threeDaysLater = new Date(now.getTime() + 3 * 24 * 3600 * 1000);
     const upcomingTasks = await this.prisma.task.findMany({
       where: {
-        status: { not: 'Hoàn thành' },
+        status: { notIn: TASK_INACTIVE_STATUSES },
         dueDate: {
           gte: now,
           lte: threeDaysLater,
@@ -180,7 +181,7 @@ export class NotificationsService {
     // 2. Quét công việc quá hạn & Leo thang (Escalation)
     const overdueTasks = await this.prisma.task.findMany({
       where: {
-        status: { not: 'Hoàn thành' },
+        status: { notIn: TASK_INACTIVE_STATUSES },
         dueDate: { lt: now },
       },
       include: {

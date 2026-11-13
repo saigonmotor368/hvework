@@ -1,3 +1,4 @@
+import { TASK_INACTIVE_STATUSES, isTaskInactive } from '../tasks/task-status.js';
 import { Injectable } from '@nestjs/common';
 import {
   buildDocumentAccessWhere,
@@ -53,14 +54,17 @@ export class DashboardService {
       }),
       this.prisma.task.groupBy({
         by: ['projectId'],
-        where: { projectId: { not: null }, status: { not: 'Hoàn thành' } },
+        where: {
+          projectId: { not: null },
+          status: { notIn: TASK_INACTIVE_STATUSES },
+        },
         _count: { _all: true },
       }),
       this.prisma.task.groupBy({
         by: ['projectId'],
         where: {
           projectId: { not: null },
-          status: { not: 'Hoàn thành' },
+          status: { notIn: TASK_INACTIVE_STATUSES },
           dueDate: { lt: now },
         },
         _count: { _all: true },
@@ -282,7 +286,7 @@ export class DashboardService {
         ? this.prisma.task.count({
             where: {
               parentTaskId: null,
-              status: { not: 'Hoàn thành' },
+              status: { notIn: TASK_INACTIVE_STATUSES },
               dueDate: { lt: now },
             },
           })
@@ -291,13 +295,13 @@ export class DashboardService {
 
     const overdueTasks = tasks.filter(
       (task: any) =>
-        task.status !== 'Hoàn thành' &&
+        !isTaskInactive(task.status) &&
         task.dueDate &&
         new Date(task.dueDate) < now,
     );
     const urgentTasks = tasks.filter(
       (task: any) =>
-        task.status !== 'Hoàn thành' &&
+        !isTaskInactive(task.status) &&
         task.dueDate &&
         new Date(task.dueDate) <= endOfToday,
     );
@@ -341,14 +345,14 @@ export class DashboardService {
         Number(row._count._all),
       ]),
     );
-    const companyTaskTotal = [...companyTaskCountByStatus.values()].reduce(
-      (sum, count) => sum + count,
-      0,
-    );
+    // Việc đã hủy không tính vào tổng để tỷ lệ hoàn thành phản ánh đúng.
+    const companyTaskTotal = [...companyTaskCountByStatus.entries()]
+      .filter(([status]) => status !== 'Đã hủy')
+      .reduce((sum, [, count]) => sum + count, 0);
     const companyTaskCompleted =
       companyTaskCountByStatus.get('Hoàn thành') || 0;
     const visibleActiveTasks = tasks.filter(
-      (task: any) => task.status !== 'Hoàn thành',
+      (task: any) => !isTaskInactive(task.status),
     ).length;
     // KPI cá nhân phản ánh đúng các việc người đăng nhập đang thực sự tham gia:
     // được giao chính hoặc được chỉ định là người phối hợp. Các việc chỉ nhìn
@@ -360,7 +364,7 @@ export class DashboardService {
           task.collaboratorIds.includes(user.id)),
     );
     const participatingActiveTasks = participatingTasks.filter(
-      (task: any) => task.status !== 'Hoàn thành',
+      (task: any) => !isTaskInactive(task.status),
     );
     const participatingOverdueTasks = participatingActiveTasks.filter(
       (task: any) =>
@@ -371,10 +375,9 @@ export class DashboardService {
       const projectGroups = scope.capabilities.canViewCompany
         ? safeCompanyTaskGroups.filter((row) => row.projectId === project.id)
         : [];
-      const totalTasks = projectGroups.reduce(
-        (sum, row) => sum + Number(row._count._all),
-        0,
-      );
+      const totalTasks = projectGroups
+        .filter((row) => row.status !== 'Đã hủy')
+        .reduce((sum, row) => sum + Number(row._count._all), 0);
       const completed = projectGroups
         .filter((row) => row.status === 'Hoàn thành')
         .reduce((sum, row) => sum + Number(row._count._all), 0);

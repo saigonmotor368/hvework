@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@simplewebauthn/browser": "^13.1.0",
+    "mammoth": "^1.8.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },

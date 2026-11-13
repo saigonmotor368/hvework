@@ -718,6 +718,11 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                   <p className="text-2xl font-black text-gray-900 mt-1">
                     {summaryData.tasks.total}
                   </p>
+                  {(summaryData.tasks.paused > 0 || summaryData.tasks.cancelled > 0) && (
+                    <p className="mt-1 text-[11px] text-gray-500">
+                      Tạm ngừng {summaryData.tasks.paused || 0} · Đã hủy {summaryData.tasks.cancelled || 0} (không tính vào tỷ lệ)
+                    </p>
+                  )}
                 </div>
                 <div className="bg-white p-5 rounded-2xl border border-slate-200">
                   <span className="text-xs font-bold text-emerald-600 uppercase">

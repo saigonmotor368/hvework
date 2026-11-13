@@ -6,7 +6,8 @@ import {
   ROLE_LABELS,
   DOCUMENT_TYPE_LABELS,
 } from "../types";
-import { authenticatedFileUrl, fetchWithSession, fileLinkClickHandler } from "../api/client";
+import { fetchWithSession } from "../api/client";
+import { PreviewableLink } from "./FilePreviewModal";
 import { UserNameButton } from "./UserNameButton";
 import { PaymentRequestAuditView } from "./PaymentRequestAuditView";
 import { CollectionRequestView } from "./CollectionRequestView";
@@ -371,25 +372,16 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
           {selectedDoc.attachments && selectedDoc.attachments.length > 0 ? (
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {selectedDoc.attachments.map((att) => {
-                const token =
-                  typeof window !== "undefined"
-                    ? localStorage.getItem("access_token")
-                    : "";
-                const downloadUrl = token
-                  ? authenticatedFileUrl(apiBaseUrl, att.fileUrl, token)
-                  : att.fileUrl;
                 const isAccountingProof =
                   isPaymentLikeType(selectedDoc.type) &&
                   att.uploadedBy?.roles?.some(
                     (role) => role.name === "accountant",
                   );
                 return (
-                  <a
+                  <PreviewableLink
                     key={att.id}
-                    href={downloadUrl}
-                    onClick={fileLinkClickHandler(apiBaseUrl, att.fileUrl)}
-                    target="_blank"
-                    rel="noreferrer"
+                    apiBaseUrl={apiBaseUrl}
+                    file={att}
                     className="group min-w-0 rounded-xl border border-slate-200 bg-slate-50 p-3.5 text-xs transition-colors hover:border-blue-300 hover:bg-blue-50/60"
                   >
                     <div className="flex min-w-0 items-center gap-2 font-bold text-[#0A66C2]">
@@ -415,7 +407,10 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
                         {new Date(att.uploadedAt).toLocaleString("vi-VN")}
                       </p>
                     )}
-                  </a>
+                    <p className="mt-1.5 text-[10px] font-bold text-[#0A66C2]">
+                      👁️ Bấm để xem nhanh
+                    </p>
+                  </PreviewableLink>
                 );
               })}
             </div>

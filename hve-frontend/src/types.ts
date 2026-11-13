@@ -344,7 +344,13 @@ export interface SubTaskItem {
   title: string;
   description?: string | null;
   priority: "low" | "normal" | "high" | "urgent";
-  status: "Chưa làm" | "Đang làm" | "Chờ duyệt" | "Hoàn thành";
+  status:
+    | "Chưa làm"
+    | "Đang làm"
+    | "Chờ duyệt"
+    | "Hoàn thành"
+    | "Tạm ngừng"
+    | "Đã hủy";
   progressPercent: number;
   startDate?: string | null;
   dueDate?: string | null;
@@ -370,7 +376,13 @@ export interface TaskItem {
   title: string;
   description?: string | null;
   priority: "low" | "normal" | "high" | "urgent";
-  status: "Chưa làm" | "Đang làm" | "Chờ duyệt" | "Hoàn thành";
+  status:
+    | "Chưa làm"
+    | "Đang làm"
+    | "Chờ duyệt"
+    | "Hoàn thành"
+    | "Tạm ngừng"
+    | "Đã hủy";
   progressPercent: number;
   startDate?: string | null;
   dueDate?: string | null;
@@ -449,4 +461,9 @@ export const TASK_STATUS_LABELS: Record<
     label: "Hoàn thành",
     color: "bg-emerald-100 text-emerald-800",
   },
+  "Tạm ngừng": {
+    label: "Tạm ngừng",
+    color: "bg-orange-100 text-orange-800",
+  },
+  "Đã hủy": { label: "Đã hủy", color: "bg-rose-100 text-rose-700" },
 };

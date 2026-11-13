@@ -1,3 +1,4 @@
+import { TASK_CLOSED_STATUSES } from '../tasks/task-status.js';
 import {
   BadRequestException,
   ConflictException,
@@ -198,7 +199,7 @@ export class ProjectsService {
         this.prisma.document.count({ where: { projectId: id } }),
         this.prisma.document.count({ where: { projectId: id, status: 'Chờ duyệt' } }),
         this.prisma.task.count({ where: { projectId: id } }),
-        this.prisma.task.count({ where: { projectId: id, status: { not: 'Hoàn thành' } } }),
+        this.prisma.task.count({ where: { projectId: id, status: { notIn: TASK_CLOSED_STATUSES } } }),
         this.prisma.projectReport.count({ where: { projectId: id } }),
         this.prisma.announcement.count({ where: { projectId: id } }),
       ]);

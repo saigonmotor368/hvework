@@ -42,6 +42,9 @@ describe('TasksService', () => {
       notification: {
         create: vi.fn(),
       },
+      auditLog: {
+        findFirst: vi.fn().mockResolvedValue(null),
+      },
       user: {
         findFirst: vi.fn(),
         findUnique: vi.fn(),
@@ -881,6 +884,214 @@ describe('TasksService', () => {
           userId: 2,
           eventType: 'task_comment_mention',
           dedupeKey: expect.stringContaining('task_mention_77_2_'),
+        }),
+      );
+    });
+  });
+
+  describe('Vòng đời công việc: gia hạn / tạm ngừng / hủy / khôi phục', () => {
+    const manager = { id: 1, name: 'Giao việc', roles: ['department_head'], departmentId: 10 };
+    const baseTask = (overrides: any = {}) => ({
+      id: 5,
+      code: 'CV-2026-005',
+      title: 'Làm hồ sơ',
+      status: 'Đang làm',
+      progressPercent: 40,
+      startDate: new Date('2026-09-01'),
+      dueDate: new Date('2030-01-10'),
+      createdById: 1,
+      assigneeId: 2,
+      collaboratorIds: [3],
+      parentTaskId: null,
+      projectId: null,
+      createdBy: { departmentId: 10 },
+      subTasks: [],
+      ...overrides,
+    });
+
+    it('tạm ngừng cần lý do, lưu trạng thái trước đó và thông báo cả nhóm', async () => {
+      prisma.task.findUnique.mockResolvedValue(baseTask());
+      prisma.task.update.mockResolvedValue({ id: 5, status: 'Tạm ngừng' });
+
+      await expect(
+        service.pauseTask(manager, 5, { reason: ' ' }),
+      ).rejects.toThrow(BadRequestException);
+
+      await service.pauseTask(manager, 5, { reason: 'Chờ khách hàng duyệt mặt bằng' });
+      expect(prisma.task.update).toHaveBeenCalledWith({
+        where: { id: 5 },
+        data: { status: 'Tạm ngừng' },
+      });
+      expect(auditService.logEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'pause_task',
+          beforeJson: { status: 'Đang làm' },
+        }),
+      );
+      expect(prisma.comment.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          content: expect.stringContaining('Chờ khách hàng duyệt mặt bằng'),
+        }),
+      });
+      const recipients = notificationsService.dispatchNotification.mock.calls.map(
+        (call: any[]) => call[0].userId,
+      );
+      expect(recipients).toEqual([2, 3]);
+    });
+
+    it('chỉ người quản lý mới được tạm ngừng / hủy / gia hạn', async () => {
+      prisma.task.findUnique.mockResolvedValue(baseTask());
+      const outsider = { id: 99, name: 'NV', roles: ['employee'], departmentId: 20 };
+      await expect(
+        service.pauseTask(outsider, 5, { reason: 'Không có quyền' }),
+      ).rejects.toThrow(ForbiddenException);
+      await expect(
+        service.cancelTask(outsider, 5, { reason: 'Không có quyền' }),
+      ).rejects.toThrow(ForbiddenException);
+      await expect(
+        service.extendTask(outsider, 5, { dueDate: '2031-01-01', reason: 'Không có quyền' }),
+      ).rejects.toThrow(ForbiddenException);
+      expect(prisma.task.update).not.toHaveBeenCalled();
+    });
+
+    it('không tạm ngừng việc đã hoàn thành hoặc đã hủy', async () => {
+      prisma.task.findUnique.mockResolvedValue(baseTask({ status: 'Hoàn thành' }));
+      await expect(
+        service.pauseTask(manager, 5, { reason: 'Đã xong rồi mà' }),
+      ).rejects.toThrow(BadRequestException);
+      await expect(
+        service.cancelTask(manager, 5, { reason: 'Đã xong rồi mà' }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('hủy kéo theo việc con chưa xong và tính lại tiến độ việc cha', async () => {
+      prisma.task.findUnique
+        .mockResolvedValueOnce(
+          baseTask({
+            id: 7,
+            parentTaskId: 5,
+            subTasks: [],
+          }),
+        )
+        .mockResolvedValue({ status: 'Đang làm' });
+      prisma.task.update.mockResolvedValue({ id: 7 });
+      prisma.task.findMany.mockResolvedValue([
+        { progressPercent: 100, status: 'Hoàn thành' },
+      ]);
+
+      await service.cancelTask(manager, 7, { reason: 'Không còn nhu cầu' });
+
+      expect(prisma.task.update).toHaveBeenCalledWith({
+        where: { id: 7 },
+        data: { status: 'Đã hủy' },
+      });
+      expect(prisma.task.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { parentTaskId: 5, status: { not: 'Đã hủy' } },
+        }),
+      );
+      expect(prisma.task.update).toHaveBeenCalledWith({
+        where: { id: 5 },
+        data: { progressPercent: 100, status: 'Chờ duyệt' },
+      });
+    });
+
+    it('khôi phục đưa việc về đúng trạng thái trước khi tạm ngừng', async () => {
+      prisma.task.findUnique.mockResolvedValue(baseTask({ status: 'Tạm ngừng' }));
+      prisma.auditLog.findFirst.mockResolvedValue({
+        beforeJson: { status: 'Chờ duyệt' },
+      });
+      prisma.task.update.mockResolvedValue({ id: 5 });
+
+      await service.resumeTask(manager, 5, {});
+
+      expect(prisma.task.update).toHaveBeenCalledWith({
+        where: { id: 5 },
+        data: { status: 'Chờ duyệt' },
+      });
+    });
+
+    it('khôi phục dự phòng theo tiến độ khi không có nhật ký', async () => {
+      prisma.task.findUnique.mockResolvedValue(
+        baseTask({ status: 'Đã hủy', progressPercent: 0, startDate: null }),
+      );
+      prisma.task.update.mockResolvedValue({ id: 5 });
+
+      await service.resumeTask(manager, 5, {});
+
+      expect(prisma.task.update).toHaveBeenCalledWith({
+        where: { id: 5 },
+        data: { status: 'Chưa làm' },
+      });
+    });
+
+    it('gia hạn chỉ chấp nhận hạn mới sau hạn cũ và phải có lý do', async () => {
+      prisma.task.findUnique.mockResolvedValue(baseTask());
+      prisma.task.update.mockResolvedValue({ id: 5 });
+
+      await expect(
+        service.extendTask(manager, 5, { dueDate: '2029-12-01', reason: 'Dời lịch khách hàng' }),
+      ).rejects.toThrow('Hạn mới phải sau hạn hiện tại');
+      await expect(
+        service.extendTask(manager, 5, { dueDate: '2030-02-01', reason: '' }),
+      ).rejects.toThrow(BadRequestException);
+
+      await service.extendTask(manager, 5, {
+        dueDate: '2030-02-01',
+        reason: 'Dời lịch khách hàng',
+      });
+      expect(prisma.task.update).toHaveBeenCalledWith({
+        where: { id: 5 },
+        data: { dueDate: new Date('2030-02-01') },
+      });
+      expect(auditService.logEvent).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'extend_task' }),
+      );
+    });
+
+    it('người thực hiện không cập nhật tiến độ / nhận việc khi tạm ngừng hoặc đã hủy', async () => {
+      const assignee = { id: 2, roles: ['employee'], departmentId: 10 };
+      prisma.task.findUnique.mockResolvedValue(baseTask({ status: 'Tạm ngừng', subTasks: [] }));
+      await expect(
+        service.updateProgress(assignee, 5, { progressPercent: 60 } as any),
+      ).rejects.toThrow('tạm ngừng');
+      prisma.task.findUnique.mockResolvedValue(baseTask({ status: 'Đã hủy', subTasks: [] }));
+      await expect(
+        service.acceptTask(assignee, 5),
+      ).rejects.toThrow('đã hủy');
+    });
+
+    it('chỉnh sửa nội dung công việc chỉ dành cho người quản lý, việc đã hủy bị khóa', async () => {
+      prisma.task.findUnique.mockResolvedValue(baseTask());
+      await expect(
+        service.updateTask(
+          { id: 2, roles: ['employee'], departmentId: 10 },
+          5,
+          { title: 'Đổi tiêu đề' },
+        ),
+      ).rejects.toThrow(ForbiddenException);
+
+      prisma.task.findUnique.mockResolvedValue(baseTask({ status: 'Đã hủy' }));
+      await expect(
+        service.updateTask(manager, 5, { title: 'Đổi tiêu đề' }),
+      ).rejects.toThrow('đã hủy');
+    });
+
+    it('sửa công việc ghi nhật ký các trường đã đổi', async () => {
+      prisma.task.findUnique.mockResolvedValue(baseTask());
+      prisma.task.update.mockResolvedValue({ id: 5, code: 'CV-2026-005', title: 'Mới', assigneeId: 2 });
+
+      await service.updateTask(manager, 5, { title: '  Mới ', priority: 'high' });
+
+      expect(prisma.task.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ title: 'Mới', priority: 'high' }),
+        }),
+      );
+      expect(auditService.logEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'update_task',
+          afterJson: { changedFields: ['title', 'priority'] },
         }),
       );
     });

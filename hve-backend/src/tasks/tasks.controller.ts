@@ -21,6 +21,7 @@ import { UpdateTaskDto } from './dto/update-task.dto.js';
 import { UpdateProgressDto } from './dto/update-progress.dto.js';
 import { CreateCommentDto } from './dto/create-comment.dto.js';
 import { TaskQueryDto } from './dto/task-query.dto.js';
+import { ExtendTaskDto, TaskReasonDto } from './dto/task-lifecycle.dto.js';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('tasks')
@@ -93,6 +94,46 @@ export class TasksController {
     @Req() req: any,
   ) {
     return this.tasksService.confirmCompletion(req.user, id, req.ip);
+  }
+
+  @Post(':id/extend')
+  @HttpCode(HttpStatus.OK)
+  async extendTask(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: ExtendTaskDto,
+    @Req() req: any,
+  ) {
+    return this.tasksService.extendTask(req.user, id, dto, req.ip);
+  }
+
+  @Post(':id/pause')
+  @HttpCode(HttpStatus.OK)
+  async pauseTask(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: TaskReasonDto,
+    @Req() req: any,
+  ) {
+    return this.tasksService.pauseTask(req.user, id, dto, req.ip);
+  }
+
+  @Post(':id/cancel')
+  @HttpCode(HttpStatus.OK)
+  async cancelTask(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: TaskReasonDto,
+    @Req() req: any,
+  ) {
+    return this.tasksService.cancelTask(req.user, id, dto, req.ip);
+  }
+
+  @Post(':id/resume')
+  @HttpCode(HttpStatus.OK)
+  async resumeTask(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: TaskReasonDto,
+    @Req() req: any,
+  ) {
+    return this.tasksService.resumeTask(req.user, id, dto, req.ip);
   }
 
   @Post(':id/comments')

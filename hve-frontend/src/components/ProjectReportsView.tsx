@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  authenticatedFileUrl,
-  fileLinkClickHandler,
   fetchWithSession,
   uploadAttachment,
 } from "../api/client";
 import type { ProjectItem, ProjectReportItem } from "../types";
 import { BrandLoader } from "./BrandLoader";
 import { MultiFilePicker } from "./MultiFilePicker";
+import { PreviewableLink } from "./FilePreviewModal";
 import { UserNameButton } from "./UserNameButton";
 
 interface Props {
@@ -682,23 +681,20 @@ export const ProjectReportsView: React.FC<Props> = ({
                   </h4>
                   <div className="space-y-2">
                     {selected.attachments?.map((file) => (
-                      <a
+                      <PreviewableLink
                         key={file.id}
-                        href={authenticatedFileUrl(
-                          apiBaseUrl,
-                          file.fileUrl,
-                          token,
-                        )}
-                        onClick={fileLinkClickHandler(apiBaseUrl, file.fileUrl)}
-                        target="_blank"
-                        rel="noreferrer"
+                        apiBaseUrl={apiBaseUrl}
+                        file={file}
                         className="flex min-h-11 items-center gap-3 rounded-xl border border-slate-200 px-3 text-sm font-semibold text-blue-700 hover:bg-blue-50"
                       >
                         <span>📎</span>
                         <span className="min-w-0 flex-1 truncate">
                           {file.fileName}
                         </span>
-                      </a>
+                        <span className="shrink-0 text-[10px] font-bold text-slate-400">
+                          👁️ Xem nhanh
+                        </span>
+                      </PreviewableLink>
                     ))}
                   </div>
                 </div>

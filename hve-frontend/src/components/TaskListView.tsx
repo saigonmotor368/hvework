@@ -240,7 +240,25 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
       accent: "border-emerald-300",
       dot: "bg-emerald-500",
     },
+    {
+      status: "Tạm ngừng",
+      label: "Tạm ngừng",
+      accent: "border-orange-300",
+      dot: "bg-orange-500",
+    },
+    {
+      status: "Đã hủy",
+      label: "Đã hủy",
+      accent: "border-rose-300",
+      dot: "bg-rose-500",
+    },
   ] as const;
+  // Cột Tạm ngừng / Đã hủy chỉ hiện khi có công việc ở trạng thái đó.
+  const visibleBoardColumns = boardColumns.filter(
+    (column) =>
+      !["Tạm ngừng", "Đã hủy"].includes(column.status) ||
+      tasks.some((task) => task.status === column.status),
+  );
   const busiestPeople = [...workload]
     .filter((item) => item.activeCount > 0)
     .sort(
@@ -399,6 +417,8 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
               <option value="Đang làm">Đang làm</option>
               <option value="Chờ duyệt">Chờ duyệt</option>
               <option value="Hoàn thành">Hoàn thành</option>
+              <option value="Tạm ngừng">Tạm ngừng</option>
+              <option value="Đã hủy">Đã hủy</option>
             </select>
 
             {/* Độ ưu tiên */}
@@ -481,8 +501,14 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
           </div>
         ) : viewMode === "board" ? (
           <div className="p-3 sm:p-4 md:mobile-scroll md:overflow-x-auto">
-            <div className="grid grid-cols-1 gap-3 md:min-w-[1040px] md:grid-cols-4 xl:min-w-0">
-              {boardColumns.map((column) => {
+            <div
+              className={`grid grid-cols-1 gap-3 md:min-w-[1040px] xl:min-w-0 ${
+                { 4: "md:grid-cols-4", 5: "md:grid-cols-5", 6: "md:grid-cols-6" }[
+                  visibleBoardColumns.length as 4 | 5 | 6
+                ]
+              }`}
+            >
+              {visibleBoardColumns.map((column) => {
                 const columnTasks = tasks.filter(
                   (task) => task.status === column.status,
                 );

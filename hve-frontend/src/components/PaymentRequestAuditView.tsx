@@ -1,7 +1,8 @@
 import React, { useRef, useState } from "react";
 import type { ApprovalStep, DocumentItem } from "../types";
 import { ROLE_LABELS } from "../types";
-import { authenticatedFileUrl, fileLinkClickHandler, uploadAttachment } from "../api/client";
+import { uploadAttachment } from "../api/client";
+import { PreviewableLink } from "./FilePreviewModal";
 import { UserNameButton } from "./UserNameButton";
 import { PaymentRequestPrintSheet } from "./PaymentRequestPrintSheet";
 import { VietQrPaymentCard } from "./VietQrPaymentCard";
@@ -82,10 +83,6 @@ const AttachmentCard: React.FC<{
   label: string;
   accent: "blue" | "emerald" | "violet";
 }> = ({ attachment, apiBaseUrl, label, accent }) => {
-  const token = localStorage.getItem("access_token") || "";
-  const downloadUrl = token
-    ? authenticatedFileUrl(apiBaseUrl, attachment.fileUrl, token)
-    : attachment.fileUrl;
   const accentClass =
     accent === "emerald"
       ? "bg-emerald-100 text-emerald-700"
@@ -94,11 +91,9 @@ const AttachmentCard: React.FC<{
         : "bg-blue-100 text-blue-700";
 
   return (
-    <a
-      href={downloadUrl}
-      onClick={fileLinkClickHandler(apiBaseUrl, attachment.fileUrl)}
-      target="_blank"
-      rel="noreferrer"
+    <PreviewableLink
+      apiBaseUrl={apiBaseUrl}
+      file={attachment}
       className="group flex min-w-0 items-start gap-3 rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm transition hover:border-blue-300 hover:shadow-md"
     >
       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-lg">
@@ -120,8 +115,8 @@ const AttachmentCard: React.FC<{
           {attachment.uploadedBy?.name || "Không xác định"} • {formatDateTime(attachment.uploadedAt)}
         </p>
       </div>
-      <span className="mt-2 text-slate-300 group-hover:text-[#0A66C2]">↗</span>
-    </a>
+      <span className="mt-2 text-slate-300 group-hover:text-[#0A66C2]" title="Xem nhanh">👁️</span>
+    </PreviewableLink>
   );
 };
 

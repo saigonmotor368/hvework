@@ -338,6 +338,15 @@ export async function openAuthenticatedFile(apiBaseUrl: string, fileUrl: string)
   }
 }
 
+/** Tải nội dung tệp đính kèm (có xác thực) dưới dạng Blob để xem nhanh / tải về. */
+export async function fetchAuthenticatedBlob(apiBaseUrl: string, fileUrl: string): Promise<Blob> {
+  const response = await fetchWithSession(apiUrl(apiBaseUrl, fileUrl), {
+    headers: { Authorization: `Bearer ${localStorage.getItem('access_token') || ''}` },
+  });
+  if (!response.ok) throw new Error(await responseMessage(response, 'Không mở được tệp đính kèm'));
+  return response.blob();
+}
+
 /** Gắn vào onClick của thẻ <a>: giữ href dự phòng, nhưng mở tệp bằng phiên mới. */
 export function fileLinkClickHandler(apiBaseUrl: string, fileUrl: string) {
   return (event: { preventDefault: () => void }) => {

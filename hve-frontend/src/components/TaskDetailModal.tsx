@@ -10,6 +10,12 @@ import { authenticatedFileUrl, fetchWithSession, fileLinkClickHandler } from "..
 import { ENABLE_MOCK_DATA } from "../config";
 import { BrandLoader } from "./BrandLoader";
 import { UserNameButton } from "./UserNameButton";
+import { FilePreviewModal, type PreviewableFile } from "./FilePreviewModal";
+import {
+  TaskEditDialog,
+  TaskExtendDialog,
+  TaskReasonDialog,
+} from "./TaskManageDialogs";
 
 interface TaskDetailModalProps {
   taskId: number;
@@ -46,6 +52,10 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   const [isUpdatingProgress, setIsUpdatingProgress] = useState(false);
   const [isAccepting, setIsAccepting] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
+  const [manageDialog, setManageDialog] = useState<
+    null | "edit" | "extend" | "pause" | "cancel" | "resume"
+  >(null);
+  const [previewFile, setPreviewFile] = useState<PreviewableFile | null>(null);
 
   // Comment state
   const [commentContent, setCommentContent] = useState("");
@@ -271,6 +281,13 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     }
   };
 
+  const afterManage = (message: string) => {
+    setManageDialog(null);
+    showToast(message);
+    void fetchTaskDetail();
+    onRefreshList();
+  };
+
   const isCreator = task?.createdById === currentUser?.id;
   const isCeo = currentUser?.roles?.includes("ceo");
   const canCreateTask =
@@ -281,8 +298,23 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   const hasSubTasks = task?.subTasks && task.subTasks.length > 0;
   const canConfirm = task?.status === "Chờ duyệt" && (isCreator || isCeo);
   const isPrimaryAssignee = task?.assigneeId === currentUser?.id;
+  const isPaused = task?.status === "Tạm ngừng";
+  const isCancelled = task?.status === "Đã hủy";
+  const isInactive = isPaused || isCancelled;
   const canAccept = isPrimaryAssignee && task?.status === "Chưa làm";
-  const canUpdateProgress = isPrimaryAssignee && task?.status !== "Chưa làm";
+  const canUpdateProgress =
+    isPrimaryAssignee && task?.status !== "Chưa làm" && !isInactive;
+  // Giao diện chỉ gợi ý; máy chủ kiểm tra lại phạm vi Trưởng dự án / Trưởng Ban.
+  const canManage =
+    !!task &&
+    (isCreator ||
+      isCeo ||
+      currentUser?.roles?.includes("bgd") ||
+      currentUser?.roles?.includes("department_head"));
+  const isLive = !!task && !isInactive && task.status !== "Hoàn thành";
+  const lastLifecycleNote = [...(task?.comments || [])]
+    .reverse()
+    .find((c) => /^(⏸️|🚫)/.test(c.content));
   const completedSubTasks =
     task?.subTasks?.filter((subTask) => subTask.status === "Hoàn thành")
       .length || 0;
@@ -339,6 +371,13 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
             <h3 className="w-full text-base md:w-auto md:max-w-md md:text-lg font-bold text-gray-900 break-words md:truncate">
               {task?.title || "Chi tiết công việc"}
             </h3>
+            {isInactive && (
+              <span
+                className={`text-[11px] font-bold px-2 py-0.5 rounded-md ${TASK_STATUS_LABELS[task!.status]?.color}`}
+              >
+                {isPaused ? "⏸️ Tạm ngừng" : "🚫 Đã hủy"}
+              </span>
+            )}
             {task?.isOverdue && (
               <span className="bg-red-500 text-white text-[11px] font-bold px-2 py-0.5 rounded-md shadow-sm animate-pulse">
                 Quá hạn
@@ -409,6 +448,88 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                   Quay lại {task.parentTask.code} — {task.parentTask.title}
                 </span>
               </button>
+            )}
+            {isInactive && (
+              <div
+                className={`rounded-2xl border p-4 ${
+                  isPaused
+                    ? "border-orange-200 bg-orange-50"
+                    : "border-rose-200 bg-rose-50"
+                }`}
+              >
+                <h4
+                  className={`text-sm font-black ${isPaused ? "text-orange-900" : "text-rose-900"}`}
+                >
+                  {isPaused
+                    ? "⏸️ Công việc đang tạm ngừng"
+                    : "🚫 Công việc đã bị hủy"}
+                </h4>
+                <p
+                  className={`mt-1 text-xs leading-relaxed ${isPaused ? "text-orange-800" : "text-rose-800"}`}
+                >
+                  {isPaused
+                    ? "Tiến độ được giữ nguyên, hệ thống không nhắc hạn và không tính vào tải công việc cho tới khi tiếp tục."
+                    : "Công việc đã đóng, không còn tính vào tỷ lệ hoàn thành."}
+                  {lastLifecycleNote && (
+                    <>
+                      {" "}
+                      <b>{lastLifecycleNote.content.replace(/^(⏸️|🚫)\s*/, "")}</b>
+                    </>
+                  )}
+                </p>
+              </div>
+            )}
+            {canManage && !isLoading && (
+              <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+                <span className="mr-1 text-[11px] font-black uppercase tracking-wider text-slate-400">
+                  Quản lý
+                </span>
+                {!isCancelled && (
+                  <button
+                    type="button"
+                    onClick={() => setManageDialog("edit")}
+                    className="min-h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 hover:bg-slate-50"
+                  >
+                    ✏️ Sửa
+                  </button>
+                )}
+                {(isLive || isPaused) && (
+                  <button
+                    type="button"
+                    onClick={() => setManageDialog("extend")}
+                    className="min-h-9 rounded-lg border border-blue-200 bg-blue-50 px-3 text-xs font-bold text-[#0A66C2] hover:bg-blue-100"
+                  >
+                    🗓️ Gia hạn
+                  </button>
+                )}
+                {isLive && (
+                  <button
+                    type="button"
+                    onClick={() => setManageDialog("pause")}
+                    className="min-h-9 rounded-lg border border-orange-200 bg-orange-50 px-3 text-xs font-bold text-orange-800 hover:bg-orange-100"
+                  >
+                    ⏸️ Tạm ngừng
+                  </button>
+                )}
+                {isInactive && (
+                  <button
+                    type="button"
+                    onClick={() => setManageDialog("resume")}
+                    className="min-h-9 rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-xs font-bold text-emerald-800 hover:bg-emerald-100"
+                  >
+                    {isCancelled ? "♻️ Khôi phục" : "▶️ Tiếp tục"}
+                  </button>
+                )}
+                {(isLive || isPaused) && (
+                  <button
+                    type="button"
+                    onClick={() => setManageDialog("cancel")}
+                    className="min-h-9 rounded-lg border border-rose-200 bg-rose-50 px-3 text-xs font-bold text-rose-700 hover:bg-rose-100 sm:ml-auto"
+                  >
+                    🚫 Hủy việc
+                  </button>
+                )}
+              </div>
             )}
             {canAccept && (
               <div className="flex flex-col gap-3 rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-50 to-cyan-50 p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -728,6 +849,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                   {canCreateTask &&
                     !task.parentTaskId &&
                     task.status !== "Hoàn thành" &&
+                    !isInactive &&
                     !task.recurrenceRule && (
                       <button
                         onClick={() => onOpenCreateSubtask(task)}
@@ -863,17 +985,15 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                 </h4>
                 <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                   {task.attachments.map((file) => (
-                    <a
+                    <div
                       key={file.id}
-                      href={authenticatedFileUrl(
-                        apiBaseUrl,
-                        file.fileUrl,
-                        localStorage.getItem("access_token") || "",
-                      )}
-                      onClick={fileLinkClickHandler(apiBaseUrl, file.fileUrl)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex min-w-0 items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-xs font-semibold text-blue-700 transition hover:border-blue-300 hover:bg-blue-50"
+                      className="flex min-w-0 items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 pr-2 transition hover:border-blue-300 hover:bg-blue-50"
+                    >
+                    <button
+                      type="button"
+                      onClick={() => setPreviewFile(file)}
+                      title="Xem nhanh"
+                      className="flex min-w-0 flex-1 items-center gap-3 px-3 py-3 text-left text-xs font-semibold text-blue-700"
                     >
                       <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-xl shadow-sm">
                         {file.mimeType.includes("pdf")
@@ -888,9 +1008,26 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                           {file.size >= 1024 * 1024
                             ? `${(file.size / 1024 / 1024).toFixed(1)} MB`
                             : `${Math.max(1, Math.round(file.size / 1024))} KB`}
+                          {" · "}👁️ Xem nhanh
                         </span>
                       </span>
+                    </button>
+                    <a
+                      href={authenticatedFileUrl(
+                        apiBaseUrl,
+                        file.fileUrl,
+                        localStorage.getItem("access_token") || "",
+                      )}
+                      onClick={fileLinkClickHandler(apiBaseUrl, file.fileUrl)}
+                      target="_blank"
+                      rel="noreferrer"
+                      title="Mở trong tab mới"
+                      aria-label={`Mở ${file.fileName} trong tab mới`}
+                      className="shrink-0 rounded-lg px-2 py-1.5 text-sm text-slate-400 hover:bg-white hover:text-blue-700"
+                    >
+                      ↗
                     </a>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -985,6 +1122,43 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
           </div>
         )}
       </div>
+
+      {task && manageDialog === "edit" && (
+        <TaskEditDialog
+          apiBaseUrl={apiBaseUrl}
+          task={task}
+          users={users}
+          onClose={() => setManageDialog(null)}
+          onDone={afterManage}
+        />
+      )}
+      {task && manageDialog === "extend" && (
+        <TaskExtendDialog
+          apiBaseUrl={apiBaseUrl}
+          task={task}
+          onClose={() => setManageDialog(null)}
+          onDone={afterManage}
+        />
+      )}
+      {task &&
+        (manageDialog === "pause" ||
+          manageDialog === "cancel" ||
+          manageDialog === "resume") && (
+          <TaskReasonDialog
+            apiBaseUrl={apiBaseUrl}
+            task={task}
+            action={manageDialog}
+            onClose={() => setManageDialog(null)}
+            onDone={afterManage}
+          />
+        )}
+      {previewFile && (
+        <FilePreviewModal
+          apiBaseUrl={apiBaseUrl}
+          file={previewFile}
+          onClose={() => setPreviewFile(null)}
+        />
+      )}
     </div>
   );
 };

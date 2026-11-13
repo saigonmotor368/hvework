@@ -12,6 +12,13 @@ import { UpdateTaskDto } from './dto/update-task.dto.js';
 import { UpdateProgressDto } from './dto/update-progress.dto.js';
 import { CreateCommentDto } from './dto/create-comment.dto.js';
 import { TaskQueryDto } from './dto/task-query.dto.js';
+import { ExtendTaskDto, TaskReasonDto } from './dto/task-lifecycle.dto.js';
+import {
+  TASK_INACTIVE_STATUSES,
+  TASK_LIVE_STATUSES,
+  TASK_STATUS,
+  isTaskInactive,
+} from './task-status.js';
 import {
   buildTaskAccessWhere,
   getDepartmentId,
@@ -136,6 +143,79 @@ export class TasksService {
     );
   }
 
+  /** Nhân sự được phân công phải thuộc dự án (hoặc phòng ban) của người giao việc. */
+  private async assertParticipantsInScope(
+    user: { departmentId?: number | null },
+    ids: Array<number | undefined | null>,
+    projectId?: number | null,
+  ) {
+    const participantIds = [
+      ...new Set(
+        ids.filter((id): id is number => typeof id === 'number'),
+      ),
+    ];
+    for (const participantId of participantIds) {
+      const participant = await this.prisma.user.findFirst({
+        where: { id: participantId, status: 'active' },
+        select: {
+          departmentId: true,
+          ledProjects: { select: { id: true } },
+          projectMemberships: { select: { projectId: true } },
+        },
+      });
+      const participantProjectIds = [
+        ...(participant?.ledProjects || []).map((project) => project.id),
+        ...(participant?.projectMemberships || []).map(
+          (membership) => membership.projectId,
+        ),
+      ];
+      const allowed = projectId
+        ? participantProjectIds.includes(projectId)
+        : !!participant &&
+          !!user.departmentId &&
+          participant.departmentId === user.departmentId;
+      if (!allowed) {
+        throw new ForbiddenException(
+          projectId
+            ? 'Chỉ được phân công nhân sự thuộc dự án đã chọn'
+            : 'Trưởng Ban / Trưởng dự án chỉ được phân công nhân sự trong phạm vi mình phụ trách',
+        );
+      }
+    }
+  }
+
+  /**
+   * Quyền quản lý vòng đời công việc (sửa / gia hạn / tạm ngừng / hủy / khôi phục):
+   * người giao việc, CEO, Ban Giám Đốc hoặc Trưởng dự án / Trưởng Ban trong phạm vi.
+   */
+  private canManageTask(
+    user: {
+      id: number;
+      roles?: Array<string | { name: string }>;
+      departmentId?: number | null;
+    },
+    task: any,
+  ): boolean {
+    if (task.createdById === user.id) return true;
+    if (this.hasRole(user, 'ceo') || this.hasRole(user, 'bgd')) return true;
+    if (!this.hasRole(user, 'department_head')) return false;
+    const linked = Array.isArray(task.linkedProjectIds)
+      ? (task.linkedProjectIds as number[])
+      : [];
+    const projectIds = getUserProjectIds(user);
+    if (task.projectId) {
+      return (
+        projectIds.includes(task.projectId) ||
+        linked.some((id) => projectIds.includes(id))
+      );
+    }
+    return (
+      !!user.departmentId &&
+      !!task.createdBy?.departmentId &&
+      user.departmentId === task.createdBy.departmentId
+    );
+  }
+
   /**
    * Sinh mã công việc tự động định dạng CV-YYYY-NNN
    */
@@ -234,7 +314,7 @@ export class TasksService {
   async getWorkloadSummary(user: any, projectId?: number) {
     const baseConditions: any[] = [
       buildTaskAccessWhere(user),
-      { status: { not: 'Hoàn thành' } },
+      { status: { notIn: TASK_INACTIVE_STATUSES } },
       { assigneeId: { not: null } },
     ];
     if (projectId) baseConditions.push({ projectId });
@@ -347,42 +427,11 @@ export class TasksService {
       !this.hasRole(user, 'bgd') &&
       !this.hasRole(user, 'accountant')
     ) {
-      const participantIds = [
-        ...new Set(
-          [dto.assigneeId, ...(dto.collaboratorIds || [])].filter(
-            (participantId): participantId is number =>
-              typeof participantId === 'number',
-          ),
-        ),
-      ];
-      for (const participantId of participantIds) {
-        const participant = await this.prisma.user.findFirst({
-          where: { id: participantId, status: 'active' },
-          select: {
-            departmentId: true,
-            ledProjects: { select: { id: true } },
-            projectMemberships: { select: { projectId: true } },
-          },
-        });
-        const participantProjectIds = [
-          ...(participant?.ledProjects || []).map((project) => project.id),
-          ...(participant?.projectMemberships || []).map(
-            (membership) => membership.projectId,
-          ),
-        ];
-        const allowed = effectiveProjectId
-          ? participantProjectIds.includes(effectiveProjectId)
-          : !!participant &&
-            !!user.departmentId &&
-            participant.departmentId === user.departmentId;
-        if (!allowed) {
-          throw new ForbiddenException(
-            effectiveProjectId
-              ? 'Chỉ được phân công nhân sự thuộc dự án đã chọn'
-              : 'Trưởng Ban / Trưởng dự án chỉ được phân công nhân sự trong phạm vi mình phụ trách',
-          );
-        }
-      }
+      await this.assertParticipantsInScope(
+        user,
+        [dto.assigneeId, ...(dto.collaboratorIds || [])],
+        effectiveProjectId,
+      );
     }
 
     // 1. Kiểm tra giới hạn 2 cấp công việc
@@ -550,6 +599,39 @@ export class TasksService {
       }
     }
 
+    if (task.status === TASK_STATUS.CANCELLED) {
+      throw new BadRequestException(
+        'Công việc đã hủy nên không thể chỉnh sửa. Hãy khôi phục công việc trước.',
+      );
+    }
+    if (!this.canManageTask(user, task)) {
+      throw new ForbiddenException(
+        'Chỉ người giao việc, Trưởng Ban / Trưởng dự án trong phạm vi, Ban Giám Đốc hoặc CEO mới được chỉnh sửa công việc',
+      );
+    }
+    if (dto.title !== undefined && !dto.title.trim()) {
+      throw new BadRequestException('Tiêu đề công việc không được để trống');
+    }
+    const previousCollaborators = Array.isArray(task.collaboratorIds)
+      ? (task.collaboratorIds as number[])
+      : [];
+    const addedCollaborators =
+      dto.collaboratorIds !== undefined
+        ? dto.collaboratorIds.filter((id) => !previousCollaborators.includes(id))
+        : [];
+    if (
+      addedCollaborators.length > 0 &&
+      !this.hasRole(user, 'ceo') &&
+      !this.hasRole(user, 'bgd') &&
+      !this.hasRole(user, 'accountant')
+    ) {
+      await this.assertParticipantsInScope(
+        user,
+        addedCollaborators,
+        task.projectId,
+      );
+    }
+
     // Phân quyền đổi assigneeId hoặc dueDate:
     // Chỉ người giao (createdById), Trưởng BP cùng phòng, hoặc CEO mới được đổi
     const hasAssigneeChange =
@@ -649,7 +731,7 @@ export class TasksService {
     const updatedTask = await this.prisma.task.update({
       where: { id: taskId },
       data: {
-        title: dto.title ?? undefined,
+        title: dto.title !== undefined ? dto.title.trim() : undefined,
         description: dto.description ?? undefined,
         priority: dto.priority ?? undefined,
         startDate: dto.startDate ? new Date(dto.startDate) : undefined,
@@ -680,7 +762,417 @@ export class TasksService {
       });
     }
 
+    const newCollaborators = addedCollaborators.filter(
+      (id) => id !== user.id && id !== updatedTask.assigneeId,
+    );
+    await Promise.all(
+      newCollaborators.map((collaboratorId) =>
+        this.notificationsService.dispatchNotification({
+          userId: collaboratorId,
+          eventType: 'task_collaborator_assigned',
+          entityRef: `task:${taskId}`,
+          title: `Phối hợp công việc: ${updatedTask.code}`,
+          content: `Bạn được thêm vào phối hợp thực hiện “${updatedTask.title}”.`,
+          link: `/tasks?id=${taskId}`,
+          dedupeKey: `task_collaborator_${taskId}_${collaboratorId}_${Date.now()}`,
+        }),
+      ),
+    );
+
+    const changedFields = (
+      [
+        'title',
+        'description',
+        'priority',
+        'startDate',
+        'tags',
+        'collaboratorIds',
+      ] as const
+    ).filter((field) => dto[field] !== undefined);
+    if (changedFields.length > 0) {
+      await this.auditService.logEvent({
+        entityType: 'task',
+        entityId: taskId,
+        action: 'update_task',
+        actorId: user.id,
+        beforeJson: {
+          title: task.title,
+          description: task.description,
+          priority: task.priority,
+          startDate: task.startDate,
+          tags: task.tags,
+          collaboratorIds: task.collaboratorIds,
+        },
+        afterJson: { changedFields },
+        ip,
+      });
+    }
+
     return updatedTask;
+  }
+
+  // ---------------------------------------------------------------------
+  // Vòng đời công việc: gia hạn / tạm ngừng / hủy / khôi phục
+  // ---------------------------------------------------------------------
+
+  private async getManagedTask(user: any, taskId: number) {
+    const task = await this.prisma.task.findFirst({
+      where: { AND: [{ id: taskId }, buildTaskAccessWhere(user)] },
+      include: { createdBy: true, subTasks: true },
+    });
+    if (!task) throw new NotFoundException('Không tìm thấy công việc');
+    if (!this.canManageTask(user, task)) {
+      throw new ForbiddenException(
+        'Chỉ người giao việc, Trưởng Ban / Trưởng dự án trong phạm vi, Ban Giám Đốc hoặc CEO mới có quyền thực hiện thao tác này',
+      );
+    }
+    return task;
+  }
+
+  private requireReason(reason?: string): string {
+    const text = (reason || '').trim();
+    if (text.length < 5) {
+      throw new BadRequestException('Vui lòng nhập lý do (tối thiểu 5 ký tự)');
+    }
+    return text;
+  }
+
+  private async notifyTaskTeam(
+    task: any,
+    actor: { id: number; name?: string },
+    eventType: string,
+    title: string,
+    content: string,
+  ) {
+    const collaborators = Array.isArray(task.collaboratorIds)
+      ? (task.collaboratorIds as number[])
+      : [];
+    const recipients = [
+      ...new Set(
+        [task.assigneeId, task.createdById, ...collaborators].filter(
+          (id): id is number => typeof id === 'number' && id !== actor.id,
+        ),
+      ),
+    ];
+    await Promise.all(
+      recipients.map((userId) =>
+        this.notificationsService.dispatchNotification({
+          userId,
+          eventType,
+          entityRef: `task:${task.id}`,
+          title,
+          content,
+          link: `/tasks?id=${task.id}`,
+          dedupeKey: `${eventType}_${task.id}_${userId}_${Date.now()}`,
+        }),
+      ),
+    );
+  }
+
+  /** Trạng thái trước khi tạm ngừng / hủy (lấy từ nhật ký; dự phòng theo tiến độ). */
+  private async previousStatusOf(task: any): Promise<string> {
+    const log = await this.prisma.auditLog.findFirst({
+      where: {
+        entityType: 'task',
+        entityId: task.id,
+        action: { in: ['pause_task', 'cancel_task'] },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    const before = (log?.beforeJson as any)?.status;
+    if (typeof before === 'string' && TASK_LIVE_STATUSES.includes(before)) {
+      return before;
+    }
+    if (task.progressPercent >= 100) return TASK_STATUS.REVIEW;
+    if (task.progressPercent > 0 || task.startDate) return TASK_STATUS.DOING;
+    return TASK_STATUS.TODO;
+  }
+
+  /** Gia hạn: chỉ được lùi hạn hoàn thành, bắt buộc có lý do, lưu vết đầy đủ. */
+  async extendTask(
+    user: { id: number; name?: string; roles?: any; departmentId?: number | null },
+    taskId: number,
+    dto: ExtendTaskDto,
+    ip?: string,
+  ) {
+    const task = await this.getManagedTask(user, taskId);
+    if (isTaskInactive(task.status) && task.status !== TASK_STATUS.PAUSED) {
+      throw new BadRequestException(
+        'Chỉ gia hạn được công việc chưa hoàn thành hoặc đang tạm ngừng',
+      );
+    }
+    const reason = this.requireReason(dto.reason);
+    const newDue = new Date(dto.dueDate);
+    if (Number.isNaN(newDue.getTime())) {
+      throw new BadRequestException('Hạn hoàn thành mới không hợp lệ');
+    }
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    if (task.dueDate && newDue.getTime() <= new Date(task.dueDate).getTime()) {
+      throw new BadRequestException(
+        'Hạn mới phải sau hạn hiện tại. Nếu muốn rút ngắn hạn, hãy dùng chức năng Sửa công việc.',
+      );
+    }
+    if (!task.dueDate && newDue.getTime() < startOfToday.getTime()) {
+      throw new BadRequestException('Hạn mới không được nằm trong quá khứ');
+    }
+
+    const updated = await this.prisma.task.update({
+      where: { id: taskId },
+      data: { dueDate: newDue },
+    });
+    const fmt = (d?: Date | string | null) =>
+      d ? new Date(d).toLocaleDateString('vi-VN') : 'chưa đặt hạn';
+    const summary = `${fmt(task.dueDate)} → ${fmt(newDue)}`;
+    await this.prisma.comment.create({
+      data: {
+        entityType: 'task',
+        entityId: taskId,
+        userId: user.id,
+        content: `🗓️ Gia hạn công việc: ${summary}. Lý do: ${reason}`,
+      },
+    });
+    await this.auditService.logEvent({
+      entityType: 'task',
+      entityId: taskId,
+      action: 'extend_task',
+      actorId: user.id,
+      beforeJson: { dueDate: task.dueDate },
+      afterJson: { dueDate: newDue, reason },
+      ip,
+    });
+    await this.notifyTaskTeam(
+      task,
+      user,
+      'task_extended',
+      `Công việc được gia hạn: ${task.code}`,
+      `“${task.title}” được gia hạn ${summary}. Lý do: ${reason}`,
+    );
+    return updated;
+  }
+
+  /** Tạm ngừng: giữ nguyên tiến độ, ngừng nhắc việc / quá hạn, kéo theo các việc con chưa xong. */
+  async pauseTask(
+    user: { id: number; name?: string; roles?: any; departmentId?: number | null },
+    taskId: number,
+    dto: TaskReasonDto,
+    ip?: string,
+  ) {
+    const task = await this.getManagedTask(user, taskId);
+    if (!TASK_LIVE_STATUSES.includes(task.status)) {
+      throw new BadRequestException(
+        'Chỉ tạm ngừng được công việc đang thực hiện (chưa hoàn thành, chưa hủy)',
+      );
+    }
+    const reason = this.requireReason(dto.reason);
+    const affectedChildren = (task.subTasks || []).filter((child: any) =>
+      TASK_LIVE_STATUSES.includes(child.status),
+    );
+
+    const updated = await this.prisma.task.update({
+      where: { id: taskId },
+      data: { status: TASK_STATUS.PAUSED },
+    });
+    for (const child of affectedChildren) {
+      await this.prisma.task.update({
+        where: { id: child.id },
+        data: { status: TASK_STATUS.PAUSED },
+      });
+      await this.auditService.logEvent({
+        entityType: 'task',
+        entityId: child.id,
+        action: 'pause_task',
+        actorId: user.id,
+        beforeJson: { status: child.status },
+        afterJson: { status: TASK_STATUS.PAUSED, reason, cascadeFrom: taskId },
+        ip,
+      });
+    }
+    await this.prisma.comment.create({
+      data: {
+        entityType: 'task',
+        entityId: taskId,
+        userId: user.id,
+        content: `⏸️ Tạm ngừng công việc. Lý do: ${reason}`,
+      },
+    });
+    await this.auditService.logEvent({
+      entityType: 'task',
+      entityId: taskId,
+      action: 'pause_task',
+      actorId: user.id,
+      beforeJson: { status: task.status },
+      afterJson: { status: TASK_STATUS.PAUSED, reason },
+      ip,
+    });
+    await this.notifyTaskTeam(
+      task,
+      user,
+      'task_paused',
+      `Công việc tạm ngừng: ${task.code}`,
+      `“${task.title}” được tạm ngừng. Lý do: ${reason}`,
+    );
+    return updated;
+  }
+
+  /** Hủy: đóng công việc (và các việc con chưa xong), không sinh kỳ lặp, không tính vào tỷ lệ hoàn thành. */
+  async cancelTask(
+    user: { id: number; name?: string; roles?: any; departmentId?: number | null },
+    taskId: number,
+    dto: TaskReasonDto,
+    ip?: string,
+  ) {
+    const task = await this.getManagedTask(user, taskId);
+    if (
+      task.status === TASK_STATUS.DONE ||
+      task.status === TASK_STATUS.CANCELLED
+    ) {
+      throw new BadRequestException(
+        'Công việc đã hoàn thành hoặc đã hủy nên không thể hủy',
+      );
+    }
+    const reason = this.requireReason(dto.reason);
+    const affectedChildren = (task.subTasks || []).filter(
+      (child: any) =>
+        child.status !== TASK_STATUS.DONE &&
+        child.status !== TASK_STATUS.CANCELLED,
+    );
+
+    const updated = await this.prisma.task.update({
+      where: { id: taskId },
+      data: { status: TASK_STATUS.CANCELLED },
+    });
+    for (const child of affectedChildren) {
+      await this.prisma.task.update({
+        where: { id: child.id },
+        data: { status: TASK_STATUS.CANCELLED },
+      });
+      await this.auditService.logEvent({
+        entityType: 'task',
+        entityId: child.id,
+        action: 'cancel_task',
+        actorId: user.id,
+        beforeJson: {
+          status: TASK_LIVE_STATUSES.includes(child.status)
+            ? child.status
+            : await this.previousStatusOf(child),
+        },
+        afterJson: {
+          status: TASK_STATUS.CANCELLED,
+          reason,
+          cascadeFrom: taskId,
+        },
+        ip,
+      });
+    }
+    await this.prisma.comment.create({
+      data: {
+        entityType: 'task',
+        entityId: taskId,
+        userId: user.id,
+        content: `🚫 Hủy công việc. Lý do: ${reason}`,
+      },
+    });
+    await this.auditService.logEvent({
+      entityType: 'task',
+      entityId: taskId,
+      action: 'cancel_task',
+      actorId: user.id,
+      beforeJson: {
+        status: TASK_LIVE_STATUSES.includes(task.status)
+          ? task.status
+          : await this.previousStatusOf(task),
+      },
+      afterJson: { status: TASK_STATUS.CANCELLED, reason },
+      ip,
+    });
+    if (task.parentTaskId) {
+      await this.recalculateParentProgress(task.parentTaskId);
+    }
+    await this.notifyTaskTeam(
+      task,
+      user,
+      'task_cancelled',
+      `Công việc đã hủy: ${task.code}`,
+      `“${task.title}” đã bị hủy. Lý do: ${reason}`,
+    );
+    return updated;
+  }
+
+  /** Tiếp tục (từ tạm ngừng) hoặc khôi phục (từ đã hủy) về đúng trạng thái trước đó. */
+  async resumeTask(
+    user: { id: number; name?: string; roles?: any; departmentId?: number | null },
+    taskId: number,
+    dto: TaskReasonDto,
+    ip?: string,
+  ) {
+    const task = await this.getManagedTask(user, taskId);
+    if (
+      task.status !== TASK_STATUS.PAUSED &&
+      task.status !== TASK_STATUS.CANCELLED
+    ) {
+      throw new BadRequestException(
+        'Chỉ tiếp tục / khôi phục được công việc đang tạm ngừng hoặc đã hủy',
+      );
+    }
+    const wasCancelled = task.status === TASK_STATUS.CANCELLED;
+    const note = (dto.reason || '').trim();
+    const restoredStatus = await this.previousStatusOf(task);
+    const sameStateChildren = (task.subTasks || []).filter(
+      (child: any) => child.status === task.status,
+    );
+
+    const updated = await this.prisma.task.update({
+      where: { id: taskId },
+      data: { status: restoredStatus },
+    });
+    for (const child of sameStateChildren) {
+      const childStatus = await this.previousStatusOf(child);
+      await this.prisma.task.update({
+        where: { id: child.id },
+        data: { status: childStatus },
+      });
+      await this.auditService.logEvent({
+        entityType: 'task',
+        entityId: child.id,
+        action: 'resume_task',
+        actorId: user.id,
+        beforeJson: { status: child.status },
+        afterJson: { status: childStatus, cascadeFrom: taskId },
+        ip,
+      });
+    }
+    if (sameStateChildren.length > 0) {
+      await this.recalculateParentProgress(taskId);
+    }
+    await this.prisma.comment.create({
+      data: {
+        entityType: 'task',
+        entityId: taskId,
+        userId: user.id,
+        content: `${wasCancelled ? '♻️ Khôi phục công việc' : '▶️ Tiếp tục công việc'}${note ? `. Ghi chú: ${note}` : ''}`,
+      },
+    });
+    await this.auditService.logEvent({
+      entityType: 'task',
+      entityId: taskId,
+      action: 'resume_task',
+      actorId: user.id,
+      beforeJson: { status: task.status },
+      afterJson: { status: restoredStatus, note },
+      ip,
+    });
+    if (task.parentTaskId) {
+      await this.recalculateParentProgress(task.parentTaskId);
+    }
+    await this.notifyTaskTeam(
+      task,
+      user,
+      'task_resumed',
+      `Công việc được tiếp tục: ${task.code}`,
+      `“${task.title}” ${wasCancelled ? 'đã được khôi phục' : 'được tiếp tục thực hiện'}.`,
+    );
+    return updated;
   }
 
   /**
@@ -697,6 +1189,13 @@ export class TasksService {
     if (task.assigneeId !== user.id) {
       throw new ForbiddenException(
         'Chỉ người thực hiện chính được quyền nhận công việc này',
+      );
+    }
+    if (isTaskInactive(task.status) && task.status !== TASK_STATUS.DONE) {
+      throw new BadRequestException(
+        task.status === TASK_STATUS.PAUSED
+          ? 'Công việc đang tạm ngừng, chưa thể nhận việc'
+          : 'Công việc đã hủy',
       );
     }
     if (task.status !== 'Chưa làm') {
@@ -762,6 +1261,14 @@ export class TasksService {
       throw new ForbiddenException(
         'Chỉ người thực hiện chính được cập nhật tiến độ công việc',
       );
+    }
+    if (task.status === TASK_STATUS.PAUSED) {
+      throw new BadRequestException(
+        'Công việc đang tạm ngừng, chưa thể cập nhật tiến độ',
+      );
+    }
+    if (task.status === TASK_STATUS.CANCELLED) {
+      throw new BadRequestException('Công việc đã hủy, không thể cập nhật tiến độ');
     }
     if (task.status === 'Chưa làm') {
       throw new BadRequestException(
@@ -840,8 +1347,15 @@ export class TasksService {
    * Tự động tính trung bình cộng tiến độ từ việc con cho việc cha
    */
   async recalculateParentProgress(parentTaskId: number) {
+    const parent = await this.prisma.task.findUnique({
+      where: { id: parentTaskId },
+      select: { status: true },
+    });
+    if (parent && isTaskInactive(parent.status) && parent.status !== 'Hoàn thành') {
+      return;
+    }
     const subTasks = await this.prisma.task.findMany({
-      where: { parentTaskId },
+      where: { parentTaskId, status: { not: TASK_STATUS.CANCELLED } },
       select: { progressPercent: true, status: true },
     });
 
@@ -1085,7 +1599,7 @@ export class TasksService {
     const now = new Date();
     const tasksWithOverdue = tasks.map((t) => {
       const isTaskOverdue =
-        t.status !== 'Hoàn thành' &&
+        !isTaskInactive(t.status) &&
         t.dueDate !== null &&
         new Date(t.dueDate) < now;
       return {
@@ -1207,14 +1721,14 @@ export class TasksService {
     // Tính runtime isOverdue cho task và subtasks
     const now = new Date();
     const isOverdue =
-      task.status !== 'Hoàn thành' &&
+      !isTaskInactive(task.status) &&
       task.dueDate !== null &&
       new Date(task.dueDate) < now;
 
     const subTasksWithOverdue = task.subTasks.map((st) => ({
       ...st,
       isOverdue:
-        st.status !== 'Hoàn thành' &&
+        !isTaskInactive(st.status) &&
         st.dueDate !== null &&
         new Date(st.dueDate) < now,
     }));
