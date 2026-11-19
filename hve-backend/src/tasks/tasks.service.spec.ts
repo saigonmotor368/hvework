@@ -41,6 +41,7 @@ describe('TasksService', () => {
       },
       notification: {
         create: vi.fn(),
+        updateMany: vi.fn().mockResolvedValue({ count: 0 }),
       },
       auditLog: {
         findFirst: vi.fn().mockResolvedValue(null),
@@ -909,7 +910,7 @@ describe('TasksService', () => {
       ...overrides,
     });
 
-    it('tạm ngừng cần lý do, lưu trạng thái trước đó và thông báo cả nhóm', async () => {
+    it('tạm ngừng cần lý do, lưu trạng thái trước đó, không gửi thông báo và xóa chấm chưa đọc', async () => {
       prisma.task.findUnique.mockResolvedValue(baseTask());
       prisma.task.update.mockResolvedValue({ id: 5, status: 'Tạm ngừng' });
 
@@ -933,10 +934,15 @@ describe('TasksService', () => {
           content: expect.stringContaining('Chờ khách hàng duyệt mặt bằng'),
         }),
       });
-      const recipients = notificationsService.dispatchNotification.mock.calls.map(
-        (call: any[]) => call[0].userId,
+      expect(notificationsService.dispatchNotification).not.toHaveBeenCalled();
+      expect(prisma.notification.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            entityRef: { in: ['task:5'] },
+            readAt: null,
+          }),
+        }),
       );
-      expect(recipients).toEqual([2, 3]);
     });
 
     it('chỉ người quản lý mới được tạm ngừng / hủy / gia hạn', async () => {
@@ -994,6 +1000,16 @@ describe('TasksService', () => {
         where: { id: 5 },
         data: { progressPercent: 100, status: 'Chờ duyệt' },
       });
+    });
+
+    it('hủy việc không gửi thông báo cho nhóm thực hiện', async () => {
+      prisma.task.findUnique.mockResolvedValue(baseTask());
+      prisma.task.update.mockResolvedValue({ id: 5 });
+
+      await service.cancelTask(manager, 5, { reason: 'Không còn nhu cầu' });
+
+      expect(notificationsService.dispatchNotification).not.toHaveBeenCalled();
+      expect(prisma.notification.updateMany).toHaveBeenCalled();
     });
 
     it('khôi phục đưa việc về đúng trạng thái trước khi tạm ngừng', async () => {

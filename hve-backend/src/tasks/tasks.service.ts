@@ -837,6 +837,18 @@ export class TasksService {
     return text;
   }
 
+  /** Đánh dấu đã đọc mọi thông báo chưa đọc liên quan tới các công việc này. */
+  private async silenceTaskNotifications(taskIds: number[]) {
+    await this.prisma.notification.updateMany({
+      where: {
+        channel: 'in_app',
+        readAt: null,
+        entityRef: { in: taskIds.map((id) => `task:${id}`) },
+      },
+      data: { readAt: new Date() },
+    });
+  }
+
   private async notifyTaskTeam(
     task: any,
     actor: { id: number; name?: string },
@@ -1005,13 +1017,11 @@ export class TasksService {
       afterJson: { status: TASK_STATUS.PAUSED, reason },
       ip,
     });
-    await this.notifyTaskTeam(
-      task,
-      user,
-      'task_paused',
-      `Công việc tạm ngừng: ${task.code}`,
-      `“${task.title}” được tạm ngừng. Lý do: ${reason}`,
-    );
+    // Tạm ngừng: không gửi thông báo mới, và xóa chấm chưa đọc cũ của việc này.
+    await this.silenceTaskNotifications([
+      taskId,
+      ...affectedChildren.map((child: any) => child.id),
+    ]);
     return updated;
   }
 
@@ -1089,13 +1099,11 @@ export class TasksService {
     if (task.parentTaskId) {
       await this.recalculateParentProgress(task.parentTaskId);
     }
-    await this.notifyTaskTeam(
-      task,
-      user,
-      'task_cancelled',
-      `Công việc đã hủy: ${task.code}`,
-      `“${task.title}” đã bị hủy. Lý do: ${reason}`,
-    );
+    // Đã hủy: không gửi thông báo mới, và xóa chấm chưa đọc cũ của việc này.
+    await this.silenceTaskNotifications([
+      taskId,
+      ...affectedChildren.map((child: any) => child.id),
+    ]);
     return updated;
   }
 
