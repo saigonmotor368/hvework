@@ -489,7 +489,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
 
       {/* KHỐI 3: TỔNG QUAN SỨC KHỎE VÀ TIẾN ĐỘ DỰ ÁN */}
       {capabilities.canViewCompany && projectOverview.length > 0 && (
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-6">
+        <section className="min-w-0 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4 md:p-6">
           <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h2 className="text-base font-extrabold text-slate-900">
@@ -503,7 +503,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
               Cập nhật tự động · Bấm để xem công việc
             </span>
           </div>
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-3 md:grid-cols-2 xl:grid-cols-3">
             {projectOverview.map(({ health, stats }) => {
               const project = health || stats;
               const completionRate = stats?.completionRate || 0;
@@ -544,7 +544,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
               return (
                 <div
                   key={project.id}
-                  className="group rounded-xl border border-slate-200 bg-white p-4 text-left transition hover:border-blue-300 hover:shadow-md"
+                  className="group min-w-0 rounded-xl border border-slate-200 bg-white p-3 text-left transition hover:border-blue-300 hover:shadow-md sm:p-4"
                 >
                   <button
                     type="button"
@@ -570,11 +570,11 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                     </span>
                   </div>
 
-                  <div className="mt-4 flex items-end justify-between gap-3">
+                  <div className="mt-3 flex items-end justify-between gap-3 sm:mt-4">
                     <span className="text-xs font-semibold text-slate-500">
                       Tiến độ công việc
                     </span>
-                    <span className="text-lg font-black text-[#0A66C2]">
+                    <span className="min-w-0 text-right text-base font-black text-[#0A66C2] sm:text-lg">
                       {totalTasks === 0 ? "Chưa có việc" : `${completionRate}%`}
                     </span>
                   </div>
@@ -587,7 +587,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
 
                   </button>
 
-                  <div className="mt-4 grid grid-cols-3 divide-x divide-slate-100 rounded-xl bg-slate-50 py-2.5 text-center">
+                  <div className="mt-3 grid grid-cols-3 divide-x divide-slate-100 rounded-xl bg-slate-50 py-2 text-center sm:mt-4 sm:py-2.5">
                     <div className="px-1">
                       <strong className="block text-sm text-slate-800">{completedTasks}/{totalTasks}</strong>
                       <span className="text-[10px] text-slate-500">Việc hoàn thành</span>
@@ -601,7 +601,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                       <strong className={`block text-sm ${overdueTasksCount > 0 ? style.text : "text-slate-800"}`}>
                         {openTasks}
                         {overdueTasksCount > 0 && (
-                          <span className="text-[10px] font-semibold"> ({overdueTasksCount} trễ)</span>
+                          <span className="block text-[10px] font-semibold leading-tight">({overdueTasksCount} trễ)</span>
                         )}
                       </strong>
                       <span className="text-[10px] text-slate-500">Việc đang mở</span>
@@ -615,7 +615,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                       <strong className={`block text-sm ${overdueDocs > 0 ? style.text : "text-slate-800"}`}>
                         {pendingDocs}
                         {overdueDocs > 0 && (
-                          <span className="text-[10px] font-semibold"> ({overdueDocs} quá 5 ngày)</span>
+                          <span className="block text-[10px] font-semibold leading-tight">({overdueDocs} quá 5 ngày)</span>
                         )}
                       </strong>
                       <span className="text-[10px] text-slate-500">Hồ sơ chờ duyệt</span>
